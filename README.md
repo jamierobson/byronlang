@@ -211,7 +211,7 @@ pub fn main(): Result<i32> {
     var allocator = GeneralPurposeAllocator.init()?;
     defer allocator.deinit();
 
-    var myList = exampleFunction(&allocator) or |error| {
+    var myList = exampleFunction(&allocator) or (error) {
         return Ok(1);
     };
     defer (&myList).deinit(&allocator);  // Note that deinit, as a function that takes the instance itself, can omit `give`ing the instance
