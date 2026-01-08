@@ -47,6 +47,7 @@ To be treated as keywords for now
 - Future reserved
 ```
     # \ $ @ % _
+    -> =>
 ```
 - Comments
 ```
