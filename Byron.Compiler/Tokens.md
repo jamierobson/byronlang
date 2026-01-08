@@ -1,7 +1,7 @@
 # Keywords
 ```
     pub fn struct trait implement
-    if else while for match or
+    if else while for match or and
     use where
     return continue break 
     let var
@@ -19,7 +19,7 @@
 # Reserved constructors / identifiers
 To be treated as keywords for now
 ```
-    Ok Some None Unit
+    Ok Some None Unit Error true false
 ```
 # Symbols
 
@@ -37,11 +37,22 @@ To be treated as keywords for now
 ```
 - Operators
 ```
-    ..= .. == != <= >= ? ! = * & + - / ^
+    ..= .. 
+    == != <= >= 
+    ? ! = 
+    & * + - / ^
+    && ||
+    += -= *= /=
 ```
 - Future reserved
 ```
     # \ $ @ % _
+```
+- Comments
+```
+    //
+    ///
+    /* */
 ```
 
 
