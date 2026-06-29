@@ -1,237 +1,407 @@
 # Byron
 
-Welcome to the Byron language repository. Byron is a systems programming language currently in the conceptualization stage, currently exploring the feasability of the wishlist before jumping in to trying to implementing... something. (This kind of thing is way beyond my curent knowledge)
+Welcome to the Byron language repository. This readme serves as a motivation statement and philosophical cornerstone of a systems programming language that I feel that I would enjoy using.
 
-## Motivation 
-This is a personal project in order to explore the nuts and bolts of languages and compilers. I currently am most familiar with c#, and would like to get to know systems programming. To that end, I've explored rust and zig, and feel more at home in the zig space, but wishing that both had features from each other. I'd therefore like to understand, what would be a middle ground that I personally would enjoy writing with.
+## Motivation
 
-The language as described kind of sounds, and feels like a marriage of rust and zig. It's not trying to offer the same safety as rust, but wants to explore the idea of attaching resource accountancy to a zig-like language with explicit resource management, and seeing if we can eliminate the most common classes of problems.
+Byron is a systems language with explicit manual control and compile time resource accountability. This is a personal project to explore the nuts and bolts of languages and compilers. I'm most at home in C#, but want to get to know systems programming. I've explored both Rust and Zig and feel more at home in the Zig space, sometimes finding myself wishing that both had features from each other.
 
-Likely doomed to fail to even get off the ground, I should at least learn something!
+The language idea arose from the idea of implementing a garbage-collecting allocator in Zig. What would that look like? What does a language  minimally require to support GC. Do absolutely you need a runtime? This evolved to the idea of a language with a bolt-on, importable runtime in a primarily systems level programming language. Byron as a name stems from this idea idea of "Bring your own Runtime". The idea was then superceded by another - safer memory management without GC. Thus was born the [obligation](#the-obligation-system) concept.
 
-### Why not Rust?
+First of all, I'd like to describe what I wish such a language looked like, starting with the areas I wish were different in existing languages.
 
-- I find it awkward that rust evangelizes `Result<T,E>` (I love `Result`) types but [still allows](https://effective-rust.com/panic.html) you to `panic!()` on failures that in many cases really were recoverable, or that should have been results. [The cloudflare outage of 2025-11-18](https://blog.cloudflare.com/18-november-2025-outage/) resulted in a panic by calling `unwrap()`. I wish that there was no such thing as a panic, at all, outside of physical impossibilities. 
-- I dislike how often things turn in to an `Rc<RefCell<T>>` for shared mutability - I feel like it's a tool so often reached for that this perhaps should be represented differently than describing runtime responsibility through these types.
-- Things like `PhantomData` feel very clumsy
-- Method chaining mutable functions is hellish
-- Recompiling referenced crates in your builds adding to build times.
+### Rust
 
-#### The petty
-- I_am_not_keen_on_snake_case
-- I find shorthand annoying when it leads to extra mental load to work out what is going on. Some abbreviations like `fn` are pretty ubiquitous, but `Vec` for Vector, `&str` for a string slice, `mut` for mutable... I wish they were given their actual names! 
-- `<'a>` annotations that leak into the entire call stack. `impl<'a> Trait<'a>` feels particularly egregious. In fact, lifeftimes as generic arguments feels... I don't love it.
+- `panic!()` existing alongside `Result<T,E>`. The Cloudflare outage of 2025-11-18 resulted from a panic on `unwrap()`. I wish that it didn't rely on documentation to not call on functions that can panic, but that it was not possible to do so. Crates can also decide that a situation is fatal and should panic, even when I as a developer think it should be recoverable, leading the developer to now have to handle both results and also panics with `catch_unwind`. 
+- `Rc<RefCell<T>>` for shared mutability is reached for so often that I think that my own language would be willing to sacrifice the guarantees that the borrow checker provides in order to simplify the lanaguage (and compiler). 
+  - Artifacts like `PhantomData` as a bridge between safe and unsafe rust to satisfy the borrow checker indicate a complexity that a lower level language may wish to avoid.
+  - `<'a>` lifetime annotations leak into the entire call stack, for example `impl<'a> Trait<'a>`.
+  - Method chaining mutable functions is painful.
 
-### Why not Zig?
+I understand that there are reasons for each of these design choices, and the safety that the compiler offers is incredibly strong. 
 
-I actually really like zig, and mostly just wanted to explore what if a similar language added some more safety at the cost of some flexibility. The list of things I genuinely wish were different are
+Byron wants 
+- _Some_ of the biggest value adds of rusts compile time memory safety, without the complexity of the full borrow checker
+- A much stricter adherence to the `Result<T, E>` pattern
 
-- I wish that function arguments didn't  require `anytype` for `comptime` functions
-- I wish we had closures and linline functions / lambdas
-- I wish that accepting the cost of dynamic dispatch was achieved through other mechanisms other than making interfaces cumbersome.
+### Zig
 
-#### The petty
-- I wish that there was a neater syntax for an inclusive upper bound of a range
+- `anytype` for comptime functions is awkward.
+- No closures or inline lambdas.
+- It's possible to forget to `deinit`, or `deinit` with the wrong allocator. (I get that this a fundemental skill issue of systems programming)
 
-## Language goals
-Getting slightly ahead of ourselves, the systems language I wish existed has the best of both of these languages. (Don't get me wrong, I'm very happy to keep using zig as my systems programming language, i'd just enjoy it even more with a couple of additional considerations). I don't intend for this language to be a zig knock off, but there will certainly be similarities. (Please don't sue me)
+I actually really like zig and will likely focus on it as my main systems programming language. The Byron project is looking at the possibility of adding compile time resource accounting and the kinds of compromises that are required
 
-To that end, here's my thoughts of what I wish a language was:
+Byron wants 
+
+- Zig's explicit allocator model with a compile time obligation layer on top that guarantee that we free with the correct allocator.
+- Zigs philosophy of no hidden control flow, and no hidden costs.
+
+---
+
+## Language Goals
 
 - Strongly typed
-- Explicit control flow: no exceptions, no panics. Results only. Pre allocated results for resource exhaustion. Abort on physical impossibilities only, e.g. stack overflow, CPU exception.
-- Results that are compile time enforced handled.
-- Pay for what you use.
-- Manual memory allocation that is harder to leak, double free, and accidentally misuse after ownership transfer than both Zig and C — with compile-time enforcement where feasible.
-- No `null` (outside of interop)
-- Immutability by default
-- Functions, structs, unions, (eventually traits) as equal citizens. (Dynamic dispatch to be addressed later)
-- c adjacent syntax
+- Explicit control flow
+    - Results only
+        - Pre-allocated results for resource exhaustion. 
+        - No userspace `panic`s. 
+        - Handling `Error`s is compile time enforced.
+    - Abort on physical impossibilities only (stack overflow, CPU exception).
+- Pay for what you use — no hidden costs, no hidden control flow.
+- Manual memory allocation that is harder to leak, double free, and misuse after ownership transfer than both Zig and C, with compile time enforcement where feasible.
+- No `null` (outside of interop).
+- Immutability by default.
+- C-adjacent syntax — TS/C#/Zig flavour.
+- No runtime
+- A single reasoning system for compile time resource accounting
 
-## Envisioned features
-### The Obligation Tracker
-The obligation tracker is a resource accountant for obligations
+## The Obligation System
 
-An Obligation is a compile time concept that codifies a requirement to perform an action, for example to release memory again, or to handle an error. Consider obligations to be linear, in that you can do as you like with the instance that carries the obligation, but you consume the obligation precisely once when you fulfil it. 
+An **obligation** is a **compile** time requirement that must be resolved exactly once on every code path. Examples include:
 
-Memory is allocated though allocators (see zig for the inspiration). Every allocation and every initialization creates an obligation to be fulfilled. Every every error is an obligation to be fulfilled. A Result requires fulfilment of both the success case and the error case. At compile time, the obligation tracker (similarly to the rust borrow checker, but hopefully simpler and more lenient) ensures that all obligations are fulfilled exactly once, in every execution branch.
+- **Initial scope**
+    - memory management
+    - results / error handling
 
-An obligation is fulfilled by: 
-- Actively calling the fulfilment function for the obligation (`deinit`, `free`)
-- Returning the instance with the attached obligation, or the error, the caller
-- In the case of allocations, the obligation can be created from an "Owning" type of allocator, and the obligation is fulfilled by `deinit`ing the allocator, which then calls that function on all owned instances. 
-- In the case of errors, handling the error explicitely
-- `give`ing the instance with the attached obligation to a function prepared to `take` (e.g. `Append` to a list, or to give to a thread)
+- **Much later**
+    - database connections
+    - locks
+    - streams
+    - channels 
+    - user defined
 
-Instances are returned up the stack, or moved. By default, instances are borrowed with references but can be moved with `give` and `take` semantics, similar to rusts move, but with explicit syntax. It is a compilation error to try to fulfil an obligation for a type you down own. E.g., it would be a compilation failure to try to `deinit` an allocator you were provided, unless it was `give`n to you.
+Like in rust, there is the idea of an Owner. This is codified in the type system by the `Owned<T>` type. The carrier of the instance of `Owned<T>`  holds obligation authority to free the value.
 
-### Safety features
-- `malloc` and `free` allowed in allocator implementations only
-- `null`, null pointers, pointer arithmetic, catch-unwind and some way to release tracking of obligations inside of ffi layers, (essentially, enough to be able to interop with C). These would be exoected to return byron safe types in all instances
-- Everything must be handled when destructuring
-- Every potential obligation must be fulfilled precisely once in every execution path
-- A small overhead for pre-allocated static results, in order to be able to return errors for issues due to resource exhaustion
+You cannot resolve the `free` obligation on an instance upon which you do not hold obligation authority, i.e. if you do not have the `Owned<T>` instance. If you hold obligation authority, you must ensure that the obligation is resolved. See [Ownership Types](#ownership-types) for more information on ownership and obligation authority.
+
+### The `free` obligation
+
+`Owned<T>` carries an obligation to call `free`
+
+### The Result\<T, E\> obligation
+
+`Result<T. E>` is an obligation with two resolvers — the `Ok` branch and the `Error` branch. All potential errors must be handled on every code path.
+
+### How Obligations Are Resolved
+
+// todo we need to fill in all of the result requirements here too, or strip them out in preference of a results section
+
+- Returning the bound instance, transferring the bound obligations to the caller
+- `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take Owned<T>` argument), transferring bound obligations to the receiver.
+- Calling the required discharge function
+- (In the case of an error) Handling the `Result` `error` path
+
+#### Calling the annoted discharge function
+
+```
+struct  TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocatoralloc<Bar>()?;
+
+    // Note that the obligation is to call .free on the myBar instance
+    myBar.free();
+    Return Ok;
+}
+```
+
+#### Returning the instance
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
+    const myBar = allocatoralloc<Bar>()?;
+
+    // ...
+
+    return myBar;
+}
+```
+
+#### `Give`ing the the instance to a function prepared to `take` ownership
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn receive(take myBar: Owned<Bar>): void {
+    myBar.free();
+}
+
+fn foo(allocator: &var TransferringAllocator): void {
+    const myBar = allocator.alloc<Bar>() onerror return;
+
+    // ...
+
+    receive(give myBar);
+}
+
+```
+
+#### Early return error propogation with `?`
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocator.alloc<Bar>()?
+    myBar.free();
+    Return Ok;
+}
+
+```
+
+#### Handling the error with `onerror` 
+```
+
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn receive(take myBar: Owned<Bar>): void {
+    myBar.free();
+}
+
+fn foo(allocator: &var TransferringAllocator): void {
+    const myBar = allocator.alloc<Bar>() onerror { 
+        return;
+    };
+    myBar.free();
+}
+```
+
+### Compilation failures
+
+Let's assume the following struct
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+```
+#### Not resolving or returning the insnace
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+
+    const myBar = allocator.alloc<Bar>()?;
+    // myBar.free(); // Did not resolve obligation or return the instance
+
+}
+```
+
+#### Trying to resolve the obligation more than once
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+
+    const myBar = allocator.alloc<Bar>()?;
+    myBar.free();
+    myBar.free(); // Tried to resolve obligation a second time
+}
+```
+
+### Not resolving in all execution paths
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    let myBool = false;
+
+    const myBar = allocator.alloc<Bar>()?;
+    if(myBool) {
+        myBar.free();
+    } else {
+        // Did not resolve obligation in this execution path
+    }
+}
+```
+
+#### Not handling the `Error` path
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocator.alloc<Bar>();
+    myBar.free(); // Did not handle the Error path of the result
+}
+```
+
+## Ownership Transfer - the `give` and `take` keywords
+
+`give` is a call-site keyword. `take` is a receiver keyword — used in parameter declarations as to denote that the function is designed to take ownership, and at call sites when accepting obligation authority from a return value or move.
+
+```
+give    // caller surrenders ownership into a function argument
+take    // caller accepts the ownership of a returned instance from a call or a move
+```
+
+### Give
+
+```
+fn example(allocator: &TransferringAllocator): Result<void> {
+    let myValue = take allocator.alloc<MyType>()?;
+    consume(give myValue); 
+}
+
+fn consume(myValue: take Owned<MyType>): void { 
+    consume(give myValue);
+}
+
+fn example(myValue: &var MyType): void {
+    consume(give myValue);                     // COMPILE ERROR: No obligation authority
+}
+```
+
+### Take
+
+
+You are required to `take` ownership when a function expects to return an `Owned<T>` or when accepting a moved binding
+
+#### Taking ownership of a returned value
+
+```
+let myValue = take allocator.alloc<MyType>()?;              // correct
+```
+
+```
+var node = allocator.alloc<MyType>()?;                      // COMPILE ERROR: Owned<T> must be taken because allocator.alloc<T> returns Result<Owned<T>>
+```
+
+#### When moving
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = take myValue;                       // correct. moved is now live and myValue is inaccessible
+``` 
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = myValue;                             // COMPILE ERROR: Move must be taken
+```
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = take myValue;                        // COMPILE ERROR: myValue is inaccessibly having already been moved
+var secondMove = take myValue
+```
+
+#### Deconstruction
+
+Every element of a deconstructed object must be must be `take`n
+```
+let (x, y, z) = take myPoint;       // correct
+```
+```
+let (x, y, z) = myPoint;            // COMPILE ERROR: Move must be taken
+```
+
+Every element of a deconstructed object must be must be `take`n
+
+```
+let (x, y, z) = take myPoint;
+let (a, b, c) = take (x, y, x);      // correct
+```
+
+```
+let (x, y, z) = take myPoint; 
+let (a, b, c) = take (x, y, x)      // z was not taken, x was taken twice
+```
+
+## Allocators
+
+Byron has two allocator interfaces, that either give, or retain, memory ownership, depending on your needs
+
+### TransferringAllocator
+
+Returns `Owned<T>`. The caller takes the obligation and is responsible for eventually freeing the memory. A General Purpose Allocator would be an example.
+
+```
+interface TransferringAllocator {
+    fn alloc<T>(self: &var Self): Result<Owned<T>>,
+    fn free<T>(self: &var Self, take value: Owned<T>): Result<void>,
+}
+```
+
+```
+var gpa = take GeneralPurposeAllocator.init()?;
+var myBar = take gpa.alloc<Bar>()?;
+myBar.free();
+gpa.deinit();
+```
+
+### RetainingAllocator
+
+Returns `&var T`. The allocator retains the `Owned<T>` and thereby all memory responsibility. Resources are freed when the allocator is deinited with no individual resolution required or even possible. An ArenaAllocator would be an example
+
+```
+interface RetainingAllocator {
+    fn alloc<T>(self: &var Self): Result<&var T>,
+}
+```
+
+```
+var scoped = take ArenaAllocator.init()?;
+var myBar = take scoped.alloc<Bar>()?;
+scoped.deinit();                                  // myBar is now freed
+```
+
+### References
+
+The `let` keyword declares immutability: `let x = 5;`.
+The `var` keyword declares mutability: `var x = 5; x = 6;`
+
+```
+Owned<T>    // Denotes an owned instance og a T with obligation to free memory. Must be `take`n
+&T          // Denotes an immutable reference to a T
+&var T      // denotes a mutable reference to a T
+```
+
+### Primitive types
+
+ We will of course be adding in smaller versions of all number types. We are starting with these big number types if only so that I don't have to think about the smaller ones for now. 
+
+- `bool`
+- `byte`
+- `char`
+- `i64`
+- `u64`
+- `f64`
+- `Array<T>`
+- `void`
+
 
 ### Ergonomics
-I've tried to consider the ergeoomics of working with such explicitness, because boiler plate is inevitable when we want every cost or every decision to be laid bare in front of us. To that end, here are some initial ideas of how to make the idea workable 
+I've tried to consider the ergeoomics of working with such explicitness, because boiler plate is inevitable when we want every cost or every decision to be laid bare in front of us. To that end, here are some initial ideas of how to make the idea workable. Many of these will be deferred, however.
 
 - `?` to early return an error from a called function, e.g. `let a = i32.TryParse("gdgd")?;`
-- A short hand default value to handle errors e.g. `let a = i32.TryParse("gdgd") or 0;`
-- `defer` and `errordefer` to place fulfilment of the obligation alongside its creations
+- A short hand default value to handle errors e.g. `let a = i32.TryParse("gdgd") onerror 0;`
 - `let` and `var` for (im)mutability
 - Tagged unions with exhaustive pattern matching
 - `Ok` token for the success case of `Result<void>`
-- `Option<T>` with `if let Some(myValue) = someOption`
-- Optional type inference
-- Explicit ownership transfer with `give` and `take` keywords (no take-and-give-back)
-- initially, `init` and `deinit` are magically known to be obligation-related. Eventual annotations could follow to make this explicit, and allow custom obligation behaviour
-- Passing allocators to `deinit`, with compile time tracking that you used the correct allocator (As a guidance, you could either store a reference on the instance, or "just" pass in the correct one... I'm sure that's completely trivial!)
-- destructuring with `take` semantics in order to fulfil obligations on the destructured object, but to take ownership of its constituent parts, e.g. `let (x, y, z) = take myPoint3d;`
-- `deinit` that compile time enforces that you `deinit` all owned instances
-- `0..5` and `0..=5` for exclusive/inclusive upper bounds
+- Optional type inferences
+- destructuring with `take` semantics in order to take ownership of its constituent parts, e.g. `let (x, y, z) = take myPoint3d;`
+- `0..5` and `0..=5` for exclusive/inclusive upper bounds (deferred)
+- `defer` and `errordefer` to place fulfilment of the obligation alongside its creations (deferred)
+- `Option<T>` with `if let Some(myValue) = someOption` (deferred)
 
-### Bring your own Runtime
-Another idea I had was the ability to bolt on runtime features, for example Reflection and dynamic dispatch. The "default" runtime would be a completely empty set of hooks that are immediately compiled away. Any hook implementations would be self-contained (with declared dependencies) in order to allow multiple hooks for any relevant events. These features would be imported like libraries, so that any runtime costs incurred are apparant in code. These ideas are a loooooong way into the future, if this projet ever gets off the ground. 
+## Where next?
 
-## Deferred
-There's already more than enough to get overwhelmed with, so some wishes are immediately deferred in order to try to get _something_ off the ground. 
+I have a goal to be able to implement the following programs in this language:
 
-### Features
-- Auto-coercion from `*T` to `&T` / `&var T`. Start with explicit `&ptr` and `&var ptr` syntax everywhere, and refine later.
-- c interop in order to maximise adoption. That way I get zig and c ffi.
-- Any runtime extensions could be customized. E.g. imagine someone implementing an "Owning" GC allocator with runtime support, to manage your memory for you. This isn't a planned feature, but I like the idea: opt in the pay the cost of GC, and get GC.
-- Extra obligations beyond allocation and result types, e.g. closing a DB connection or releasing a lock
-- Implementation of `Tracked<T>` that adds a safe way to track the allocator used to allocate at the cost of a fat pointer. Considering if this would coerce to a &T in all cases.
-- Adding threads and async. 
-- Allowing shadowing if and only if initial obligation fulfilled
-- take-and-give-back
-- Access modifiers
-
-### Things I don't know anything about
-While I know very little about this stuff, I know nothing about implemntation of threads and async. Outside of the ability to move obligations into these things, I have no idea of the rammifications here.
-
-## Challenges
-
-- My knowledge. I know nothing, and have a lot to learn. I don't even know how to get off the ground yet.
-- My time. I don't have much of it, and this is a massive project.
-- The language will be pretty verbose, so strong ergonomics will be criticall
-- The complexity of the obligation tracker
-- Minimizing risk of use-after-free without lifetime annotations.
-- The envisioned compilation times, due to the obligation tracker. (Would we want to enable skipping this part for "I've already validated this build once" scenarios?)
-- Forward thinking reserved keywords - I'll likely need extra keywords for situations I've never thought about. How can I be as flexible as possible?s
-- Many many many unknnown unknowns.
-- Keeping the initial goal as absolutely small and simple as possible to get a working prototype.
-
-# Syntax Reference
-
-## Ownership and Borrowing
-
-```
-Pointers and References:
-    *T       = owning pointer (obligation to free)
-    &T       = immutable borrow (no obligation, no lifetime tracking - unsafe territory)
-    &var T   = mutable borrow
-
-Ownership Transfer:
-    give       // caller gives ownership to callee
-    take       // receiver takes ownership
-
-    // Function signature: callee takes
-    fn consume(take value: *T): void { ... }
-
-    // Call site: caller gives
-    consume(give myValue);
-
-    // Assignment: receiver takes
-    let a = take b;
-
-    // Pattern matching: pattern takes from source
-    if let Some(x) = take optionalOwned { ... }
-
-    // Deinit signature: callee takes
-    fn deinit(take self: *Self)
-
-    // Call site, can omit passing giving the struct to its own destructor
-    myInstance.deinit(&myAllocator);
-```
-
-## Example: DoublyLinkedList
-
-```
-pub struct DoublyLinkedList<T> {
-    next: Option<*DoublyLinkedList<T>>,              // Owned pointer to next node
-    unsafe previous: Option<&DoublyLinkedList<T>>,   // Unsafe borrow (use-after-free risk)
-    value: Option<*T>,                               // Owned pointer to value
-
-    pub fn init(allocator: &OwningAllocator, take value: Option<*T>): Result<*Self> {
-        return allocator.create(Self {
-            value: value,
-            next: None,
-            previous: None,
-        });
-    }
-
-    pub fn append(self: &var Self, allocator: &OwningAllocator, take value: Option<*T>): Result<void> {
-        if let Some(nextNode) = &var self.next {             // nextNode: &var *DoublyLinkedList<T>
-            (&var *nextNode).append(allocator, give value)?; // deref to *, then &var borrow
-        } else {
-            var next = DoublyLinkedList<T>.init(allocator, give value)?;
-            unsafe { (&var next).previous = Some(self); }
-            self.next = Some(next);
-        }
-        return Ok;
-    }
-
-    pub fn deinit(take self: *Self, allocator: &OwningAllocator): void {
-        if let Some(nextNode) = take self.next {  // explicit take ownership from self.next
-            nextNode.deinit(allocator);
-        }
-        if let Some(val) = take self.value {      // explicit take ownership from self.value
-            allocator.free(val);
-        }
-        allocator.free(self);
-    }
-}
-
-pub fn exampleFunction(allocator: &OwningAllocator): Result<*DoublyLinkedList<Apple>> {
-    var myList = DoublyLinkedList<Apple>.init(
-        allocator,
-        give Some(Apple.init(allocator)?)  // give ownership to init
-    )?;
-
-    (&var myList).append(
-        allocator,
-        give Some(Apple.init(allocator)?)
-    )?;
-
-    return Ok(myList);
-}
-
-pub fn main(): Result<i32> {
-    var allocator = GeneralPurposeAllocator.init()?;
-    defer allocator.deinit();
-
-    var myList = exampleFunction(&allocator) or (error) {
-        return Ok(1);
-    };
-    defer (&myList).deinit(&allocator);  // Note that deinit, as a function that takes the instance itself, can omit `give`ing the instance
-
-    // Iteration: explicit borrows, no auto-coercion
-    var activeNode: Option<&DoublyLinkedList<Apple>> = Some(&myList);  // &ptr borrows from *T
-    while let Some(node) = activeNode {
-        // process node...
-        if let Some(nextPtr) = &node.next {   // borrow into Option, nextPtr: &*DoublyLinkedList<T>
-            activeNode = Some(& *nextPtr);    // deref to *, then & borrow
-        } else {
-            activeNode = None;
-        }
-    }
-
-    return Ok(0);
-}
-```
-
-# Summary
-A massive project, with my ideas of what a safe systems programmaming language could look like. Let's see if we ever get time to do anything about it.
-
-Any obvious blunders, please educate me!
+- The trivial start and immediately return 0 
+- Print "Hello World" and return 0 
+- Allocate, deallocate, and return 0 
+- Accept user input N, print the fibonachi sequence up to N, and return 0
