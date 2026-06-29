@@ -1,30 +1,25 @@
-# Byron Language Specification
-
+# Byron Language introduction
 
 ## Motivation
 
-Byron is a systems language with explicit manual control and compile time resource accountability. This is a personal project to explore the nuts and bolts of languages and compilers. I'm most at home in C#, but want to get to know systems programming. I've explored both Rust and Zig and feel more at home in the Zig space, but find myself wishing that both had features from each other.
+Byron is a systems language with explicit manual control and compile time resource accountability. This is a personal project to explore the nuts and bolts of languages and compilers. I'm most at home in C#, but want to get to know systems programming. I've explored both Rust and Zig and feel more at home in the Zig space, sometimes finding myself wishing that both had features from each other.
 
-The language idea arose from the idea of implementing a garbage-collecting allocator in Zig What would that look like? What does a language  minimally require to support GC. Do you need a runtime? Then came the question, what would a bolt-on runtime look like for a systems level programming language. Byron as a name stems from the idea of "Bring your own Runtime". This idea parked, in preference of another idea:
-
-> can you get similar memory safety guarantees in a systems programming language, without a runtime, by validating memory management at compile time?
-
-And thus was born the [obligation](#the-obligation-system) concept.
+The language idea arose from the idea of implementing a garbage-collecting allocator in Zig. What would that look like? What does a language  minimally require to support GC. Do absolutely you need a runtime? This evolved to the idea of a language with a bolt-on, importable runtime in a primarily systems level programming language. Byron as a name stems from this idea idea of "Bring your own Runtime". The idea was then superceded by another - safer memory management without GC. Thus was born the [obligation](#the-obligation-system) concept.
 
 First of all, I'd like to describe what I wish such a language looked like, starting with the areas I wish were different in existing languages.
 
 ### Rust
 
 - `panic!()` existing alongside `Result<T,E>`. The Cloudflare outage of 2025-11-18 resulted from a panic on `unwrap()`. I wish that it didn't rely on documentation to not call on functions that can panic, but that it was not possible to do so. Crates can also decide that a situation is fatal and should panic, even when I as a developer think it should be recoverable, leading the developer to now have to handle both results and also panics with `catch_unwind`. 
-- `Rc<RefCell<T>>` for shared mutability is reached for so often it deserves a better answer.
-- Artifacts like `PhantomData` as a bridge between safe and unsafe rust to satisfy the borrow checker indicate a complexity that a lower level language may wish to avoid.
-- `<'a>` lifetime annotations leak into the entire call stack, for example `impl<'a> Trait<'a>`.
-- Method chaining mutable functions is painful.
+- `Rc<RefCell<T>>` for shared mutability is reached for so often that I think that my own language would be willing to sacrifice the guarantees that the borrow checker provides in order to simplify the lanaguage (and compiler). 
+  - Artifacts like `PhantomData` as a bridge between safe and unsafe rust to satisfy the borrow checker indicate a complexity that a lower level language may wish to avoid.
+  - `<'a>` lifetime annotations leak into the entire call stack, for example `impl<'a> Trait<'a>`.
+  - Method chaining mutable functions is painful.
 
-I understand that there are reasons for each of these design choices, and the safety that the compiler offers is very strong in memory. 
+I understand that there are reasons for each of these design choices, and the safety that the compiler offers is incredibly strong. 
 
 Byron wants 
-- _Some_ of the biggest value adds of rusts compile time safety, without the complexity of the full borrow checker
+- _Some_ of the biggest value adds of rusts compile time memory safety, without the complexity of the full borrow checker
 - A much stricter adherence to the `Result<T, E>` pattern
 
 ### Zig
@@ -33,11 +28,11 @@ Byron wants
 - No closures or inline lambdas.
 - It's possible to forget to `deinit`, or `deinit` with the wrong allocator. (I get that this a fundemental skill issue of systems programming)
 
-I actually really like zig and will likely focus on it as my main systems programming language, this project looking at the possibility of adding compile time safety and, if possible, what compromises would be needed
+I actually really like zig and will likely focus on it as my main systems programming language. The Byron project is looking at the possibility of adding compile time resource accounting and the kinds of compromises that are required
 
 Byron wants 
 
-- Zig's explicit allocator model with a compile time obligation layer on top.
+- Zig's explicit allocator model with a compile time obligation layer on top that guarantee that we free with the correct allocator.
 - Zigs philosophy of no hidden control flow, and no hidden costs.
 
 ---
@@ -45,22 +40,23 @@ Byron wants
 ## Language Goals
 
 - Strongly typed
-- Explicit control flow — no exceptions or panics. 
+- Explicit control flow
     - Results only
         - Pre-allocated results for resource exhaustion. 
+        - No userspace `panic`s. `Result`s are compile time enforced to be handled.
     - Abort on physical impossibilities only (stack overflow, CPU exception).
-- No userspace `panic`s. `Result`s are compile time enforced to be handled.
 - Pay for what you use — no hidden costs, no hidden control flow.
 - Manual memory allocation that is harder to leak, double free, and misuse after ownership transfer than both Zig and C, with compile time enforcement where feasible.
 - No `null` (outside of interop).
 - Immutability by default.
 - C-adjacent syntax — TS/C#/Zig flavour.
 - No runtime
+- A single reasoning system for compile time resource accounting
 ---
 
 ## The Obligation System
 
-An **obligation** is a compile time requirement must be resolved exactly once on every code path. Examples include:
+An **obligation** is a **compile** time requirement must be resolved exactly once on every code path. Examples include:
 
 - **Initial scope**
     - memory management
@@ -73,23 +69,723 @@ An **obligation** is a compile time requirement must be resolved exactly once on
     - channels 
     - user defined
 
-You cannot burden or resolve obligations on an instance upon which you do not hold obligation authority. If you hold obligation authority, you must ensure resolution of all obligations in your set. See [Ownership Types](#ownership-types) for more information on ownership and obligation authority.
+Like in rust, there is the idea of an Owner. This is codified in the type system by the `Owned<T>` type. The carrier of the instance of `Owned<T>`  holds obligation authority to free the value.
 
-### Declaring an Obligation
+You cannot resolve the `free` obligation on an instance upon which you do not hold obligation authority, i.e. if you do not have the `Owned<T>` instance. If you hold obligation authority, you must ensure that the obligation is resolved. See [Ownership Types](#ownership-types) for more information on ownership and obligation authority.
 
-The `@obligates` annotation declares that calling this function creates a live obligation on a binding. The obligation is associated with with the instance and must be resolved exactly once on every subsequent path.
+### The `free` obligation
 
-Single resolver on instance
+`Owned<T>` carries an obligation to call `free`
+
+### The Result\<T, E\> obligation
+
+`Result<T. E>` is an obligation with two resolvers — the `Ok` branch and the `Error` branch. All potential errors must be handled on every code path.
+
+### How Obligations Are Resolved
+
+// todo we need to fill in all of the result requirements here too, or strip them out in preference of a results section
+
+- Returning the bound instance, transferring the bound obligations to the caller
+- `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take Owned<T>` argument), transferring bound obligations to the receiver.
+- Calling the required discharge function
+- (In the case of an error) Handling the `Result` `error` path
+
+#### Calling the annoted discharge function
+
+```
+struct  TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocatoralloc<Bar>()?;
+
+    // Note that the obligation is to call .free on the myBar instance
+    myBar.free();
+    Return Ok;
+}
+```
+
+#### Returning the instance
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
+    const myBar = allocatoralloc<Bar>()?;
+
+    // ...
+
+    return myBar;
+}
+```
+
+#### `Give`ing the the instance to a function prepared to `take` ownership
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn receive(take myBar: Owned<Bar>): void {
+    myBar.free();
+}
+
+fn foo(allocator: &var TransferringAllocator): void {
+    const myBar = allocator.alloc<Bar>() onerror return;
+
+    // ...
+
+    receive(give myBar);
+}
 
 ```
 
+#### Early return error propogation with `?`
+
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocator.alloc<Bar>()?
+    myBar.free();
+    Return Ok;
+}
+
+```
+
+#### Handling the error with `onerror` 
+```
+
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+
+fn receive(take myBar: Owned<Bar>): void {
+    myBar.free();
+}
+
+fn foo(allocator: &var TransferringAllocator): void {
+    const myBar = allocator.alloc<Bar>() onerror { 
+        return;
+    };
+    myBar.free();
+}
+```
+
+### Compilation failures
+
+Let's assume the following struct
+```
+struct TransferringAllocator {
+    @obligates([.free])
+    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
+}
+```
+#### Not resolving or returning the insnace
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+
+    const myBar = allocator.alloc<Bar>()?;
+    // myBar.free(); // Did not resolve obligation or return the instance
+
+}
+```
+
+#### Trying to resolve the obligation more than once
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+
+    const myBar = allocator.alloc<Bar>()?;
+    myBar.free();
+    myBar.free(); // Tried to resolve obligation a second time
+}
+```
+
+### Not resolving in all execution paths
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    let myBool = false;
+
+    const myBar = allocator.alloc<Bar>()?;
+    if(myBool) {
+        myBar.free();
+    } else {
+        // Did not resolve obligation in this execution path
+    }
+}
+```
+
+#### Not handling the `Error` path
+
+```
+fn foo(allocator: &var TransferringAllocator): Result<void> {
+    const myBar = allocator.alloc<Bar>();
+    myBar.free(); // Did not handle the Error path of the result
+}
+```
+
+## Ownership Transfer - the `give` and `take` keywords
+
+`give` is a call-site keyword. `take` is a receiver keyword — used in parameter declarations as to denote that the function is designed to take ownership, and at call sites when accepting obligation authority from a return value or move.
+
+```
+give    // caller surrenders ownership into a function argument
+take    // caller accepts the ownership of a returned instance from a call or a move
+```
+
+### Give
+
+```
+fn example(allocator: &TransferringAllocator): Result<void> {
+    let myValue = take allocator.alloc<MyType>()?;
+    consume(give myValue); 
+}
+
+fn consume(myValue: take Owned<MyType>): void { 
+    consume(give myValue);
+}
+
+fn example(myValue: &var MyType): void {
+    consume(give myValue);                     // COMPILE ERROR: No obligation authority
+}
+```
+
+### Take
+
+
+You are required to `take` ownership when a function expects to return an `Owned<T>` or when accepting a moved binding
+
+#### Taking ownership of a returned value
+
+```
+let myValue = take allocator.alloc<MyType>()?;              // correct
+```
+
+```
+var node = allocator.alloc<MyType>()?;                      // COMPILE ERROR: Owned<T> must be taken because allocator.alloc<T> returns Result<Owned<T>>
+```
+
+#### When moving
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = take myValue;                       // correct. moved is now live and myValue is inaccessible
+``` 
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = myValue;                             // COMPILE ERROR: Move must be taken
+```
+
+```
+var myValue = take allocator.alloc<MyType>()?;    
+var moved = take myValue;                        // COMPILE ERROR: myValue is inaccessibly having already been moved
+var secondMove = take myValue
+```
+
+#### Deconstruction
+
+Every element of a deconstructed object must be must be `take`n
+```
+let (x, y, z) = take myPoint;       // correct
+```
+```
+let (x, y, z) = myPoint;            // COMPILE ERROR: Move must be taken
+```
+
+Every element of a deconstructed object must be must be `take`n
+
+```
+let (x, y, z) = take myPoint;
+let (a, b, c) = take (x, y, x);      // correct
+```
+
+```
+let (x, y, z) = take myPoint; 
+let (a, b, c) = take (x, y, x)      // z was not taken, x was taken twice
+```
+
+## Allocators
+
+Byron has two allocator interfaces, that either give, or retain, memory ownership, depending on your needs
+
+### TransferringAllocator
+
+Returns `Owned<T>`. The caller takes the obligation and is responsible for eventually freeing the memory. A General Purpose Allocator would be an example.
+
+```
+interface TransferringAllocator {
+    fn alloc<T>(self: &var Self): Result<Owned<T>>,
+    fn free<T>(self: &var Self, take value: Owned<T>): Result<void>,
+}
+```
+
+```
+var gpa = take GeneralPurposeAllocator.init()?;
+var myBar = take gpa.alloc<Bar>()?;
+myBar.free();
+gpa.deinit();
+```
+
+### RetainingAllocator
+
+Returns `&var T`. The allocator retains the `Owned<T>` and thereby all memory responsibility. Resources are freed when the allocator is deinited with no individual resolution required or even possible. An ArenaAllocator would be an example
+
+```
+interface RetainingAllocator {
+    fn alloc<T>(self: &var Self): Result<&var T>,
+}
+```
+
+```
+var scoped = take ArenaAllocator.init()?;
+var myBar = take scoped.alloc<Bar>()?;
+scoped.deinit();                                  // myBar is now freed
+```
+
+### References
+
+The `let` keyword declares immutability: `let x = 5;`.
+The `var` keyword declares mutability: `var x = 5; x = 6;`
+
+```
+Owned<T>    // Denotes an owned instance og a T with obligation to free memory. Must be `take`n
+&T          // Denotes an immutable reference to a T
+&var T      // denotes a mutable reference to a T
+```
+
+### Primitive types
+
+ We will of course be adding in smaller versions of all number types. We are starting with these big number types if only so that I don't have to think about the smaller ones for now. 
+
+- `bool`
+- `byte`
+- `char`
+- `i64`
+- `u64`
+- `f64`
+- `Array<T>`
+- `void`
+
+
+## Where next?
+
+I have a goal to be able to implement the following programs in this language:
+
+- The trivial start and immediately return 0 
+- Print "Hello World" and return 0 
+- Allocate, deallocate, and return 0 
+- Accept user input N, print the fibonachi sequence up to N, and return 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Deferred
+
+
+## Ownership Types
+
+Byron has conceptually ownership types. Intially only `Owned<T>` will be implemented. Future types `Handle<T>`, `Unsafe<T>` and `Untracked<T>` as noted here are design stretch goals.
+
+```
+Owned<T>                       // Full ownership: Obligation authority with memory obligations.
+
+
+// Not in scope for a very very very long time.
+
+Handle<T>             // Delegated authority: Obligation authority without memory obligations.
+Unsafe<T>             // memory-untracked ownership — memory provenance unverifiable, but obligations still tracked and enforced by compiler, for systems programming cases where fat pointer provenance tracking is genuinely unworkable.
+                      // Every read and mutate requires the unsafe keyword.
+                       
+Untracked<T>          // Total suspension of the obligation tracker, reverting to Zig or C levels of trust. 
+                      // Best-effort obligation tracking may be considered if we ever get here.
+                      // Every read and mutate requires the untracked keyword
+```
+
+
+### Owned\<T\> — The Fat Pointer
+
+`Owned<T>` is a fat pointer:
+
+```
+Owned<T> {
+    ptr:       *T,
+    allocator: *TransferringAllocator,
+}
+```
+
+### Handle\<T\> — Obligation Authority
+
+`Handle<T>` is a thin pointer wrapper:
+
+```
+Handle<T> {
+    ptr: *T,
+}
+```
+
+`Handle<T>` carries obligation authority over the instance but does not own the memory. Memory is owned by the `RetainingAllocator` that created it and freed when that allocator is deinited.
+
+- Can call `@obligates`-decorated functions and burden the instance with new obligations
+- Can call resolver functions to resolve obligations
+- Has no way to free the underlying instance.
+
+
+
+
+
+
+
+
+# Some assorted notes to pick through - old thoughts and LLM additions to actually consider.
+
+
+######################################################
+
+
+
+
+
+
+
+// To decide: Do free and deinit expect to return `Result<void>` or `void`
+// On the one hand, deinit is only supposed to deinit owned resources, and then free. On the other, it isn't guaranteed infallible. Edge cases (e.g. flushing an internal buffer as part of teardown, OS-level resource release that can fail) have not been fully examined. Revisit before stabilising the std.
+
+### How Obligations Are Resolved
+
+- Calling a defined resolver function (`commit`, `rollback`, `free`, etc.)
+- Returning the bound instance, transferring the bound obligations to the caller
+- `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take T` argument), transferring bound obligations to the receiver.
+
+// todo: Assess this LLM addition for truth
+**Resolvers must consume `self`** — either `take Self` for non-memory obligations, or `Owned<Self>` when memory must also be freed. Consuming the instance is what makes exactly-once resolution a structural guarantee — the binding no longer exists after the call, so a second resolution is impossible without separate tracking.
+
+**The obligation tracker verifies at compile time that a listed resolver was called once, and only once, on every path.**
+
+### The Result\<T, E\> obligation
+
+`Result<T, E>` is an obligation with two resolvers — the `Ok` branch and the `Error` branch. Both must be handled on every code path.
+
+---
+
+`Owned<T>` carries a reference to the allocator that created it. This means:
+
+- `self.free()` uses the embedded allocator — freeing from the wrong allocator isn't possible
+- The compiler can verify that no `Owned<T>` outlives its allocator
+
+`Owned<T>` provides a built-in `free()` method implemented in the standard library. This is what allows `@obligates([.free])` on `alloc` to work — the obligation is declared on the function, and the resolver is provided by the type. No user implementation required.
+
+// TODO: Dispatch — `Owned<T>.free()` is a std built-in with the following shape:
+//   fn free(self: take Owned<T>): Result<void> {
+//       return self.allocator.free(give self)   // dispatch to allocator, return its Result directly
+//   }
+// `fn free<T>` on `TransferringAllocator` is the implementation-level target — each allocator's
+// own business (return to pool, slab coalesce, no-op for arena, etc).
+// Both are private for now. `fn free<T>` on the allocator interface becomes public when `Unsafe<T>`
+// is in scope — that is the point where a user doing their own memory tracking needs direct
+// allocator access without going through the fat pointer.
+// Open: reading `self.allocator` before `give self` is a partial read from a consumed value —
+// std-internal, likely requires unsafe at the implementation level.
+
+// TODO: Allocator lifetime enforcement — the fat pointer gives us provenance: the obligation checker should prevent the allocator's own obligations from being resolved while any `Owned<T>` allocated from it still has a live `.free` obligation. This ordering enforces that `Owned<T>` is freed before the allocator is torn down, covering most use-after-free and double-free without a full lifetime analysis. Mechanism not yet designed.
+
+The fat pointer is a deliberate early compromise in exchange for simpler obligation tracking. It _may_ be possible to eliminate it once the obligation checker is proven.
+
+
+# The Obligation tracker (incomplete)
+
+// Todo: This whole section needs close verification
+## Binding States
+
+Every `Owned<T>` and `Handle<T>` binding has a compile time state and an obligation set tracked through the control flow graph. The obligation set holds one live obligation of each declared kind — adding an obligation that is already live is a compile error.
+
+```
+Live              // safe to use, obligation unresolved
+Discharged        // resolver called — binding is dead
+Moved             // transferred to another owner — binding is dead
+MaybeDischarged   // CFG join point with inconsistent discharge state
+MaybeMoved        // CFG join point with inconsistent move state
+```
+
+Any state other than `Live` on access is a compile error:
+
+```
+var a = take List.init(&gpa)?;
+a.deinit();
+a.append(1)?;                        // COMPILE ERROR: "deinit" obligation on a is resolved
+
+var b = take List.init(&gpa)?;
+consume(give b)?;
+b.append(1)?;                        // COMPILE ERROR: b is Moved
+
+var c = take List.init(&gpa)?;
+if (someCondition) {
+    c.deinit();                      // c: Discharged on this branch only
+}
+c.append(1)?;                        // COMPILE ERROR: "deinit" obligation on c might be resolved
+```
+
+Assigning to a field of type `Owned<T>` when that field is `Live` is a compile error. The existing obligation must be resolved before the field can receive a new value. Example syntax depends on partial moves — deferred.
+
+`&T` and `&var T` fields have no such restrictions since they carry no obligations.
+
+---
+
+## Ownership Transfer - give and take
+
+`give` is a call-site keyword. `take` is a receiver keyword — used in parameter declarations as to denote that the function is designed to take ownership, and at call sites when accepting obligation authority from a return value or move.
+
+```
+give    // caller surrenders ownership into a function argument
+take    // caller accepts the ownership of a returned instance from a call or a move
+```
+
+### Give
+
+```
+fn example(allocator: &TransferringAllocator): Result<void> {
+    let myValue = take allocator.alloc(Node)?;
+    consume(give myValue); 
+}
+
+fn consume(myValue: take Owned<MyType>): Result<void> { 
+    consume(give myValue)?;
+}
+
+fn example(myValue: &var MyType): Result<void> {
+    consume(give myValue)?;                     // COMPILE ERROR: No obligation authority
+}
+```
+
+### Take
+
+
+
+
+
+
+
+
+
+
+
+You are required to `take` ownership when a function expects to return an `Owned<T>`
+```
+var node = take Node.init(&gpa)?;    // correct
+var node = Node.init(&gpa)?;         // COMPILE ERROR: Owned<T> must be taken
+```
+
+Moves must be `take`n
+```
+var node = take Node.init(&gpa)?;    
+var a = take b;                      // correct. a is now live with b's obligations, b is inaccessible
+var anotherNode = node;             // COMPILE ERROR: Move must be taken
+```
+
+Deconstruction must be `take`n
+```
+let (x, y, z) = take myPoint;       // correct
+let (x, y, z) = myPoint;            // COMPILE ERROR: Move must be taken
+```
+---
+
+## Unsafe Fields
+
+// todo: is this needed now? Or much later. It would be needed in order to give a completely satisfactory `Owned<DoublyLinkedList>`. Might _not_ be needed in order to give a complete `Handle<DoublyLinkedList>`.
+
+Fields carrying use-after-free or pointer safety risk are marked `unsafe` at declaration:
+
+```
+struct Node<T> {
+    value:           T,
+    next:            Option<Owned<Node<T>>>,
+    unsafe previous: Option<&Node<T>>,   // back reference with a risk of use-after-free
+}
+```
+
+**Setting** an unsafe field requires no annotation. 
+
+```
+node.previous = Some(&parent);
+```
+todo: due to the While this should always give a result, this isn't described on the field. Either Result wrapping is implicit due to the `unsafe` keyword, or should be described on the field.
+
+**Reading or mutating** through an unsafe field requires `unsafe` at the access site and always produces a `Result`:
+
+```
+let prev = unsafe node.previous?;        // Result<Option<&Node<T>>, UnsafeError>
+unsafe node.previous.doSomething()?;     // Result<void, UnsafeError>
+```
+
+---
+
+
+## Results and Error Propagation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Deferred sections
+## Handle<T> definition and examples
+
+`Handle<T>` is a borrow that also transfers obligation authority. Think of it like a priviledged reference. 
+
+You cannot burden or resolve obligations on an instance upon which you do not hold obligation authority. If you hold obligation authority, you must ensure resolution of all obligations in your set. See [Ownership Types](#ownership-types) for more information on ownership and obligation authority.
+
+### Declaring obligations
+
+// todo: This part needs to come later once `Handle<T>` is something we can thing about. 
+// todo: Pull `Handle<T>` out to its own section when available. Don't delete the text, keep it, but it needs to all be in a deferred section.
+
+_This section includes examples that are intended for future implementation_
+
+The `@obligates` annotation declares that calling this function creates a live obligation on a binding. The obligation is associated with with the instance and must be resolved exactly once on every subsequent path.
+
+### How Obligations Are Resolved
+
+- Calling a defined resolver function (`myInstance.commit`, `myInstance.rollback`, `resolverFunction`, etc.)
+
+
+
+- Returning the bound instance, transferring the bound obligations to the caller
+- `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take Owned<T>` argument), transferring bound obligations to the receiver.
+
+Single resolver on an instance
+
+```
 struct  TransferringAllocator {
     @obligates([.free])
     fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
 }
 
 fn foo(allocator: &var TransferringAllocator) {
-    const myBar = allocatoralloc<Bar>();
+    const myBar = allocator.alloc<Bar>();
 
     // Note that the obligation is to call .free on the myBar instance
     myBar.free();
@@ -142,15 +838,18 @@ fn foo(
     connection: &var ConnectionFoo) {
 
     const myBar1 = allocator.alloc<Bar>();
-    // myBar1.free(); // Did not resolve obligation
+    // myBar1.free(); // Did not resolve obligation or return the instance
 
     const myBar2 = allocator.alloc<Bar>();
     myBar2.free();
     myBar2.free(); // Tried to resolve obligation a second time
 
     var transaction = beginTransaction(connection);
-    transaction.commit();
-    transaction.rollback(); // Tried to resolve obligation a second time
+
+    if(transaction.wasSuccessful){
+        transaction.commit();
+    }
+    transaction.rollback(); // Tried to resolve obligation a second time through the transaction.wasSuccessful branch. 
 }
 ```
 
@@ -170,332 +869,11 @@ fn foo(
 
 
 
-<#Continue#>
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-The naming pair is not convention — it is enforced. Calling `init` requires calling `.deinit()` on every path. Calling `alloc` requires calling `.free()`. The compiler rejects any `deinit` implementation that does not consume `Owned<Self>` and call `self.free()`, since `Owned<Self>` carries its own `free` obligation that must be resolved inside `deinit`'s body.
-
-
-
-**`free` and `deinit` return `void`** — both are infallible by design. `free` cannot fail under any condition the type system permits (double free and wrong-allocator are compile errors; anything else is an abort-worthy implementation bug). `deinit` by convention only calls sub-resource `deinit`s and `free` — none of which can fail. If cleanup can fail, it is not `deinit` — it is a named resolver (`close`, `flush`, etc.) declared via `@obligates`.
-
-// Interim decision — requires more exploration. The claim that deinit is always infallible rests on the convention that deinit does memory cleanup only. Edge cases (e.g. flushing an internal buffer as part of teardown, OS-level resource release that can fail) have not been fully examined. Revisit before stabilising the std.
-
-### How Obligations Are Resolved
-
-- Calling a listed resolver function (`commit`, `rollback`, `free`, etc.)
-- Returning the bound instance, transferring the bound obligations to the caller
-- `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take T` argument), transferring bound obligations to the receiver.
-
-// todo: Assess this LLM addition for truth
-**Resolvers must consume `self`** — either `take Self` for non-memory obligations, or `Owned<Self>` when memory must also be freed. Consuming the instance is what makes exactly-once resolution a structural guarantee — the binding no longer exists after the call, so a second resolution is impossible without separate tracking.
-
-**The obligation tracker verifies at compile time that a listed resolver was called once, and only once, on every path.**
-
-### Result\<T, E\> is an Obligation
-
-`Result<T. E>` is an obligation with two resolvers — the `Ok` branch and the error branch. Both must be handled on every code path.
-
----
-
-## Ownership Types
-
-Byron has four ownership types. The first two are in scope for the current implementation. The latter two are documented to reserve design space.
-
-```
-Owned<T>                       // Full ownership: Obligation authority with memory obligations.
-Handle<T>                      // Delegated authority: Obligation authority without memory obligations.
-
-// Not in scope for a very very very long time.
-
-Unsafe<T>             // memory-untracked ownership — memory provenance unverifiable, but obligations still tracked and enforced by compiler, for systems programming cases where fat pointer provenance tracking is genuinely unworkable.
-                      // Every read and mutate requires the unsafe keyword.
-                       
-Untracked<T>          // Total suspension of the obligation tracker, reverting to Zig or C levels of trust. 
-                      // Best-effort obligation tracking may be considered if we ever get here.
-                      // Every read and mutate requires the untracked keyword
-```
-// todo: Finalise shorthands for these types
-
-### Owned\<T\> — The Fat Pointer
-
-`Owned<T>` is a fat pointer:
-
-```
-Owned<T> {
-    ptr:       *T,
-    allocator: *TransferringAllocator,
-}
-```
-
-`Owned<T>` carries a reference to the allocator that created it. This means:
-
-- `self.free()` uses the embedded allocator — freeing from the wrong allocator isn't possible
-- The compiler can verify that no `Owned<T>` outlives its allocator
-
-`Owned<T>` provides a built-in `free()` method implemented in the standard library. This is what allows `@obligates([.free])` on `alloc` to work — the obligation is declared on the function, and the resolver is provided by the type. No user implementation required.
-
-// TODO: Dispatch — `Owned<T>.free()` is a std built-in with the following shape:
-//   fn free(self: take Owned<T>): Result<void> {
-//       return self.allocator.free(give self)   // dispatch to allocator, return its Result directly
-//   }
-// `fn free<T>` on `TransferringAllocator` is the implementation-level target — each allocator's
-// own business (return to pool, slab coalesce, no-op for arena, etc).
-// Both are private for now. `fn free<T>` on the allocator interface becomes public when `Unsafe<T>`
-// is in scope — that is the point where a user doing their own memory tracking needs direct
-// allocator access without going through the fat pointer.
-// Open: reading `self.allocator` before `give self` is a partial read from a consumed value —
-// std-internal, likely requires unsafe at the implementation level.
-
-// TODO: Allocator lifetime enforcement — the fat pointer gives us provenance: the obligation checker should prevent the allocator's own obligations from being resolved while any `Owned<T>` allocated from it still has a live `.free` obligation. This ordering enforces that `Owned<T>` is freed before the allocator is torn down, covering most use-after-free and double-free without a full lifetime analysis. Mechanism not yet designed.
-
-The fat pointer is a deliberate early compromise in exchange for simpler obligation tracking. It _may_ be possible to eliminate it once the obligation checker is proven.
-
-### Handle\<T\> — Obligation Authority
-
-`Handle<T>` is a thin pointer wrapper:
-
-```
-Handle<T> {
-    ptr: *T,
-}
-```
-
-`Handle<T>` carries obligation authority over the instance but does not own the memory. Memory is owned by the `RetainingAllocator` that created it and freed when that allocator is deinited.
-
-- Can call `@obligates`-decorated functions and burden the instance with new obligations
-- Can call resolver functions to resolve obligations
-- Has no way to free the underlying instance.
-
-### References
-
-```
-&T          // denotes an immutable reference to a T
-&var T      // denotes a mutable reference to a T
-```
-
----
-
-# The Obligation tracker (incomplete)
-
-// Todo: This whole section needs close verification
-## Binding States
-
-Every `Owned<T>` and `Handle<T>` binding has a compile time state and an obligation set tracked through the control flow graph. The obligation set holds one live obligation of each declared kind — adding an obligation that is already live is a compile error.
-
-```
-Live              // safe to use, obligation unresolved
-Discharged        // resolver called — binding is dead
-Moved             // transferred to another owner — binding is dead
-MaybeDischarged   // CFG join point with inconsistent discharge state
-MaybeMoved        // CFG join point with inconsistent move state
-```
-
-Any state other than `Live` on access is a compile error:
-
-```
-var a = take List.init(&gpa)?;
-a.deinit();
-a.append(1)?;                        // COMPILE ERROR: "deinit" obligation on a is resolved
-
-var b = take List.init(&gpa)?;
-consume(give b)?;
-b.append(1)?;                        // COMPILE ERROR: b is Moved
-
-var c = take List.init(&gpa)?;
-if (someCondition) {
-    c.deinit();                      // c: Discharged on this branch only
-}
-c.append(1)?;                        // COMPILE ERROR: "deinit" obligation on c might be resolved
-```
-
-Assigning to a field of type `Owned<T>` when that field is `Live` is a compile error. The existing obligation must be resolved before the field can receive a new value. Example syntax depends on partial moves — deferred.
-
-`&T` and `&var T` fields have no such restrictions since they carry no obligations.
-
----
-
-## Ownership Transfer - give and take
-
-`give` is a call-site keyword. `take` is a receiver keyword — used in parameter declarations as a capability marker, and at call sites when accepting obligation authority from a return value or move.
-
-```
-give    // caller surrenders ownership into a function argument
-take    // receiver capability declaration — accepts Handle<T> or Owned<T>, monomorphised at call site
-        // also used at call site when accepting the result of a call or a move
-```
-
-### Give
-
-```
-fn example(allocator: &TransferringAllocator): void {
-    let myValue = take allocator.alloc(Node); // myValue is Owned<T>
-    consume(give myValue); 
-}
-
-fn example(allocator: &RetainingAllocator): void {
-    let myValue = take allocator.alloc(Node); // myValue is Handle<T>
-    consume(give myValue); 
-}
-
-fn example(myValue: &var MyType): void {
-    consume(give myValue);                     // COMPILE ERROR: No obligation authority
-}
-
-fn consume(myValue: take MyType): Result<void> { 
-    consume(give myValue);                     // myValue is either Owned<T> or Handle<T>, monomorphised at compile time.
-}
-```
-
-### Take
-
-You are required to `take` ownership of the obligations associated with the returned instance.
-```
-var node = take Node.init(&gpa)?;    // correct
-var node = Node.init(&gpa)?;         // COMPILE ERROR: Owned<T> must be taken
-```
-
-Moves must be `take`n
-```
-var node = take Node.init(&gpa)?;    
-var a = take b;                      // correct. a is now live with b's obligations, b is inaccessible
-var anotherNode = node;             // COMPILE ERROR: Move must be taken
-```
-
-Deconstruction must be `take`n
-```
-let (x, y, z) = take myPoint;       // correct
-let (x, y, z) = myPoint;            // COMPILE ERROR: Move must be taken
-```
----
-
-## Unsafe Fields
-
-// todo: is this needed now? Or much later. It would be needed in order to give a completely satisfactory `Owned<DoublyLinkedList>`. Might _not_ be needed in order to give a complete `Handle<DoublyLinkedList>`.
-
-Fields carrying use-after-free or pointer safety risk are marked `unsafe` at declaration:
-
-```
-struct Node<T> {
-    value:           T,
-    next:            Option<Owned<Node<T>>>,
-    unsafe previous: Option<&Node<T>>,   // back reference with a risk of use-after-free
-}
-```
-
-**Setting** an unsafe field requires no annotation. 
-
-```
-node.previous = Some(&parent);
-```
-todo: due to the While this should always give a result, this isn't described on the field. Either Result wrapping is implicit due to the `unsafe` keyword, or should be described on the field.
-
-**Reading or mutating** through an unsafe field requires `unsafe` at the access site and always produces a `Result`:
-
-```
-let prev = unsafe node.previous?;        // Result<Option<&Node<T>>, UnsafeError>
-unsafe node.previous.doSomething()?;     // Result<void, UnsafeError>
-```
-
----
-
-## Allocators
-
-Byron has two allocator interfaces. The allocator you choose declares your ownership intent — this is architecture documentation that the compiler enforces mechanically.
-
-### TransferringAllocator
-
-Returns `Owned<T>`. The caller takes the obligation. Each resource has an independent lifetime and must be individually resolved.
-
-```
-interface TransferringAllocator {
-    fn alloc<T>(self: &var Self): Result<Owned<T>>,
-    fn free<T>(self: &var Self, value: Owned<T>): Result<void>,
-}
-```
-
-```
-var gpa = take GeneralPurposeAllocator.init()?;
-var node = take gpa.alloc(Node<i32>)?;
-node.free();
-gpa.deinit();
-```
-
-### RetainingAllocator
-
-Returns `Handle<T>`. The allocator retains the Owned<T> and thereby all memory responsibility. Resources are freed when the allocator is deinited with no individual resolution required or even possible. An ArenaAllocator would be an example
-
-```
-interface RetainingAllocator {
-    fn alloc<T>(self: &var Self): Result<Handle<T>>,
-}
-```
-
-```
-var scoped = take ArenaAllocator.init()?;
-var node = take scoped.alloc(Node<i32>)?;        // allocator owns the memory obligation, but we've taken obligation authority
-scoped.deinit();                                  // node is now freed
-```
----
-
-Note: At some point, an `UnsafeAllocator` interface can exist to allow the developer to sidestep the `Owned<T>` when the fat pointer is unsuited to the task at hand. 
-
-## Results and Error Propagation
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-###############################
-Continue from here
-###############################
 
 
 
@@ -520,6 +898,7 @@ Continue from here
 
 
 ---
+# LLM Segments
 
 ## Review Checkpoint
 
@@ -544,7 +923,7 @@ These affect the sections below and need decisions before they can be finalized:
 3. **`free()` — top-level only, or recursive into owned fields?**
    If T has `Owned<T>` fields, does `free()` recurse into them? Current implied answer: no — field cleanup requires partial moves (deferred). Confirm this is intentional.
 
-4. **Handle<T) authority scope**
+4. **Handle<T> authority scope**
    Can a Handle<T> call `@obligates`-decorated factory functions that produce new obligation-bearing return values? (e.g. `handle.beginTransaction()` returning `Owned<Transaction>`.) Or is Handle only for resolving obligations already on it?
 
 5. **CFG join point resolution**
