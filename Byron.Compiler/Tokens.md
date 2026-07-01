@@ -1,26 +1,27 @@
 # Keywords
 ```
     pub fn struct trait enum union implement 
-    if else while for match or and
+    if else while for match
     use where
     return continue break 
     let var
     give take
     defer errordefer
-    void 
-    Self
+    void Unit
+    Self self
     as 
-    import 
-    unsafe
+    onerror
+    import using
+    unsafe untracked
     type typeof  
-    dynamic 
+    dynamic
     async await
     comptime
 ```
 # Reserved constructors / identifiers
 To be treated as keywords for now
 ```
-    Ok Some None Unit Error true false
+    Ok Some None Error true false
 ```
 # Symbols
 
@@ -56,11 +57,9 @@ To be treated as keywords for now
     ///
     /* */
 ```
-
-
 # Literals
 - Identifiers
 - NumericLiteral
 - StringLiteral
 - BooleanLiteral
-- RuneLiteral
+- RuneLiteral / CharLiteral

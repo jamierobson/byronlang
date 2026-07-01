@@ -200,6 +200,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 
     const myBar = allocator.alloc<Bar>()?;
     // myBar.free(); // Did not resolve obligation or return the instance
+    Return Ok;
 
 }
 ```
@@ -212,6 +213,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
     const myBar = allocator.alloc<Bar>()?;
     myBar.free();
     myBar.free(); // Tried to resolve obligation a second time
+    Return Ok;
 }
 ```
 
@@ -227,6 +229,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
     } else {
         // Did not resolve obligation in this execution path
     }
+    Return Ok;
 }
 ```
 
@@ -236,6 +239,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 fn foo(allocator: &var TransferringAllocator): Result<void> {
     const myBar = allocator.alloc<Bar>();
     myBar.free(); // Did not handle the Error path of the result
+    Return Ok;
 }
 ```
 
@@ -254,6 +258,7 @@ take    // caller accepts the ownership of a returned instance from a call or a 
 fn example(allocator: &TransferringAllocator): Result<void> {
     let myValue = take allocator.alloc<MyType>()?;
     consume(give myValue); 
+    Return Ok;
 }
 
 fn consume(myValue: take Owned<MyType>): void { 
