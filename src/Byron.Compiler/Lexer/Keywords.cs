@@ -35,6 +35,7 @@ public static class Keywords
         // --- Error handling ---
         ["defer"]       = TokenKind.Defer,
         ["errordefer"]  = TokenKind.ErrorDefer,
+        ["errdefer"]  = TokenKind.ErrorDefer,
         ["onerror"]     = TokenKind.OnError,
 
         // --- Types ---
@@ -80,10 +81,6 @@ public static class Keywords
         ["Error"]       = TokenKind.Error,
     };
 
-    // todo: Don't have this be an out, prefer (bool, value)
-    public static bool TryGet(string text, out TokenKind kind)
-        => TokenKindMap.TryGetValue(text, out kind);
-
-    public static TokenKind GetOrIdentifier(string text)
-        => TokenKindMap.TryGetValue(text, out var kind) ? kind : TokenKind.Identifier;
+    public static TokenKind GetOrAssumeIdentifier(string text) 
+        => TokenKindMap.GetValueOrDefault(text, TokenKind.Identifier);
 }

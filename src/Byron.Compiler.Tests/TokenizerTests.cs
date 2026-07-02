@@ -3,10 +3,10 @@ using Xunit;
 
 namespace Byron.Compiler.Tests;
 
-public class LexerTests
+public class TokenizerTests
 {
     private static List<Token> Lex(string source)
-        => new Byron.Compiler.Lexer.Lexer(source).Tokenise();
+        => new Tokenizer(source).Tokenise();
 
     private static Token SingleToken(string source)
     {
@@ -29,6 +29,7 @@ public class LexerTests
     [InlineData("while",     TokenKind.While)]
     [InlineData("defer",     TokenKind.Defer)]
     [InlineData("errordefer",TokenKind.ErrorDefer)]
+    [InlineData("errdefer",TokenKind.ErrorDefer)]
     [InlineData("onerror",   TokenKind.OnError)]
     [InlineData("import",    TokenKind.Import)]
     [InlineData("unsafe",    TokenKind.Unsafe)]
@@ -75,6 +76,8 @@ public class LexerTests
 
     [Theory]
     [InlineData("0",      0L)]
+    [InlineData("00",      0L)]
+    [InlineData("01",      1L)]
     [InlineData("42",     42L)]
     [InlineData("1_000",  1000L)]
     [InlineData("0xFF",   255L)]
