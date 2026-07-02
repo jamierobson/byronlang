@@ -29,6 +29,24 @@ Todo:
 ### Other
 - Need to decide between `void` and `Unit` as the nothing type.
 - Need to design the constructions for `Ok` `Some` `None` `Error` pattern matching
+- We need a SystemAllocator that is a special exception that we must document. Users can write their own allicators and pull this in.
+- `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
+
+```
+if let Some(_) = maybeValue {...} else {...}
+if let Error(_) = resultValue {...}
+let _ = returnsValue
+```
+
+### Error and Option bindings
+- Result and Option binding follow same patterns:
+```
+if let Some(binding) = maybeValue {...} else {...} // binding is immutable
+if var Some(binding) = maybeValue {...} else {...} // binding is mutable
+if let Ok(binding) = resultValue {...} else {...} // binding is immutable
+if var Ok(binding) = resultValue {...} else {...} // binding is mutable
+if let Error(e) = resultValue {...} // e is of course immutable
+```
 
 
 
