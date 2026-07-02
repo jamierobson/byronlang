@@ -33,19 +33,19 @@ Todo:
 - `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
 
 ```
-if let Some(_) = maybeValue {...} else {...}
-if let Error(_) = resultValue {...}
-let _ = returnsValue
+if let Some(_) = take maybeValue {...} else {...}
+if let Error(_) = take resultValue {...}
+let _ = take returnsValue
 ```
 
 ### Error and Option bindings
 - Result and Option binding follow same patterns:
 ```
-if let Some(binding) = maybeValue {...} else {...} // binding is immutable
-if var Some(binding) = maybeValue {...} else {...} // binding is mutable
-if let Ok(binding) = resultValue {...} else {...} // binding is immutable
-if var Ok(binding) = resultValue {...} else {...} // binding is mutable
-if let Error(e) = resultValue {...} // e is of course immutable
+if let Some(binding) = take maybeValue {...} else {...} // binding is immutable
+if var Some(binding) = take maybeValue {...} else {...} // binding is mutable
+if let Ok(binding) = take resultValue {...} else {...} // binding is immutable
+if var Ok(binding) = take resultValue {...} else {...} // binding is mutable
+if let Error(e) = take resultValue {...} // e is of course immutable
 ```
 
 
