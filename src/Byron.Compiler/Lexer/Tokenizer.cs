@@ -3,9 +3,9 @@ namespace Byron.Compiler.Lexer;
 public class Tokenizer
 {
     private readonly string _source;
-    private int    _position;
-    private int    _line;
-    private int    _firstCharacterOffset;
+    private int _position;
+    private int _line;
+    private int _firstCharacterOffset;
 
     public Tokenizer(string source)
     {
@@ -59,7 +59,7 @@ public class Tokenizer
         {
             return ScanChar(initialPosition);
         }
-        //
+        
         // if (character == '`')
         // {
         //     return ScanSingleChar(TokenKind.Backtick, initialPosition);
@@ -313,10 +313,14 @@ public class Tokenizer
             ']' => Token.Create(TokenKind.RBracket,  "]", PunctuationSpan()),
             '<' => MatchAndAdvance('=') 
                 ? Token.Create(TokenKind.LessEquals, "<=", PunctuationSpan())
-                : Token.Create(TokenKind.LAngle, "<", PunctuationSpan()),
+                : MatchAndAdvance('<')
+                    ? Token.Create(TokenKind.LAngleLAngle, "<<", PunctuationSpan())
+                    : Token.Create(TokenKind.LAngle, "<", PunctuationSpan()),
             '>' => MatchAndAdvance('=') 
                 ? Token.Create(TokenKind.GreaterEquals, ">=", PunctuationSpan())
-                : Token.Create(TokenKind.RAngle,">", PunctuationSpan()),
+                : MatchAndAdvance('>')
+                    ? Token.Create(TokenKind.RAngleRAngle,">>", PunctuationSpan())
+                    : Token.Create(TokenKind.RAngle,">", PunctuationSpan()),
             ',' => Token.Create(TokenKind.Comma, ",", PunctuationSpan()),
             ';' => Token.Create(TokenKind.Semicolon, ";", PunctuationSpan()),
             '|' => MatchAndAdvance('|') 
@@ -326,7 +330,7 @@ public class Tokenizer
                 ? Token.Create(TokenKind.AmpAmp, "&&", PunctuationSpan())
                 : Token.Create(TokenKind.Ampersand, "&", PunctuationSpan()),
             ':' => MatchAndAdvance(':') 
-                ? Token.Create(TokenKind.DoubleColon, "::", PunctuationSpan())
+                ? Token.Create(TokenKind.ColonColon, "::", PunctuationSpan())
                 : Token.Create(TokenKind.Colon, ":", PunctuationSpan()),
             '.' => MatchAndAdvance('.') 
                 ? MatchAndAdvance('=') 

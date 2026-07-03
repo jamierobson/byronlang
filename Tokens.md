@@ -57,6 +57,7 @@ void Unit
     & * + - / ^
     && ||
     += -= *= /=
+    >> <<
 ```
 - Future reserved
 ```

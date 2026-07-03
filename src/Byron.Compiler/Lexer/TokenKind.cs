@@ -86,7 +86,7 @@ public enum TokenKind
     Dot,            // .
     Comma,          // ,
     Colon,          // :
-    DoubleColon,    // ::
+    ColonColon,     // ::
     Semicolon,      // ;
     Pipe,           // |
 
@@ -99,6 +99,9 @@ public enum TokenKind
     BangEquals,     // !=
     LessEquals,     // <=
     GreaterEquals,  // >=
+    
+    RAngleRAngle,   // >>
+    LAngleLAngle,   // <<
 
     Ampersand,      // &
     AmpAmp,         // &&

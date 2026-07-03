@@ -39,28 +39,70 @@ let _ = take returnsValue
 ```
 
 ### Error and Option bindings
+
+Initially, I wrote:
 - Result and Option binding follow same patterns:
 ```
 if let Some(binding) = take maybeValue {...} else {...} // binding is immutable
 if var Some(binding) = take maybeValue {...} else {...} // binding is mutable
 if let Ok(binding) = take resultValue {...} else {...} // binding is immutable
 if var Ok(binding) = take resultValue {...} else {...} // binding is mutable
-if let Error(e) = take resultValue {...} // e is of course immutable
 ```
 
+but the if let Ok(binding) = take resultValue {...} else {...}, we lose the error case. I like if if let / if var
+constructions. How can we keep this? 
+
+- `if var Ok(binding) = result ... { binding is a var success case } else { binding shouldn't be variable here. }`
+- `if var Ok(binding) = result ... { binding is live } else { result is live }`
+
+Perhaps we have to introduce pattern matching earlier
+What is the mutability state of `myValue` and `e` in the below?
+```
+match take resultValue {
+   Ok(myValue) => {}
+   Error(e) => {}
+}
+```
+We like the `if var Some(x) = maybe` even as sugar, and if we want to lower it to a match then we should probably keep the [mutability] Some(binding), so a match could look like
+
+```
+match take resultValue {
+   var Ok(myValue) => {...}
+   let Error(e) => {...}
+}
+```
+
+## Parser
+
+### Strategy
+- Pratt for expressions
+- Recursive descernt for statements and declarations
+- Every nud handles prefix position
+- Every led handles infix/postfix position
+
+### Operator Prescedencce
+```
+1  onerror
+2  ||
+3  &&
+4  == !=
+5  < > <= >=
+6  + -
+7  * /
+8  unary: ! -
+9  take
+10 postfix: . () [] ?
+```
+
+### Associativity
+
+Left associative: `+ - * / && || == != < > <= >=`
+Right associative: `= onerror`
 
 
-
-
-
-
-
-
-
-
-
-
-
+### Other
+- Collect as many errors as possible in one compilation attempt, synchronizing on `;` and `}`
+- `take` only valid only on expressions that produce an owned value
 
 
 

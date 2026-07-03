@@ -29,7 +29,7 @@ public class TokenizerTests
     [InlineData("while",     TokenKind.While)]
     [InlineData("defer",     TokenKind.Defer)]
     [InlineData("errordefer",TokenKind.ErrorDefer)]
-    [InlineData("errdefer",TokenKind.ErrorDefer)]
+    [InlineData("errdefer",  TokenKind.ErrorDefer)]
     [InlineData("onerror",   TokenKind.OnError)]
     [InlineData("import",    TokenKind.Import)]
     [InlineData("unsafe",    TokenKind.Unsafe)]
@@ -41,6 +41,8 @@ public class TokenizerTests
     [InlineData("Self",      TokenKind.CapitalSelf)]
     [InlineData("and",       TokenKind.And)]
     [InlineData("or",        TokenKind.Or)]
+    [InlineData("union",     TokenKind.Union)]
+    [InlineData("match",     TokenKind.Match)]
     public void Keywords_AreRecognised(string source, TokenKind expected)
     {
         var token = SingleToken(source);
@@ -155,7 +157,9 @@ public class TokenizerTests
     [InlineData("=>", TokenKind.FatArrow)]
     [InlineData("..", TokenKind.DotDot)]
     [InlineData("..=",TokenKind.DotDotEquals)]
-    [InlineData("::", TokenKind.DoubleColon)]
+    [InlineData("::", TokenKind.ColonColon)]
+    [InlineData(">>", TokenKind.RAngleRAngle)]
+    [InlineData("<<", TokenKind.LAngleLAngle)]
     public void Operators_MultiChar_AreRecognised(string source, TokenKind expected)
     {
         var token = SingleToken(source);

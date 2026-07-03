@@ -79,13 +79,11 @@ You cannot resolve the `free` obligation on an instance upon which you do not ho
 
 `Owned<T>` carries an obligation to call `free`
 
-### The Result\<T, E\> obligation
+### Result\<T, E\>
 
-`Result<T. E>` is an obligation with two resolvers — the `Ok` branch and the `Error` branch. All potential errors must be handled on every code path.
+`Result<T. E>` carries an obligation to handle the error from an error branch, as well as any ownership obligation from the success branch. All potential errors must be handled on every code path.
 
 ### How Obligations Are Resolved
-
-// todo we need to fill in all of the result requirements here too, or strip them out in preference of a results section
 
 - Returning the bound instance, transferring the bound obligations to the caller
 - `give`ing the bound instance to a function that is willing to accept obligation authority (denoted by a `take Owned<T>` argument), transferring bound obligations to the receiver.
@@ -101,7 +99,7 @@ struct  TransferringAllocator {
 }
 
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = allocatoralloc<Bar>()?;
+    const myBar = take allocatoralloc<Bar>()?;
 
     // Note that the obligation is to call .free on the myBar instance
     myBar.free();
@@ -118,7 +116,7 @@ struct TransferringAllocator {
 }
 
 fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
-    const myBar = allocatoralloc<Bar>()?;
+    const myBar = take allocatoralloc<Bar>()?;
 
     // ...
 
@@ -139,7 +137,7 @@ fn receive(take myBar: Owned<Bar>): void {
 }
 
 fn foo(allocator: &var TransferringAllocator): void {
-    const myBar = allocator.alloc<Bar>() onerror return;
+    const myBar = take allocator.alloc<Bar>() onerror { return; };
 
     // ...
 
@@ -157,7 +155,7 @@ struct TransferringAllocator {
 }
 
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = allocator.alloc<Bar>()?
+    const myBar = take allocator.alloc<Bar>()?
     myBar.free();
     Return Ok;
 }
@@ -172,17 +170,22 @@ struct TransferringAllocator {
     fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
 }
 
-fn receive(take myBar: Owned<Bar>): void {
-    myBar.free();
-}
-
-fn foo(allocator: &var TransferringAllocator): void {
-    const myBar = allocator.alloc<Bar>() onerror { 
-        return;
+fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
+    const myBar = take allocator.alloc<Bar>() onerror e { 
+        logError(e)
+        return e;
     };
-    myBar.free();
+    return myBar;
 }
 ```
+
+```
+fn foo(): Option<i32> {
+    const myBar = someIntFunctionThatCanError() onerror 0;
+    Return Some(myBar)
+}
+```
+
 
 ### Compilation failures
 
@@ -198,7 +201,7 @@ struct TransferringAllocator {
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
 
-    const myBar = allocator.alloc<Bar>()?;
+    const myBar = take allocator.alloc<Bar>()?;
     // myBar.free(); // Did not resolve obligation or return the instance
     Return Ok;
 
@@ -210,7 +213,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
 
-    const myBar = allocator.alloc<Bar>()?;
+    const myBar = take allocator.alloc<Bar>()?;
     myBar.free();
     myBar.free(); // Tried to resolve obligation a second time
     Return Ok;
@@ -223,7 +226,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 fn foo(allocator: &var TransferringAllocator): Result<void> {
     let myBool = false;
 
-    const myBar = allocator.alloc<Bar>()?;
+    const myBar = take allocator.alloc<Bar>()?;
     if(myBool) {
         myBar.free();
     } else {
@@ -237,7 +240,7 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = allocator.alloc<Bar>();
+    const myBar = take allocator.alloc<Bar>();
     myBar.free(); // Did not handle the Error path of the result
     Return Ok;
 }
