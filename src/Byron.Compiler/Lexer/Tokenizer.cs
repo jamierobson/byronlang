@@ -73,7 +73,7 @@ public class Tokenizer
     {
         while (!ReachedEndOfFile() && (char.IsLetterOrDigit(Peek()) || Peek() == '_'))
         {
-            Advance();
+            Consume();
         }
 
         var lexeme = _source[start.._position];
@@ -101,30 +101,30 @@ public class Tokenizer
         // Decimal integer or float
         while (!ReachedEndOfFile() && (char.IsDigit(Peek()) || Peek() == '_'))
         {
-            Advance();
+            Consume();
         }
 
         // Float detection
         if (!ReachedEndOfFile() && Peek() == '.' && _position + 1 < _source.Length && char.IsDigit(_source[_position + 1]))
         {
-            Advance(); // skips '.'
+            Consume(); // .
             while (!ReachedEndOfFile() && (char.IsDigit(Peek()) || Peek() == '_'))
             {
-                Advance();
+                Consume();
             }
 
             // Exponent
             if (!ReachedEndOfFile() && (Peek() == 'e' || Peek() == 'E'))
             {
-                Advance();
+                Consume();
                 if (!ReachedEndOfFile() && (Peek() == '+' || Peek() == '-'))
                 {
-                    Advance();
+                    Consume();
                 }
                 
                 while (!ReachedEndOfFile() && char.IsDigit(Peek()))
                 {
-                    Advance();
+                    Consume();
                 }
             }
 
@@ -148,9 +148,9 @@ public class Tokenizer
 
     private Token ScanHex(int start)
     {
-        Advance(); Advance(); // skips over 0x
+        Consume(); Consume(); // 0x
         var digitStart = _position;
-        while (!ReachedEndOfFile() && (IsHexDigit(Peek()) || Peek() == '_')) Advance();
+        while (!ReachedEndOfFile() && (IsHexDigit(Peek()) || Peek() == '_')) Consume();
 
         var digits = _source[digitStart.._position].Replace("_", "");
         if (digits.Length == 0)
@@ -168,9 +168,9 @@ public class Tokenizer
 
     private Token ScanBinary(int start)
     {
-        Advance(); Advance(); // skips over 0b
+        Consume(); Consume(); // 0b
         var digitStart = _position;
-        while (!ReachedEndOfFile() && (Peek() == '0' || Peek() == '1' || Peek() == '_')) Advance();
+        while (!ReachedEndOfFile() && (Peek() == '0' || Peek() == '1' || Peek() == '_')) Consume();
 
         var digits = _source[digitStart.._position].Replace("_", "");
         if (digits.Length == 0)
@@ -191,11 +191,11 @@ public class Tokenizer
 
     private Token ScanOctal(int start)
     {
-        Advance(); Advance(); // skips 0o
+        Consume(); Consume(); // 0o
         var digitStart = _position;
         while (!ReachedEndOfFile() && ((Peek() >= '0' && Peek() <= '7') || Peek() == '_'))
         {
-            Advance();
+            Consume();
         }
 
         var digits = _source[digitStart.._position].Replace("_", "");
@@ -217,7 +217,7 @@ public class Tokenizer
 
     private Token ScanString(int start)
     {
-        Advance(); // skips opening "
+        Consume(); // Opening "
         var value = new System.Text.StringBuilder();
 
         while (!ReachedEndOfFile() && Peek() != '"')
@@ -230,8 +230,8 @@ public class Tokenizer
 
             if (Peek() == '\\')
             {
-                Advance(); // skips backslash
-                var escapeCharacter = ReachedEndOfFile() ? '\0' : Advance();
+                Consume(); // backslash
+                var escapeCharacter = ReachedEndOfFile() ? '\0' : Consume();
                 value.Append(escapeCharacter switch
                 {
                     'n'  => '\n',
@@ -245,7 +245,7 @@ public class Tokenizer
             }
             else
             {
-                value.Append(Advance());
+                value.Append(Consume());
             }
         }
 
@@ -254,13 +254,13 @@ public class Tokenizer
             return Token.Error(_source[start.._position], "Unterminated string literal", CreateSourceSpan(start, _position));
         }
 
-        Advance(); // skip closing "
+        Consume(); // Closing "
         return Token.CreateWithValue(TokenKind.StringLiteral, _source[start.._position], value.ToString(), CreateSourceSpan(start, _position));
     }
 
     private Token ScanChar(int start)
     {
-        Advance(); // skip opening '
+        Consume(); // Opening '
 
         if (ReachedEndOfFile() || Peek() == '\n')
         {
@@ -270,8 +270,8 @@ public class Tokenizer
         char value;
         if (Peek() == '\\')
         {
-            Advance();
-            var escapeCharacter = ReachedEndOfFile() ? '\0' : Advance();
+            Consume();
+            var escapeCharacter = ReachedEndOfFile() ? '\0' : Consume();
             value = escapeCharacter switch
             {
                 'n'  => '\n',
@@ -285,7 +285,7 @@ public class Tokenizer
         }
         else
         {
-            value = Advance();
+            value = Consume();
         }
 
         if (ReachedEndOfFile() || Peek() != '\'')
@@ -293,7 +293,7 @@ public class Tokenizer
             return Token.Error(_source[start.._position], "Unterminated rune literal (expected closing ')", CreateSourceSpan(start, _position));
         }
 
-        Advance(); // skip closing '
+        Consume(); // Closing '
         return Token.CreateWithValue(TokenKind.RuneLiteral, _source[start.._position], value, CreateSourceSpan(start, _position));
     }
 
@@ -301,7 +301,7 @@ public class Tokenizer
     {
         SourceSpan PunctuationSpan() => CreateSourceSpan(start, _position);
         
-        var character = Advance();
+        var character = Consume();
 
         return character switch
         {
@@ -311,56 +311,56 @@ public class Tokenizer
             ')' => Token.Create(TokenKind.RParen,    ")", PunctuationSpan()),
             '[' => Token.Create(TokenKind.LBracket,  "[", PunctuationSpan()),
             ']' => Token.Create(TokenKind.RBracket,  "]", PunctuationSpan()),
-            '<' => MatchAndAdvance('=') 
+            '<' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.LessEquals, "<=", PunctuationSpan())
-                : MatchAndAdvance('<')
+                : ConsumingMatch('<')
                     ? Token.Create(TokenKind.LAngleLAngle, "<<", PunctuationSpan())
                     : Token.Create(TokenKind.LAngle, "<", PunctuationSpan()),
-            '>' => MatchAndAdvance('=') 
+            '>' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.GreaterEquals, ">=", PunctuationSpan())
-                : MatchAndAdvance('>')
+                : ConsumingMatch('>')
                     ? Token.Create(TokenKind.RAngleRAngle,">>", PunctuationSpan())
                     : Token.Create(TokenKind.RAngle,">", PunctuationSpan()),
             ',' => Token.Create(TokenKind.Comma, ",", PunctuationSpan()),
             ';' => Token.Create(TokenKind.Semicolon, ";", PunctuationSpan()),
-            '|' => MatchAndAdvance('|') 
+            '|' => ConsumingMatch('|') 
                 ? Token.Create(TokenKind.PipePipe, "||", PunctuationSpan())
                 : Token.Create(TokenKind.Pipe, "|", PunctuationSpan()),
-            '&' => MatchAndAdvance('&') 
-                ? Token.Create(TokenKind.AmpAmp, "&&", PunctuationSpan())
+            '&' => ConsumingMatch('&') 
+                ? Token.Create(TokenKind.AmpersandAmpersand, "&&", PunctuationSpan())
                 : Token.Create(TokenKind.Ampersand, "&", PunctuationSpan()),
-            ':' => MatchAndAdvance(':') 
+            ':' => ConsumingMatch(':') 
                 ? Token.Create(TokenKind.ColonColon, "::", PunctuationSpan())
                 : Token.Create(TokenKind.Colon, ":", PunctuationSpan()),
-            '.' => MatchAndAdvance('.') 
-                ? MatchAndAdvance('=') 
+            '.' => ConsumingMatch('.') 
+                ? ConsumingMatch('=') 
                     ? Token.Create(TokenKind.DotDotEquals, "..=", PunctuationSpan())
                     : Token.Create(TokenKind.DotDot, "..", PunctuationSpan())
                     : Token.Create(TokenKind.Dot, ".", PunctuationSpan()),
-            '=' => MatchAndAdvance('=') 
+            '=' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.EqualsEquals, "==", PunctuationSpan())
-                : MatchAndAdvance('>') 
+                : ConsumingMatch('>') 
                         ? Token.Create(TokenKind.FatArrow, "=>", PunctuationSpan())
                         : Token.Create(TokenKind.Equals, "=", PunctuationSpan()),
-            '!' => MatchAndAdvance('=') 
+            '!' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.BangEquals, "!=", PunctuationSpan())
                 : Token.Create(TokenKind.Bang, "!", PunctuationSpan()),
-            '+' => MatchAndAdvance('=') 
+            '+' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.PlusEquals, "+=", PunctuationSpan())
                 : Token.Create(TokenKind.Plus, "+", PunctuationSpan()),
-            '-' => MatchAndAdvance('=') 
+            '-' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.MinusEquals, "-=", PunctuationSpan())
-                : MatchAndAdvance('>') 
+                : ConsumingMatch('>') 
                     ? Token.Create(TokenKind.Arrow, "->", PunctuationSpan())
                     : Token.Create(TokenKind.Minus, "-", PunctuationSpan()),
-            '*' => MatchAndAdvance('=') 
+            '*' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.StarEquals, "*=", PunctuationSpan())
                 : Token.Create(TokenKind.Star, "*", PunctuationSpan()),
-            '/' => MatchAndAdvance('=') 
+            '/' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.SlashEquals, "/=", PunctuationSpan())
-                : MatchAndAdvance('/') 
+                : ConsumingMatch('/') 
                     ? ScanLineComment(start)
-                    : MatchAndAdvance('*') 
+                    : ConsumingMatch('*') 
                         ? ScanBlockComment(start)
                         : Token.Create(TokenKind.Slash, "/", PunctuationSpan()),
             '^' => Token.Create(TokenKind.Caret, "^", PunctuationSpan()),
@@ -383,7 +383,7 @@ public class Tokenizer
 
         while (!ReachedEndOfFile() && Peek() != '\n')
         {
-            Advance();
+            Consume();
         }
 
         var kind = isDocumentComment ? TokenKind.DocComment : TokenKind.LineComment;
@@ -400,18 +400,18 @@ public class Tokenizer
         {
             if (Peek() == '/' && _position + 1 < _source.Length && _source[_position + 1] == '*')
             {
-                Advance(); Advance();
+                Consume(); Consume();
                 depth++;
             }
             else if (Peek() == '*' && _position + 1 < _source.Length && _source[_position + 1] == '/')
             {
-                Advance(); Advance();
+                Consume(); Consume();
                 depth--;
             }
             else
             {
                 if (Peek() == '\n') TrackNewline();
-                Advance();
+                Consume();
             }
         }
 
@@ -430,12 +430,12 @@ public class Tokenizer
             var character = Peek();
             if (character == '\n')
             {
-                Advance();
+                Consume();
                 TrackNewline();
             }
             else if (char.IsWhiteSpace(character))
             {
-                Advance();
+                Consume();
             }
             else
             {
@@ -454,13 +454,13 @@ public class Tokenizer
 
     private char Peek() => _source[_position];
 
-    private char Advance()
+    private char Consume()
     {
         var character = _source[_position++];
         return character;
     }
 
-    private bool MatchAndAdvance(char expected)
+    private bool ConsumingMatch(char expected)
     {
         if (ReachedEndOfFile() || _source[_position] != expected)
         {

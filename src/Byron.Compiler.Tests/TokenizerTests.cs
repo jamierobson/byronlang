@@ -147,7 +147,7 @@ public class TokenizerTests
     [InlineData("!=", TokenKind.BangEquals)]
     [InlineData("<=", TokenKind.LessEquals)]
     [InlineData(">=", TokenKind.GreaterEquals)]
-    [InlineData("&&", TokenKind.AmpAmp)]
+    [InlineData("&&", TokenKind.AmpersandAmpersand)]
     [InlineData("||", TokenKind.PipePipe)]
     [InlineData("+=", TokenKind.PlusEquals)]
     [InlineData("-=", TokenKind.MinusEquals)]
