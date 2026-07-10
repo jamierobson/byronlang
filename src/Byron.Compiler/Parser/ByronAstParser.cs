@@ -5,12 +5,12 @@ using Byron.Compiler.AST.HighLevel;
 namespace Byron.Compiler.Parser;
 
 // TODO: Split this out into partial files (Declarations, Statements, Expressions) when it gets unwieldy.
-public class AstParser
+public class ByronAstParser
 {
     private readonly List<Token> _tokens;
     private int _activeTokenIndex = 0;
 
-    public AstParser(List<Token> tokens) => _tokens = tokens;
+    public ByronAstParser(List<Token> tokens) => _tokens = tokens;
 
     public ProgramNode Parse()
     {
@@ -23,7 +23,7 @@ public class AstParser
         return new ProgramNode([..functions]);
     }
 
-    private FunctionDeclarationNode ParseFunctionDeclaration()
+    public FunctionDeclarationNode ParseFunctionDeclaration()
     {
         var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
         var nameToken = Consume(TokenKind.Identifier, "Expected function name.");

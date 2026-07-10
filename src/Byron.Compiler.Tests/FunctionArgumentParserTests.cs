@@ -1,15 +1,14 @@
-using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Xunit;
-using ReceiverBindingOwnership = Byron.Compiler.AST.ReceiverBindingOwnership;
+using Byron.Compiler.AST;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
 namespace Byron.Compiler.Tests;
 
-public class AstParserTests
+public class FunctionArgumentParserTests
 {
-    private Token ToToken(TokenKind kind, string lexeme)
+    private static Token ToToken(TokenKind kind, string lexeme)
     {
         return Token.Create(kind, lexeme, SourceSpan.Empty);        
     }
@@ -29,10 +28,10 @@ public class AstParserTests
     public void Parse_WithEmptyArguments_ReturnsEmptyList()
     {
         // Arrange
-        var tokenStream = CreateFunctionArgumentTokenStream();
+        var tokenStream = CreateFunctionArgumentTokenStream(); //()
 
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
 
         // Assert
         Assert.Empty(result);
@@ -42,10 +41,10 @@ public class AstParserTests
     public void Parse_WithNoClosingBrace_Throws()
     {
         // Arrange
-        List<Token> tokenStream = [ ToToken(TokenKind.LParen, "(") ];
+        List<Token> tokenStream = [ ToToken(TokenKind.LParen, "(") ]; // (
     
         // Act + Assert
-        Assert.ThrowsAny<Exception>(() => new AstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronParserException>(() => new ByronAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -56,10 +55,10 @@ public class AstParserTests
             (TokenKind.Identifier, "x"),
             (TokenKind.Colon, ":"),
             (TokenKind.Identifier, "i32")
-        );
+        ); // (x: i32)
     
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
     
         // Assert
         Assert.Single(result);
@@ -71,7 +70,7 @@ public class AstParserTests
     }
     
     [Fact]
-    public void Parse_SingleIncompleteSecondArgument_Throws()
+    public void Parse_WithMissingSecondArgument_Throws()
     {
         // Arrange
         var tokenStream =  CreateFunctionArgumentTokenStream(       
@@ -79,10 +78,61 @@ public class AstParserTests
             (TokenKind.Colon, ":"),
             (TokenKind.Identifier, "i32"),
             (TokenKind.Comma, ",")
-        );
+        ); // (x: i32,)
     
         // Act + Assert
-        Assert.ThrowsAny<Exception>(() => new AstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronParserException>(() => new ByronAstParser(tokenStream).ParseFunctionArguments());
+    }
+    
+    [Fact]
+    public void Parse_WithMalformedSecondArgument_MissingIdentifier_Throws()
+    {
+        // Arrange
+        var tokenStream =  CreateFunctionArgumentTokenStream(       
+            (TokenKind.Identifier, "x"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Identifier, "i32"),
+            (TokenKind.Comma, ","),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Identifier, "i32")
+        ); // (x: i32, : i32)
+    
+        // Act + Assert
+        Assert.Throws<ByronParserException>(() => new ByronAstParser(tokenStream).ParseFunctionArguments());
+    }
+    
+    [Fact]
+    public void Parse_WithMalformedSecondArgument_MissingType_Throws()
+    {
+        // Arrange
+        var tokenStream =  CreateFunctionArgumentTokenStream(       
+            (TokenKind.Identifier, "x"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Identifier, "i32"),
+            (TokenKind.Comma, ","),
+            (TokenKind.Identifier, "y"),
+            (TokenKind.Colon, ":")
+        ); // (x: i32, y:)
+    
+        // Act + Assert
+        Assert.Throws<ByronParserException>(() => new ByronAstParser(tokenStream).ParseFunctionArguments());
+    }
+    
+    [Fact]
+    public void Parse_WithMalformedSecondArgument_MissingColon_Throws()
+    {
+        // Arrange
+        var tokenStream =  CreateFunctionArgumentTokenStream(       
+            (TokenKind.Identifier, "x"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Identifier, "i32"),
+            (TokenKind.Comma, ","),
+            (TokenKind.Identifier, "y"),
+            (TokenKind.Identifier, "i32")
+        ); // (x: i32, y i32)
+    
+        // Act + Assert
+        Assert.Throws<ByronParserException>(() => new ByronAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -100,7 +150,7 @@ public class AstParserTests
         );
     
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
     
         // Assert
         Assert.Equal(2, result.Count);
@@ -128,7 +178,7 @@ public class AstParserTests
         );
     
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
     
         // Assert
         Assert.Single(result);
@@ -151,7 +201,7 @@ public class AstParserTests
         );
     
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
     
         // Assert
         Assert.Single(result);
@@ -175,7 +225,7 @@ public class AstParserTests
         );
     
         // Act
-        var result = new AstParser(tokenStream).ParseFunctionArguments();
+        var result = new ByronAstParser(tokenStream).ParseFunctionArguments();
     
         // Assert
         Assert.Single(result);
