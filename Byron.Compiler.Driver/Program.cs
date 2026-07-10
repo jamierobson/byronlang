@@ -1,4 +1,5 @@
-﻿using Byron.Compiler.Lexer;
+﻿using Byron.Compiler.CodeGen;
+using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
 while (true)
@@ -17,6 +18,8 @@ async Task TryParseFile(string filePath)
         var tokens = new Tokenizer(string.Concat(sourceFileLines)).Tokenise();
         var ast = new ByronAstParser(tokens).Parse();
         Console.WriteLine("Parsed successfully to AST");
+        var generatedCode = new LlvmIrGenerator().Generate(ast);
+        Console.WriteLine($"Generated the following LLVMIR: {generatedCode}");
         _ = ast;
     }
     catch (ByronParserException e)
