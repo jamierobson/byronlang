@@ -1,0 +1,55 @@
+using Byron.Compiler.Lexer;
+
+// ReSharper disable once CheckNamespace
+namespace Byron.Compiler.AST.HighLevel;
+
+public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
+
+public abstract record AstNode(SourceSpan Span);
+
+public abstract record TopLevelDeclarationNode(SourceSpan Span) : AstNode(Span);
+
+public record ParameterNode(
+    ReceiverBindingOwnership Ownership,
+    string Name, 
+    TypeNode Type, 
+    SourceSpan Span) : AstNode(Span);
+
+public record FunctionDeclarationNode(
+    string Name, 
+    List<ParameterNode> Parameters, 
+    TypeNode ReturnType, 
+    BlockStatementNode Body, 
+    SourceSpan Span
+) : TopLevelDeclarationNode(Span);
+
+public abstract record StatementNode(SourceSpan Span) : AstNode(Span);
+public record BlockStatementNode(List<StatementNode> Statements, SourceSpan Span) : StatementNode(Span);
+public record ReturnStatementNode(ExpressionNode? Expression, SourceSpan Span) : StatementNode(Span);
+public record YieldStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span);
+public record DiscardStatementNode(ExpressionNode Initializer, SourceSpan Span) : StatementNode(Span);
+public record VariableDeclarationNode(
+    bool IsMutable,
+    string Name, 
+    TypeNode? ExplicitType, 
+    ExpressionNode Initializer, 
+    SourceSpan Span
+) : StatementNode(Span);
+
+public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
+public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
+public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
+public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
+public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span);
+
+public abstract record TypeNode(SourceSpan Span) : AstNode(Span);
+public abstract record BuiltInTypeNode(SourceSpan Span) : TypeNode(Span);
+public record VoidTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+public record UnitTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+public record Int64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+public record Int32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span);
+
+// Lowerable expressions
+public record OnErrorExpressionNode(ExpressionNode Source, ExpressionNode Fallback, SourceSpan Span) : ExpressionNode(Span);
+public record TryOperatorExpressionNode(ExpressionNode Source, SourceSpan Span) : ExpressionNode(Span);

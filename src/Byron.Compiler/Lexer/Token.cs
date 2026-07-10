@@ -13,9 +13,7 @@ public record Token(
     object?     Value,
     SourceSpan  Span)
 {
-    // Convenience constructors used inside the lexer
-    public static Token Create(TokenKind kind, string lexeme, SourceSpan span)
-        => new(kind, lexeme, null, span);
+    public static Token Create(TokenKind kind, string lexeme, SourceSpan span) => new(kind, lexeme, null, span);
 
     public static Token CreateWithValue(TokenKind kind, string lexeme, object value, SourceSpan span)
         => new(kind, lexeme, value, span);

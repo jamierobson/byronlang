@@ -104,7 +104,7 @@ public enum TokenKind
     LAngleLAngle,   // <<
 
     Ampersand,      // &
-    AmpAmp,         // &&
+    AmpersandAmpersand,         // &&
     PipePipe,       // ||
 
     Plus,           // +
