@@ -1,3 +1,4 @@
+using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.CodeGen;
@@ -84,10 +85,37 @@ public class LlvmIrGenerator
     {
         return node switch
         {
-            IntegerLiteralNode lit => (lit.Value.ToString(), "i32"), // Defaulting to i32 for now
-            VariableExpressionNode varExpr => (varExpr.Name, "i32"), // Quick placeholder
+            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"), // Defaulting to i32 for now
+            VariableExpressionNode variable => (variable.Name, "i32"), // Quick placeholder
+            BinaryExpressionNode binary => GenerateBinaryExpression(binary),
             _ => throw new NotImplementedException($"Expression {node.GetType().Name} is not implemented.")
         };
+    }
+    
+    private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
+    {
+        var (leftValue, leftType) = GenerateExpression(node.Left);
+        var (rightValue, rightType) = GenerateExpression(node.Right);
+
+        if (leftType != rightType)
+        {
+            throw new Exception($"Type mismatch in binary expression: {leftType} and {rightType}");
+        }
+
+        var llvmInstruction = node.Operator switch
+        {
+            BinaryOperator.Add => "add",
+            BinaryOperator.Subtract => "sub",
+            BinaryOperator.Multiply => "mul",
+            BinaryOperator.Divide => "sdiv",
+            _ => throw new NotImplementedException($"LLVM IR mapping for operator {node.Operator} is not implemented.")
+        };
+
+        var resultRegister = _context.AllocateRegister();
+
+        _context.EmitLine($"    {resultRegister} = {llvmInstruction} {leftType} {leftValue}, {rightValue}");
+
+        return (resultRegister, leftType);
     }
 
     private string MapType(TypeNode node)

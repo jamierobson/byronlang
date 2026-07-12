@@ -140,11 +140,46 @@ public class ByronAstParser
         return expression;
     }
 
+    private ExpressionNode ParseBinaryOperation(ExpressionNode firstArgument, BinaryOperator binaryOperator)
+    {
+        Advance();  // The binary operator token was already peeked
+        var secondArgumentToken = Consume(TokenKind.IntLiteral, $"Expected an integer literal to perform the {binaryOperator} operation");
+        var intLiteral = new IntegerLiteralNode(Convert.ToInt64(secondArgumentToken.Lexeme), Previous().Span);
+        var followingToken = Peek();
+        if (followingToken is { Kind: TokenKind.Semicolon })
+        {
+            return new BinaryExpressionNode(firstArgument, binaryOperator, intLiteral, firstArgument.Span);
+        }
+        
+        var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator(); 
+        if (maybeBinaryOperator is not null)
+        {
+            var secondExpression =  ParseBinaryOperation(intLiteral, maybeBinaryOperator.Value);
+            return new BinaryExpressionNode(firstArgument, binaryOperator, secondExpression, firstArgument.Span);
+        }
+
+        throw new ByronParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
+    }
+
     private ExpressionNode ParsePrimaryExpression()
     {
         if (ConsumingActiveTokenMatch(TokenKind.IntLiteral))
         {
-            return new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
+            var followingToken = Peek();
+            var intLiteral = new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
+            if (followingToken.Kind is TokenKind.Semicolon)
+            {
+                return intLiteral;
+            }
+
+            var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator(); 
+            if (maybeBinaryOperator is not null)
+            {
+                return ParseBinaryOperation(intLiteral, maybeBinaryOperator.Value);
+            }
+
+            throw new NotImplementedException(
+                "Operations simpler than returning a single integer are not yet supported");
         }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
@@ -199,6 +234,7 @@ public class ByronAstParser
     private bool ActiveTokenMatch(TokenKind kind) => !IsAtEnd() && Peek().Kind == kind;
     private Token Peek() => _tokens[_activeTokenIndex];
     private Token Previous() => _tokens[_activeTokenIndex - 1];
+    private Token PeekNext() => _tokens[_activeTokenIndex + 1];
     private bool IsAtEnd() => _activeTokenIndex >= _tokens.Count || Peek().Kind == TokenKind.Eof;
     private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronParserException(error, SourceSpan.Empty);
 }

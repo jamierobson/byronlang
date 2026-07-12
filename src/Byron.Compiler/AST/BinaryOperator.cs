@@ -31,7 +31,7 @@ public static partial class TokenKindExtensions
 {
     extension(TokenKind tokenKind)
     {
-        BinaryOperator? ToBinaryOperator()
+        public BinaryOperator? ToBinaryOperator()
         {
             return tokenKind switch
             {
