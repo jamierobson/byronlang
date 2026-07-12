@@ -1,4 +1,5 @@
-﻿using Byron.Compiler.CodeGen;
+﻿using System.Diagnostics;
+using Byron.Compiler.CodeGen;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
@@ -10,6 +11,7 @@ while (true)
 
 async Task TryParseFile(string filePath)
 {
+    var moduleName = Path.GetFileNameWithoutExtension(filePath);
     Console.WriteLine($"Parsing {filePath}...");
 
     try
@@ -19,8 +21,40 @@ async Task TryParseFile(string filePath)
         var ast = new ByronAstParser(tokens).Parse();
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(ast);
-        Console.WriteLine($"Generated the following LLVMIR: {generatedCode}");
-        _ = ast;
+        Console.WriteLine($"Generated the following LLVM IR: {generatedCode}");
+        
+        var outputIrPath = Path.Combine("./Out", $"{moduleName}.ll");
+        var outputExePath = Path.ChangeExtension(outputIrPath, ".exe");
+        await File.WriteAllTextAsync(outputIrPath, generatedCode);
+        var clangProcess = new ProcessStartInfo
+        {
+            FileName = "clang",
+            ArgumentList = { outputIrPath, "-o", outputExePath },
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        
+        using var clang = Process.Start(clangProcess);
+        if (clang is null)
+        {
+            Console.Error.WriteLine("Could not find clang process.");
+            return;
+        }
+        var stdout = await clang.StandardOutput.ReadToEndAsync();
+        var stderr = await clang.StandardError.ReadToEndAsync();
+        await clang.WaitForExitAsync();
+
+        if (clang.ExitCode != 0)
+        {
+            Console.Error.WriteLine($"clang failed for {moduleName}:\n{stderr}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(stdout))
+        {
+            Console.WriteLine(stdout);
+        }
+        
     }
     catch (ByronParserException e)
     {

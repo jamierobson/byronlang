@@ -413,3 +413,8 @@ I have a goal to be able to implement the following programs in this language:
 - Print "Hello World" and return 0 
 - Allocate, deallocate, and return 0 
 - Accept user input N, print the fibonachi sequence up to N, and return 0
+
+# Getting Started
+
+- Install [clang](https://releases.llvm.org/download.html)
+- Install [dotnet 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
