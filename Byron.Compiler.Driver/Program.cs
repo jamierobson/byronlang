@@ -22,7 +22,7 @@ async Task TryParseFile(string filePath)
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(ast);
         Console.WriteLine($"Generated the following LLVM IR: {generatedCode}");
-        
+
         var outputIrPath = Path.Combine("./Out", $"{moduleName}.ll");
         var outputExePath = Path.ChangeExtension(outputIrPath, ".exe");
         await File.WriteAllTextAsync(outputIrPath, generatedCode);
@@ -34,13 +34,14 @@ async Task TryParseFile(string filePath)
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        
+
         using var clang = Process.Start(clangProcess);
         if (clang is null)
         {
             Console.Error.WriteLine("Could not find clang process.");
             return;
         }
+
         var stdout = await clang.StandardOutput.ReadToEndAsync();
         var stderr = await clang.StandardError.ReadToEndAsync();
         await clang.WaitForExitAsync();
@@ -54,7 +55,11 @@ async Task TryParseFile(string filePath)
         {
             Console.WriteLine(stdout);
         }
-        
+
+    }
+    catch (NotImplementedException e)
+    {
+        Console.WriteLine($"Not implemented: {e.Message}");
     }
     catch (ByronParserException e)
     {

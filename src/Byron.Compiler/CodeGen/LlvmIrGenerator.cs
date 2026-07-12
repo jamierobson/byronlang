@@ -1,12 +1,10 @@
-using System;
-using System.Linq;
 using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.CodeGen;
 
 public class LlvmIrGenerator
 {
-    private readonly GeneratorContext _ctx = new();
+    private readonly GeneratorContext _context = new();
 
     public string Generate(ProgramNode program)
     {
@@ -14,7 +12,7 @@ public class LlvmIrGenerator
         {
             GenerateTopLevelDeclaration(declaration);
         }
-        return _ctx.GetGeneratedIr();
+        return _context.GetGeneratedIr();
     }
 
     private void GenerateTopLevelDeclaration(TopLevelDeclarationNode node)
@@ -31,24 +29,23 @@ public class LlvmIrGenerator
 
     private void GenerateFunctionDeclaration(FunctionDeclarationNode node)
     {
-        _ctx.ResetRegisters();
+        _context.ResetRegisters();
         
-        string returnType = MapType(node.ReturnType);
+        var returnType = MapType(node.ReturnType);
         
-        // Map parameters: e.g., "i32 %0, i64 %1"
-        var paramsJoined = string.Join(", ", node.Parameters.Select((p, i) => $"{MapType(p.Type)} %{i}"));
+        var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{MapType(parameterNode.Type)} %{i}"));
 
-        _ctx.EmitLine($"define {returnType} @{node.Name}({paramsJoined}) {{");
+        _context.EmitLine($"define {returnType} @{node.Name}({functionParameterIr}) {{");
         
         GenerateBlockStatement(node.Body);
         
-        // Safety fallback if a void/unit function misses an explicit return
+        // Add a return when reaching the end of a void function
         if (node.ReturnType is VoidTypeNode or UnitTypeNode)
         {
-            _ctx.EmitLine("    ret void");
+            _context.EmitLine("    ret void");
         }
         
-        _ctx.EmitLine("}\n");
+        _context.EmitLine("}\n");
     }
 
     private void GenerateBlockStatement(BlockStatementNode node)
@@ -66,28 +63,24 @@ public class LlvmIrGenerator
             case ReturnStatementNode ret:
                 GenerateReturnStatement(ret);
                 break;
-            // Future statements (VariableDeclarationNode, YieldStatementNode, etc.) plug directly into here
             default:
                 throw new NotImplementedException($"Statement {node.GetType().Name} is not implemented.");
         }
     }
 
-    // --- ONE-AND-DONE HANDLERS ---
-
     private void GenerateReturnStatement(ReturnStatementNode node)
     {
         if (node.Expression == null)
         {
-            _ctx.EmitLine("    ret void");
+            _context.EmitLine("    ret void");
             return;
         }
 
-        // Evaluate the expression to find its output register/value and type
-        var (value, typeStr) = GenerateExpression(node.Expression);
-        _ctx.EmitLine($"    ret {typeStr} {value}");
+        var (returnValue, returnType) = GenerateExpression(node.Expression);
+        _context.EmitLine($"    ret {returnType} {returnValue}");
     }
 
-    private (string Value, string TypeStr) GenerateExpression(ExpressionNode node)
+    private (string ReturnValue, string ReturnType) GenerateExpression(ExpressionNode node)
     {
         return node switch
         {
