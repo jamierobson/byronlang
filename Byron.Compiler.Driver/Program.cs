@@ -50,6 +50,10 @@ async Task TryParseFile(string filePath)
         {
             Console.Error.WriteLine($"clang failed for {moduleName}:\n{stderr}");
         }
+        else
+        {
+            Console.WriteLine($"Compiled successfully. Executable output to ${outputExePath}");
+        }
 
         if (!string.IsNullOrWhiteSpace(stdout))
         {
