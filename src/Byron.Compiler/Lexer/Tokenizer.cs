@@ -355,7 +355,7 @@ public class Tokenizer
                     : Token.Create(TokenKind.Minus, "-", PunctuationSpan()),
             '*' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.StarEquals, "*=", PunctuationSpan())
-                : Token.Create(TokenKind.Star, "*", PunctuationSpan()),
+                : Token.Create(TokenKind.Asterisk, "*", PunctuationSpan()),
             '/' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.SlashEquals, "/=", PunctuationSpan())
                 : ConsumingMatch('/') 

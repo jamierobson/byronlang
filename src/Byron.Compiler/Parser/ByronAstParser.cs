@@ -120,15 +120,15 @@ public class ByronAstParser
         }
         throw new NotImplementedException("Fallback basic statements not implemented.");
     }
-
+    
     private ExpressionNode ParseExpression()
     {
-        var expression = ParsePrimaryExpression();
+        // 1. Evaluate all math and binary operations first, starting from the absolute floor
+        var expression = ParseBinaryExpression(0);
 
-        // Handle post-fix syntax sugar operations (onerror, ?)
+        // 2. Handle post-fix syntax sugar operations safely on the fully built math tree
         if (ConsumingActiveTokenMatch(TokenKind.OnError))
         {
-            _ = Previous();
             var fallback = ParsePrimaryExpression();
             return new OnErrorExpressionNode(expression, fallback, new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, fallback.Span.End));
         }
@@ -137,49 +137,78 @@ public class ByronAstParser
             var operationToken = Previous();
             return new TryOperatorExpressionNode(expression, new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, operationToken.Span.End));
         }
+
         return expression;
     }
-
-    private ExpressionNode ParseBinaryOperation(ExpressionNode firstArgument, BinaryOperator binaryOperator)
+    
+    private ExpressionNode ParseBinaryExpression(int minPrecedence)
     {
-        Advance();  // The binary operator token was already peeked
-        var secondArgumentToken = Consume(TokenKind.IntLiteral, $"Expected an integer literal to perform the {binaryOperator} operation");
-        var intLiteral = new IntegerLiteralNode(Convert.ToInt64(secondArgumentToken.Lexeme), Previous().Span);
-        var followingToken = Peek();
-        if (followingToken is { Kind: TokenKind.Semicolon })
+        var expression = ParsePrimaryExpression();
+
+        while (!IsAtEnd())
         {
-            return new BinaryExpressionNode(firstArgument, binaryOperator, intLiteral, firstArgument.Span);
-        }
+            var followingToken = Peek();
+            var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator();
+
+            if (maybeBinaryOperator is null)
+                break;
+
+            var precedence = GetOperatorPrecedence(maybeBinaryOperator.Value);
+            if(expression is BinaryExpressionNode binaryOperator && minPrecedence == BitwiseOperationPrecedence && precedence == BitwiseOperationPrecedence && maybeBinaryOperator.Value != binaryOperator.Operator)
+            {
+                throw new ByronParserException("Brackets requried when chaining bitwise operations", Peek().Span);
+            }
+
+            if (precedence < minPrecedence)
+            {
+                break;
+            }
+
+            Advance(); 
         
-        var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator(); 
-        if (maybeBinaryOperator is not null)
-        {
-            var secondExpression =  ParseBinaryOperation(intLiteral, maybeBinaryOperator.Value);
-            return new BinaryExpressionNode(firstArgument, binaryOperator, secondExpression, firstArgument.Span);
+            var rightSide = ParseBinaryExpression(precedence + 1);
+        
+            expression = new BinaryExpressionNode(
+                expression, 
+                maybeBinaryOperator.Value, 
+                rightSide,
+                new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, rightSide.Span.End)
+            );
         }
 
-        throw new ByronParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
+        return expression;
+    }
+    
+
+    private const short BitwiseOperationPrecedence = 5;
+    
+    private int GetOperatorPrecedence(BinaryOperator binaryOperator)
+    {
+        return binaryOperator switch {
+            BinaryOperator.Multiply or BinaryOperator.Divide or BinaryOperator.Modulo => 8,
+            BinaryOperator.Add or BinaryOperator.Subtract => 7,
+            BinaryOperator.ShiftLeft or BinaryOperator.ShiftRight  => 6,
+            BinaryOperator.BitwiseAnd or BinaryOperator.BitwiseOr or BinaryOperator.BitwiseXor=> BitwiseOperationPrecedence, // We do enforce bracketing for chaining bitwise operations in the parser 
+            BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual => 4,
+            BinaryOperator.Equal or BinaryOperator.NotEqual => 3,
+            BinaryOperator.LogicalAnd => 2,
+            BinaryOperator.LogicalOr => 1,
+          _ => 0
+        };
     }
 
     private ExpressionNode ParsePrimaryExpression()
     {
+        if (ConsumingActiveTokenMatch(TokenKind.LParen))
+        {
+            var expression = ParseExpression();
+            _ = Consume(TokenKind.RParen, "Expected closing parenthesis ')'");
+
+            return expression;
+        }
         if (ConsumingActiveTokenMatch(TokenKind.IntLiteral))
         {
-            var followingToken = Peek();
-            var intLiteral = new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
-            if (followingToken.Kind is TokenKind.Semicolon)
-            {
-                return intLiteral;
-            }
-
-            var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator(); 
-            if (maybeBinaryOperator is not null)
-            {
-                return ParseBinaryOperation(intLiteral, maybeBinaryOperator.Value);
-            }
-
-            throw new NotImplementedException(
-                "Operations simpler than returning a single integer are not yet supported");
+            return new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
         }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {

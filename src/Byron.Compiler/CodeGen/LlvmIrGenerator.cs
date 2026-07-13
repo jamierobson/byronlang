@@ -28,15 +28,70 @@ public class LlvmIrGenerator
         }
     }
 
+    private void GenerateStatement(StatementNode node)
+    {
+        switch (node)
+        {
+            case ReturnStatementNode statement:
+                GenerateReturnStatement(statement);
+                break;
+            case VariableDeclarationNode declaration:
+                GenerateVariableDeclaration(declaration);
+                break;
+            default:
+                throw new NotImplementedException($"Statement {node.GetType().Name} is not implemented.");
+        }
+    }
+
+    private (string ReturnValue, string ReturnType) GenerateExpression(ExpressionNode node)
+    {
+        return node switch
+        {
+            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"), // Defaulting to i32 for now
+            VariableExpressionNode variable => GenerateVariableLoad(variable),
+            BinaryExpressionNode binary => GenerateBinaryExpression(binary),
+            CallExpressionNode call => GenerateCallExpression(call),
+            _ => throw new NotImplementedException($"Expression {node.GetType().Name} is not implemented.")
+        };
+    }
+    
+    private (string ReturnValue, string ReturnType) GenerateCallExpression(CallExpressionNode node)
+    {
+        if (node.Callee is not VariableExpressionNode functionIdentifier)
+        {
+            throw new NotImplementedException("Dynamic function pointers/closures are not implemented yet.");
+        }
+
+        var evaluatedArguments = node.Arguments.Select(GenerateExpression).ToList();
+        var argumentIr = string.Join(", ", evaluatedArguments.Select(arg => $"{arg.ReturnType} {arg.ReturnValue}"));
+
+        // For now, look up or default the return type (assume i32 if matching typical declarations)
+        var llvmType = "i32"; 
+
+        if (llvmType == "void")
+        {
+            _context.EmitLine($"    call void @{functionIdentifier.Name}({argumentIr})");
+            return ("void", "void");
+        }
+        else
+        {
+            var resultRegister = _context.AllocateRegister();
+            _context.EmitLine($"    {resultRegister} = call {llvmType} @{functionIdentifier.Name}({argumentIr})");
+            return (resultRegister, llvmType);
+        }
+    }
+
     private void GenerateFunctionDeclaration(FunctionDeclarationNode node)
     {
         _context.ResetRegisters();
         
         var returnType = MapType(node.ReturnType);
         
-        var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{MapType(parameterNode.Type)} %{i}"));
+        var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{MapType(parameterNode.Type)} %arg_{i}"));
 
         _context.EmitLine($"define {returnType} @{node.Name}({functionParameterIr}) {{");
+
+        MoveArgumentsOnToStackFrame(node);
         
         GenerateBlockStatement(node.Body);
         
@@ -49,23 +104,27 @@ public class LlvmIrGenerator
         _context.EmitLine("}\n");
     }
 
+    private void MoveArgumentsOnToStackFrame(FunctionDeclarationNode node)
+    {
+        for (var i = 0; i < node.Parameters.Count; i++)
+        {
+            var param = node.Parameters[i];
+            var stackPointer = $"%{param.Name}.addr";
+            var typeStr = MapType(param.Type);
+        
+            _context.EmitLine($"    {stackPointer} = alloca {typeStr}");
+        
+            _context.EmitLine($"    store {typeStr} %arg_{i}, {typeStr}* {stackPointer}");
+        
+            _context.DeclareVariable(param.Name, stackPointer);
+        }
+    }
+
     private void GenerateBlockStatement(BlockStatementNode node)
     {
         foreach (var statement in node.Statements)
         {
             GenerateStatement(statement);
-        }
-    }
-
-    private void GenerateStatement(StatementNode node)
-    {
-        switch (node)
-        {
-            case ReturnStatementNode ret:
-                GenerateReturnStatement(ret);
-                break;
-            default:
-                throw new NotImplementedException($"Statement {node.GetType().Name} is not implemented.");
         }
     }
 
@@ -80,19 +139,30 @@ public class LlvmIrGenerator
         var (returnValue, returnType) = GenerateExpression(node.Expression);
         _context.EmitLine($"    ret {returnType} {returnValue}");
     }
-
-    private (string ReturnValue, string ReturnType) GenerateExpression(ExpressionNode node)
+    
+    private void GenerateVariableDeclaration(VariableDeclarationNode node)
     {
-        return node switch
-        {
-            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"), // Defaulting to i32 for now
-            VariableExpressionNode variable => (variable.Name, "i32"), // Quick placeholder
-            BinaryExpressionNode binary => GenerateBinaryExpression(binary),
-            _ => throw new NotImplementedException($"Expression {node.GetType().Name} is not implemented.")
-        };
+        var (variableValue, variableType) = GenerateExpression(node.Initializer);
+
+        var stackPointer = $"%{node.Name}.addr";
+        _context.DeclareVariable(node.Name, stackPointer);
+        _context.EmitLine($"    {stackPointer} = alloca {variableType}");
+        _context.EmitLine($"    store {variableType} {variableValue}, {variableType}* {stackPointer}");
+    }
+    
+    private (string ReturnValue, string ReturnType) GenerateVariableLoad(VariableExpressionNode node)
+    {
+        var stackPointer = _context.LookupVariable(node.Name);
+        var register = _context.AllocateRegister();
+
+        var llvmType = "i32"; // default for now since we're only testing with numerics
+        
+        _context.EmitLine($"    {register} = load {llvmType}, {llvmType}* {stackPointer}");
+        return (register, llvmType);
     }
     
     private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
+    
     {
         var (leftValue, leftType) = GenerateExpression(node.Left);
         var (rightValue, rightType) = GenerateExpression(node.Right);
