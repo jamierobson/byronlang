@@ -7,7 +7,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="Parser\" />
+      <Compile Update="Parser\HighLevelStatementParser.cs">
+        <DependentUpon>ByronHighLevelAstParser.cs</DependentUpon>
+      </Compile>
+      <Compile Update="Parser\HighLevelExpressionParser.cs">
+        <DependentUpon>ByronHighLevelAstParser.cs</DependentUpon>
+      </Compile>
     </ItemGroup>
 
 </Project>

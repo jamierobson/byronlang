@@ -31,6 +31,12 @@ public record VariableDeclarationNode(
     TypeNode? ExplicitType, 
     ExpressionNode Initializer) : StatementNode;
 
+public record IfStatementNode(
+    ExpressionNode Condition, 
+    BlockStatementNode ThenBranch, 
+    BlockStatementNode? ElseBranch 
+) : StatementNode;
+
 public abstract record ExpressionNode : AstNode;
 public record IntegerLiteralNode(long Value) : ExpressionNode;
 public record VariableExpressionNode(string Name) : ExpressionNode;

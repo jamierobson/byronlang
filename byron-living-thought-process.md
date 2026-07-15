@@ -36,6 +36,7 @@ So the general flow to implement is
 
 ### Allocators
 - We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator
+- This will be our first allocator when we implement Array[]
 
 ### Other
 - Need to decide between `void` and `Unit` as the nothing type.
