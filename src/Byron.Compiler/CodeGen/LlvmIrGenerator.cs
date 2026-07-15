@@ -32,6 +32,9 @@ public class LlvmIrGenerator
     {
         switch (node)
         {
+            case IfStatementNode @if:
+                GenerateIfStatement(@if);
+                break;
             case ReturnStatementNode statement:
                 GenerateReturnStatement(statement);
                 break;
@@ -192,7 +195,6 @@ public class LlvmIrGenerator
     }
     
     private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
-    
     {
         var (leftValue, leftLlvmType) = GenerateExpression(node.Left);
         var (rightValue, rightLlvmType) = GenerateExpression(node.Right);
@@ -230,11 +232,67 @@ public class LlvmIrGenerator
                 break;
             default:
                 throw new NotImplementedException($"LLVM IR mapping for operator {node.Operator} is not implemented.");
-                break;
         };
 
         return (resultRegister, returnType);
     }
+    
+    private void GenerateIfStatement(IfStatementNode node)
+    {
+        var (condValue, condType) = GenerateExpression(node.Condition);
+        if (condType != "i1")
+        {
+            throw new Exception($"If condition must be a boolean (i1), but got {condType}");
+        }
+
+        var branchId = _context.AllocateLabelId(); // Assuming your context has a counter helper
+        var thenLabel = $"if_then_{branchId}";
+        var elseLabel = $"if_else_{branchId}";
+        var mergeLabel = $"if_merge_{branchId}";
+
+        var falsePathLabel = node is IfElseStatementNode ? elseLabel : mergeLabel;
+
+        _context.EmitLine($"    br i1 {condValue}, label %{thenLabel}, label %{falsePathLabel}");
+
+        _context.EmitLine($"\n{thenLabel}:");
+        GenerateBlockStatement(node.ThenBranch);
+        
+        var thenTerminates = BlockEndsWithTerminator(node.ThenBranch);
+        
+        if (!thenTerminates)
+        {
+            _context.EmitLine($"    br label %{mergeLabel}");
+        }
+
+        bool elseTerminates;
+        if (node is IfElseStatementNode ifElseStatementNode)
+        {
+            _context.EmitLine($"\n{elseLabel}:");
+            GenerateBlockStatement(ifElseStatementNode.ElseBranch);
+
+            elseTerminates = BlockEndsWithTerminator(ifElseStatementNode.ElseBranch); 
+            if (!elseTerminates)
+            {
+                _context.EmitLine($"    br label %{mergeLabel}");
+            }
+        }
+        else
+        {
+            elseTerminates = false;
+        }
+
+        if (!thenTerminates || !elseTerminates)
+        {
+            _context.EmitLine($"\n{mergeLabel}:");
+        }
+    }
+
+private static bool BlockEndsWithTerminator(BlockStatementNode block)
+{
+    if (block.Statements.Count == 0) return false;
+    var last = block.Statements[^1];
+    return last is ReturnStatementNode; // Todo: extend with break/continue/yield
+}
 
     private static bool IsUnsignedLlvmType(string llvmType) => llvmType.StartsWith('u');
 
@@ -244,8 +302,7 @@ public class LlvmIrGenerator
         {
             VoidTypeNode => "void",
             UnitTypeNode => "void",
-        
-            // Signed Integers
+            
             Int8TypeNode => "i8",
             Int16TypeNode => "i16",
             Int32TypeNode => "i32",
