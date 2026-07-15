@@ -18,7 +18,7 @@ public record FunctionDeclarationNode(
     List<ParameterNode> Parameters, 
     TypeNode ReturnType, 
     BlockStatementNode Body
-) : AstNode;
+) : TopLevelDeclarationNode;
 
 public abstract record StatementNode : AstNode;
 public record BlockStatementNode(List<StatementNode> Statements) : StatementNode;
@@ -42,6 +42,7 @@ public record IntegerLiteralNode(long Value) : ExpressionNode;
 public record VariableExpressionNode(string Name) : ExpressionNode;
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments) : ExpressionNode;
 public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right) : ExpressionNode;
+public record BoolLiteralNode(bool Value) : ExpressionNode;
 
 // public record BlockExpressionNode(List<StatementNode> Statements) : ExpressionNode;
 // public record MatchExpressionNode(ReceiverBindingOwnership BindingOwnership, ExpressionNode Source, List<MatchExpressionArmNode> Arms) : ExpressionNode;
@@ -67,3 +68,5 @@ public record Float64TypeNode : BuiltInTypeNode { public override string ToLlvmT
 
 public record BoolTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i1"; }
 public record RuneTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i32"; }
+public record VoidTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "void"; }
+public record UnitTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "void"; }

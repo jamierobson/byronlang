@@ -53,7 +53,7 @@ Byron wants
 - No `null` (outside of interop).
 - Immutability by default.
 - C-adjacent syntax — TS/C#/Zig flavour.
-- No runtime
+- No managed runtime
 - A single reasoning system for compile time resource accounting
 
 ## The Obligation System

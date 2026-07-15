@@ -38,6 +38,17 @@ So the general flow to implement is
 - We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator
 - This will be our first allocator when we implement Array[]
 
+The idea of allocator returning the Owned<T> or &var T / Handle<T> might not be completely sound alongside the idea of no hidden . To make that work, allocator would need to both allocate the memory and fill it with the value. This means that allocator.alloc has some hidden behaviour, that we specifically want to avoid.
+
+So the options are:
+
+`alloc_create`, that requires a `ctor` function on the type T, and ctor must obligate a function with precisely the signature `free(self: Owned<Self>)`. It allocates the memory and constructs the value. `alloc_create` would need to forward arguments to `ctor`... somehow. This would have to be some kind of compile time rewrite. 
+- allocator.alloc returns some `Raw<Owned<T>>` from a transferring allocator, or `Raw<T>` from a retaining allocator, that represents raw memory. `Raw<Owned<T>>` must be passed into `ctor`, and `Raw<T>` into let's say `init`, compile time checked. There is inherently colouring here, though we've already accepted that through the acceptance that different allocators fundementally change the memory management strategy for the whole region.
+- `allocator.alloc(MyT{a: "hello", b: "world"})`, which is pretty wasteful due to double-writes. Would equip returning Owned or &var directly.
+- `ctor` must accept a `TransferringAllocator` and `init` a `RetainingAllocator` (or `Raw<T>`, if that's better in line with the common meaning of `init` across the systems programming landscape). 
+
+I think that the latter decision probably is the most fitting, meaning that `ctor`, `init`, and `free` are reserved function names
+
 ### Other
 - Need to decide between `void` and `Unit` as the nothing type.
 - Need to design the constructions for `Ok` `Some` `None` `Error` pattern matching
@@ -96,13 +107,16 @@ match take resultValue {
 Left associative: `+ - * / && || == != < > <= >=`
 Right associative: `= onerror`
 
+### Types, functions, and namespaces.
+- Steal from Rust; a struct is just a memory layout. separate `implement` block for functions, thereby allowing us to treat all fuctions as free functions.
+- Can call function `myFunction(myInstance)`directly, or with `instance.myfunction()` notation (lowered).
 
 ### Other
 - Collect as many errors as possible in one compilation attempt, synchronizing on `;` and `}`
 - `take` only valid only on expressions that produce an owned value
 - Assignment is always a statement, never an expression
 - How we deal with free functions in a namespace, and methods on a struct collisions (while generating our global symbol table)
-
+- Allow "closing" mutabilty by `var thing = ...;` and then later `let immutable = take thing`; immutable is now forever immutable. This would allow you to partially construct, and then lock in the final value when the value is set as needed
 
 
 
