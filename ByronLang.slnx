@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="Byron.Compiler.Driver/Byron.Compiler.Driver.csproj" />
+  <Project Path="src/Byron.Compiler.Driver/Byron.Compiler.Driver.csproj" />
   <Project Path="src/Byron.Compiler.Tests/Byron.Compiler.Tests.csproj" />
   <Project Path="src/Byron.Compiler/Byron.Compiler.csproj" />
 </Solution>

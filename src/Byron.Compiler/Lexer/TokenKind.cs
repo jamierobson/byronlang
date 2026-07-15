@@ -111,7 +111,7 @@ public enum TokenKind
     PlusEquals,     // +=
     Minus,          // -
     MinusEquals,    // -=
-    Star,           // *
+    Asterisk,           // *
     StarEquals,     // *=
     Slash,          // /
     SlashEquals,    // /=

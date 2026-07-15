@@ -14,6 +14,18 @@
         <None Include="Samples\*.*">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+        <None Update="Samples\chained-operators.by">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="Samples\bracket-binary-operators.by">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="Samples\variable-assignment.by">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="Samples\function-invocation.by">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
     <Target Name="EnsureEmptyOutputFolder" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
@@ -22,7 +34,7 @@
     </Target>
 
     <ItemGroup>
-      <ProjectReference Include="..\src\Byron.Compiler\Byron.Compiler.csproj" />
+      <ProjectReference Include="..\Byron.Compiler\Byron.Compiler.csproj" />
     </ItemGroup>
 
     <ItemGroup>

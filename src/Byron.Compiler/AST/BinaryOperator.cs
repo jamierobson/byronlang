@@ -38,7 +38,7 @@ public static partial class TokenKindExtensions
                 // Arithmetic
                 TokenKind.Plus           => BinaryOperator.Add,
                 TokenKind.Minus          => BinaryOperator.Subtract,
-                TokenKind.Star           => BinaryOperator.Multiply,
+                TokenKind.Asterisk           => BinaryOperator.Multiply,
                 TokenKind.Slash          => BinaryOperator.Divide,
                 TokenKind.Percent        => BinaryOperator.Modulo,
 
