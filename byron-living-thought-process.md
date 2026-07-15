@@ -4,6 +4,16 @@
 Todo:
 - Doubly linked list example
 
+# Implementing new compilation abilities:
+
+So the general flow to implement is
+
+- Make sure the relevant statement / expression types exist in both ASTs
+- Convert from the high level to low level in a new ByronLowLevelAstParser that either feeds through, or lowers (we still need to do this)
+- Implement the logic for the statement / expression in the `ParseStatement()` or `ParseExpression()` in high level parser. They both need lots of if-else for token type, in order to convert to the AST nodes we make sure exist
+- Implement the codegen from the low level AST
+- Can test by adding a sample program in Samples folder in the driver. Eventually these could become snapshot tests - program to output code. 
+
 # AST decisions
 
 ### Statements and Expressions

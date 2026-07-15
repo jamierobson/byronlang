@@ -5,12 +5,12 @@ using Byron.Compiler.AST.HighLevel;
 namespace Byron.Compiler.Parser;
 
 // TODO: Split this out into partial files (Declarations, Statements, Expressions) when it gets unwieldy.
-public class ByronAstParser
+public class ByronHighLevelAstParser
 {
     private readonly List<Token> _tokens;
     private int _activeTokenIndex = 0;
 
-    public ByronAstParser(List<Token> tokens) => _tokens = tokens;
+    public ByronHighLevelAstParser(List<Token> tokens) => _tokens = tokens;
 
     public ProgramNode Parse()
     {
@@ -210,6 +210,14 @@ public class ByronAstParser
         {
             return new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
         }
+        if (ConsumingActiveTokenMatch(TokenKind.True))
+        {
+            return new BoolLiteralNode(true, Previous().Span);
+        }
+        if (ConsumingActiveTokenMatch(TokenKind.False))
+        {
+            return new BoolLiteralNode(false, Previous().Span);
+        }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
             var identifier = Previous();
@@ -236,9 +244,20 @@ public class ByronAstParser
         var token = Advance();
         return token.Lexeme switch
         {
-            "i64" => new Int64TypeNode(token.Span),
+            "boolean" => new BoolTypeNode(token.Span),
+            "i8" => new Int8TypeNode(token.Span),
+            "i16" => new Int16TypeNode(token.Span),
             "i32" => new Int32TypeNode(token.Span),
+            "i64" => new Int64TypeNode(token.Span),
+            "u8" => new UInt8TypeNode(token.Span),
+            "u16" => new UInt16TypeNode(token.Span),
+            "u32" => new UInt32TypeNode(token.Span),
+            "u64" => new UInt64TypeNode(token.Span),
+            "f32" => new Float32TypeNode(token.Span),
+            "f64" => new Float64TypeNode(token.Span),
             "void" => new VoidTypeNode(token.Span),
+            "unit" => new UnitTypeNode(token.Span),
+            "rune" => new RuneTypeNode(token.Span),
             _ => throw new ByronParserException($"Unknown type signature target: {token.Lexeme}", token.Span)
         };
     }

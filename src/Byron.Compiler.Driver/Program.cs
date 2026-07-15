@@ -18,7 +18,7 @@ async Task TryParseFile(string filePath)
     {
         var sourceFileLines = await File.ReadAllLinesAsync(filePath);
         var tokens = new Tokenizer(string.Concat(sourceFileLines)).Tokenise();
-        var ast = new ByronAstParser(tokens).Parse();
+        var ast = new ByronHighLevelAstParser(tokens).Parse();
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(ast);
         Console.WriteLine($"Generated the following LLVM IR: {generatedCode}");
