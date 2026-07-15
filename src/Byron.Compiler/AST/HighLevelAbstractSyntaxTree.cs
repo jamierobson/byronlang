@@ -36,19 +36,57 @@ public record VariableDeclarationNode(
     SourceSpan Span
 ) : StatementNode(Span);
 
+public record IfStatementNode(
+    ExpressionNode Condition, 
+    BlockStatementNode ThenBranch, 
+    SourceSpan Span
+) : StatementNode(Span);
+
+public record IfElseStatementNode(
+    ExpressionNode Condition,
+    BlockStatementNode ThenBranch,
+    BlockStatementNode ElseBranch,
+    SourceSpan Span
+) : IfStatementNode(Condition, ThenBranch, Span);
+
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
+public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
 public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span);
 
 public abstract record TypeNode(SourceSpan Span) : AstNode(Span);
+public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span);
+
+// Built-in types
 public abstract record BuiltInTypeNode(SourceSpan Span) : TypeNode(Span);
 public record VoidTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
 public record UnitTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Int64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record Int8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record Int16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
 public record Int32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span);
+
+public record Int64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record UInt8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record UInt16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record UInt32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record UInt64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record Float32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record Float64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record BoolTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+
+public record RuneTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
 
 // Lowerable expressions
 public record OnErrorExpressionNode(ExpressionNode Source, ExpressionNode Fallback, SourceSpan Span) : ExpressionNode(Span);

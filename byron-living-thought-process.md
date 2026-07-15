@@ -4,6 +4,16 @@
 Todo:
 - Doubly linked list example
 
+# Implementing new compilation abilities:
+
+So the general flow to implement is
+
+- Make sure the relevant statement / expression types exist in both ASTs
+- Convert from the high level to low level in a new ByronLowLevelAstParser that either feeds through, or lowers (we still need to do this)
+- Implement the logic for the statement / expression in the `ParseStatement()` or `ParseExpression()` in high level parser. They both need lots of if-else for token type, in order to convert to the AST nodes we make sure exist
+- Implement the codegen from the low level AST
+- Can test by adding a sample program in Samples folder in the driver. Eventually these could become snapshot tests - program to output code. 
+
 # AST decisions
 
 ### Statements and Expressions
@@ -12,19 +22,21 @@ Todo:
 - `return` always exits the function
 - `while` is always a statement
 - `for` is always a statement
-- `match` isnt designed
+- `match` isnt yet designed
 
 ### Sugar and lowering
 - `let x = somethingThatCanFail()?` lowes to `let x = somethingThatCanFail() onerror error { return error; }` for error propogation
 - `let x = somethingThatCanFail() onerror 5`; lowers to `let x = somethingThatCanFail onerror { yield 5; }` to always bind even to an immutable to x.
 - We probably need an onerror block to always `yield` or `return`
 - Need some design to match success and error e.g. `if x is Error` kind of constructor
-- Do we want type inference? Probably, but not certainly
+- Do we want type inference? Probably, but not certainly, at least if it's too hard to implement.
 - `defer` and `errordefer` lowering not yet designed
 - Ternary `let x = condition ? trueValue : falseValue;` lowers to `let x = if condition { yield trueValue; } else { yield falseValue; }`
+- Probably lower `for` to a `while` statement
 
 ### Allocators
 - We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator
+- This will be our first allocator when we implement Array[]
 
 ### Other
 - Need to decide between `void` and `Unit` as the nothing type.
@@ -34,8 +46,6 @@ Todo:
 
 ```
 if let Some(_) = take maybeValue {...} else {...}
-if let Error(_) = take resultValue {...}
-let _ = take returnsValue
 ```
 
 ### Error and Option bindings
@@ -49,7 +59,7 @@ match take resultValue {
 }
 ```
 
-The `if let Some(x) = y` from rust can be adopted here almost verbatim, and lowered to
+The `if let Some(x) = y` from rust can be adopted here almost verbatim, our version looking like `if let Some(myBinding) = take maybeValue {...} else {...}`, and lowered to
 ```
 match take resultValue {
    let Some(myValue) => {...}
@@ -90,8 +100,8 @@ Right associative: `= onerror`
 ### Other
 - Collect as many errors as possible in one compilation attempt, synchronizing on `;` and `}`
 - `take` only valid only on expressions that produce an owned value
-
-
+- Assignment is always a statement, never an expression
+- How we deal with free functions in a namespace, and methods on a struct collisions (while generating our global symbol table)
 
 
 

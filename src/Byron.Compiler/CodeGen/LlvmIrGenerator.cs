@@ -32,6 +32,9 @@ public class LlvmIrGenerator
     {
         switch (node)
         {
+            case IfStatementNode @if:
+                GenerateIfStatement(@if);
+                break;
             case ReturnStatementNode statement:
                 GenerateReturnStatement(statement);
                 break;
@@ -47,7 +50,8 @@ public class LlvmIrGenerator
     {
         return node switch
         {
-            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"), // Defaulting to i32 for now
+            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"),
+            BoolLiteralNode boolean => (boolean.Value ? "1" : "0", "i1"),
             VariableExpressionNode variable => GenerateVariableLoad(variable),
             BinaryExpressionNode binary => GenerateBinaryExpression(binary),
             CallExpressionNode call => GenerateCallExpression(call),
@@ -160,42 +164,161 @@ public class LlvmIrGenerator
         _context.EmitLine($"    {register} = load {llvmType}, {llvmType}* {stackPointer}");
         return (register, llvmType);
     }
-    
-    private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
-    
+
+    private string ArithmeticOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
     {
-        var (leftValue, leftType) = GenerateExpression(node.Left);
-        var (rightValue, rightType) = GenerateExpression(node.Right);
-
-        if (leftType != rightType)
+        return nodeOperator switch
         {
-            throw new Exception($"Type mismatch in binary expression: {leftType} and {rightType}");
-        }
-
-        var llvmInstruction = node.Operator switch
-        {
-            BinaryOperator.Add => "add",
-            BinaryOperator.Subtract => "sub",
-            BinaryOperator.Multiply => "mul",
-            BinaryOperator.Divide => "sdiv",
-            _ => throw new NotImplementedException($"LLVM IR mapping for operator {node.Operator} is not implemented.")
+            BinaryOperator.Add => isFloat ? "fadd" : "add",
+            BinaryOperator.Subtract => isFloat ? "fsub" : "sub",
+            BinaryOperator.Multiply => isFloat ? "fmul" : "mul",
+            BinaryOperator.Divide => isFloat ? "fdiv" : (isUnsigned ? "udiv" : "sdiv"),
+            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not an arithmetic operation")
         };
-
-        var resultRegister = _context.AllocateRegister();
-
-        _context.EmitLine($"    {resultRegister} = {llvmInstruction} {leftType} {leftValue}, {rightValue}");
-
-        return (resultRegister, leftType);
     }
 
-    private string MapType(TypeNode node)
+    private string BooleanOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
+    {
+        return nodeOperator switch
+        {
+            BinaryOperator.Equal => isFloat ? "oeq" : "eq",
+            BinaryOperator.NotEqual => isFloat ? "one" : "ne",
+            
+            BinaryOperator.LessThan => isFloat ? "olt" : (isUnsigned ? "ult" : "slt"),
+            BinaryOperator.LessThanOrEqual => isFloat ? "ole" : (isUnsigned ? "ule" : "sle"),
+            
+            BinaryOperator.GreaterThan => isFloat ? "ogt" : (isUnsigned ? "ugt" : "sgt"),
+            BinaryOperator.GreaterThanOrEqual => isFloat ? "oge" : (isUnsigned ? "uge" : "sge"),
+            
+            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a boolean operation")
+        };
+    }
+    
+    private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
+    {
+        var (leftValue, leftLlvmType) = GenerateExpression(node.Left);
+        var (rightValue, rightLlvmType) = GenerateExpression(node.Right);
+
+        if (leftLlvmType != rightLlvmType)
+        {
+            throw new Exception($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
+        }
+
+        var isFloat = leftLlvmType is "float" or "double";
+        var isUnsigned = IsUnsignedLlvmType(leftLlvmType);
+
+        var resultRegister = _context.AllocateRegister();
+        var returnType = leftLlvmType;
+        
+        switch(node.Operator)
+        {
+            case BinaryOperator.Add:
+            case BinaryOperator.Subtract:
+            case BinaryOperator.Multiply: 
+            case BinaryOperator.Divide:
+                var arithmeticOperation = ArithmeticOperationInstruction(node.Operator, isFloat, isUnsigned); 
+                _context.EmitLine($"    {resultRegister} = {arithmeticOperation} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            case BinaryOperator.Equal:
+            case BinaryOperator.NotEqual:
+            case BinaryOperator.LessThan:
+            case BinaryOperator.LessThanOrEqual:
+            case BinaryOperator.GreaterThan:
+            case BinaryOperator.GreaterThanOrEqual:
+                var typeComparisonInstruction = isFloat ? "fcmp" : "icmp";
+                returnType = "i1";
+                var booleanInstruction = BooleanOperationInstruction(node.Operator, isFloat, isUnsigned);
+                _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            default:
+                throw new NotImplementedException($"LLVM IR mapping for operator {node.Operator} is not implemented.");
+        };
+
+        return (resultRegister, returnType);
+    }
+    
+    private void GenerateIfStatement(IfStatementNode node)
+    {
+        var (condValue, condType) = GenerateExpression(node.Condition);
+        if (condType != "i1")
+        {
+            throw new Exception($"If condition must be a boolean (i1), but got {condType}");
+        }
+
+        var branchId = _context.AllocateLabelId(); // Assuming your context has a counter helper
+        var thenLabel = $"if_then_{branchId}";
+        var elseLabel = $"if_else_{branchId}";
+        var mergeLabel = $"if_merge_{branchId}";
+
+        var falsePathLabel = node is IfElseStatementNode ? elseLabel : mergeLabel;
+
+        _context.EmitLine($"    br i1 {condValue}, label %{thenLabel}, label %{falsePathLabel}");
+
+        _context.EmitLine($"\n{thenLabel}:");
+        GenerateBlockStatement(node.ThenBranch);
+        
+        var thenTerminates = BlockEndsWithTerminator(node.ThenBranch);
+        
+        if (!thenTerminates)
+        {
+            _context.EmitLine($"    br label %{mergeLabel}");
+        }
+
+        bool elseTerminates;
+        if (node is IfElseStatementNode ifElseStatementNode)
+        {
+            _context.EmitLine($"\n{elseLabel}:");
+            GenerateBlockStatement(ifElseStatementNode.ElseBranch);
+
+            elseTerminates = BlockEndsWithTerminator(ifElseStatementNode.ElseBranch); 
+            if (!elseTerminates)
+            {
+                _context.EmitLine($"    br label %{mergeLabel}");
+            }
+        }
+        else
+        {
+            elseTerminates = false;
+        }
+
+        if (!thenTerminates || !elseTerminates)
+        {
+            _context.EmitLine($"\n{mergeLabel}:");
+        }
+    }
+
+private static bool BlockEndsWithTerminator(BlockStatementNode block)
+{
+    if (block.Statements.Count == 0) return false;
+    var last = block.Statements[^1];
+    return last is ReturnStatementNode; // Todo: extend with break/continue/yield
+}
+
+    private static bool IsUnsignedLlvmType(string llvmType) => llvmType.StartsWith('u');
+
+    private static string MapType(TypeNode node)
     {
         return node switch
         {
             VoidTypeNode => "void",
             UnitTypeNode => "void",
+            
+            Int8TypeNode => "i8",
+            Int16TypeNode => "i16",
             Int32TypeNode => "i32",
             Int64TypeNode => "i64",
+        
+            UInt8TypeNode => "i8",
+            UInt16TypeNode => "i16",
+            UInt32TypeNode => "i32",
+            UInt64TypeNode => "i64",
+        
+            Float32TypeNode => "float",
+            Float64TypeNode => "double",
+        
+            BoolTypeNode => "i1",
+            RuneTypeNode => "i32",
+        
             ReferenceTypeNode r => $"{MapType(r.Target)}*",
             _ => throw new NotImplementedException($"Type mapping for {node.GetType().Name} is not implemented.")
         };
