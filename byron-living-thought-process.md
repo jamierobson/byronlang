@@ -2,7 +2,22 @@
 
 
 Todo:
-- Doubly linked list example
+1. Add a lowering pass, and perform code generation on the low level AST
+0. Add loops: `for`, `in`, `while`
+0. Add struct support, while we stack allocate
+0. Add simple console i/o
+0. Add `implement` blocks to add functions to structs
+0. Add simple type inference with a top down walk of the AST
+0. Add `interface`s (__NOT__ for dynamic dispatch)
+0. Implement a very simple RetainingAllocator, `MemoryLease<T>`, and filling with a value. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes. Add obligation analysis to `fill` or `release` the memory. Add obligation analysis to `deinit` the allocator, freeing all of the underlying memory
+0. Implement `MemoryLease<T>.fill` return type to `&T` if binding to a `let`, and `&var T` if binding to a `var`
+0. Implement a very simple `TransferringAllocator` and `Owned<T>`, with obligation analysis to `free` the owned value.
+0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
+0. Fixed sized collections: Arrays, Slices, Ranges
+0. Lexical escape and domination analysis, and the retaining allocator lifetime lifetime shortcut
+0. Dynamic collections: `Vector`, `HashMap`, `String`
+0. File system i/o
+0. Designing an std
 
 # Implementing new compilation abilities:
 
@@ -20,44 +35,49 @@ So the general flow to implement is
 - A block can `yield` a value to a binding `let foo = {yield 5;}`. This is an expression block.
 - A block without yield is a statement
 - `return` always exits the function
-- `while` is always a statement
-- `for` is always a statement
-- `match` isnt yet designed
+- `while`, `for` are always statements
 
 ### Sugar and lowering
+
+A key note: Only implement sugar that lowers to code that the developer could write
+
 - `let x = somethingThatCanFail()?` lowes to `let x = somethingThatCanFail() onerror error { return error; }` for error propogation
 - `let x = somethingThatCanFail() onerror 5`; lowers to `let x = somethingThatCanFail onerror { yield 5; }` to always bind even to an immutable to x.
 - We probably need an onerror block to always `yield` or `return`
 - Need some design to match success and error e.g. `if x is Error` kind of constructor
-- Do we want type inference? Probably, but not certainly, at least if it's too hard to implement.
+- How much type inference to put effort in to getting?
 - `defer` and `errordefer` lowering not yet designed
 - Ternary `let x = condition ? trueValue : falseValue;` lowers to `let x = if condition { yield trueValue; } else { yield falseValue; }`
 - Probably lower `for` to a `while` statement
 
 ### Allocators
-- We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator
+- We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator, and will be a simple OS page allocator. 
 - This will be our first allocator when we implement Array[]
 
 The idea of allocator returning the Owned<T> or &var T / Handle<T> might not be completely sound alongside the idea of no hidden . To make that work, allocator would need to both allocate the memory and fill it with the value. This means that allocator.alloc has some hidden behaviour, that we specifically want to avoid.
 
-So the options are:
-
-`alloc_create`, that requires a `ctor` function on the type T, and ctor must obligate a function with precisely the signature `free(self: Owned<Self>)`. It allocates the memory and constructs the value. `alloc_create` would need to forward arguments to `ctor`... somehow. This would have to be some kind of compile time rewrite. 
-- allocator.alloc returns some `Raw<Owned<T>>` from a transferring allocator, or `Raw<T>` from a retaining allocator, that represents raw memory. `Raw<Owned<T>>` must be passed into `ctor`, and `Raw<T>` into let's say `init`, compile time checked. There is inherently colouring here, though we've already accepted that through the acceptance that different allocators fundementally change the memory management strategy for the whole region.
-- `allocator.alloc(MyT{a: "hello", b: "world"})`, which is pretty wasteful due to double-writes. Would equip returning Owned or &var directly.
-- `ctor` must accept a `TransferringAllocator` and `init` a `RetainingAllocator` (or `Raw<T>`, if that's better in line with the common meaning of `init` across the systems programming landscape). 
-
-I think that the latter decision probably is the most fitting, meaning that `ctor`, `init`, and `free` are reserved function names
-
-### Other
-- Need to decide between `void` and `Unit` as the nothing type.
-- Need to design the constructions for `Ok` `Some` `None` `Error` pattern matching
-- We need a SystemAllocator that is a special exception that we must document. Users can write their own allicators and pull this in.
-- `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
+This reveals a c++ like allocation strategy - but with obligation help.
 
 ```
-if let Some(_) = take maybeValue {...} else {...}
+var myGpa = take GeneralPurposeAllocator.ctor();
+var allocator: &var TransferringAllocator = myGpa.allocator();
+
+myUninitialized: Uninitialized<MyFoo> = allocator.alloc<MyFoo>()?;
+myOwned: Owned<MyFoo> = myUninitialized.fill(MyFoo{member: 1, otherMember: 2})
 ```
+
+`TrasferringAllocator.alloc` gives you a `Result<Uninitialized<T>, OutOfMemoryError>`. `Uninitialized<T>` presents two functions: `fill(value: T)` and `release()`, one of which you are obligated to call. `fill` returns the `Owned<T>`
+
+`RetainingAllocator.alloc` gives you a `Result<MemoryLease<T>, OutOfMemoryError>`. `MemoryLease<T>` also presents `fill(value: T)` and `release()`, one of which you are obligated to call. `fill` returns the `&var T`
+
+~~So the options are:~~
+
+- ~~Have `alloc_create`, that requires a `ctor` function on the type T, and ctor must obligate a function with precisely the signature `free(self: Owned<Self>)`. It allocates the memory and constructs the value. `alloc_create` would need to forward arguments to `ctor`... somehow. This would have to be some kind of compile time rewrite.~~
+- ~~allocator.alloc returns some `Raw<Owned<T>>` from a transferring allocator, or `Raw<T>` from a retaining allocator, that represents raw memory. `Raw<Owned<T>>` must be passed into `ctor`, and `Raw<T>` into let's say `init`, compile time checked. There is inherently colouring here, though we've already accepted that through the acceptance that different allocators fundementally change the memory management strategy for the whole region.~~
+- ~~`allocator.alloc(MyT{a: "hello", b: "world"})`, which is pretty wasteful due to double-writes. Would equip returning Owned or &var directly.~~
+- ~~`ctor` must accept a `TransferringAllocator` and `init` a `RetainingAllocator` (or `Raw<T>`, if that's better in line with the common meaning of `init` across the systems programming landscape).~~
+
+~~I think that the latter decision probably is the most fitting, meaning that `ctor`, `init`, and `free` are reserved function names~~
 
 ### Error and Option bindings
 
@@ -65,8 +85,9 @@ We use pattern matching for Errors and options.
 
 ```
 match take resultValue {
-   var Ok(myValue) => {...}
-   let Error(e) => {...}
+   var Ok(myValue) {...},
+   let MySpecificError(e) {...},
+   let Error(e) {...},
 }
 ```
 
@@ -108,16 +129,17 @@ Left associative: `+ - * / && || == != < > <= >=`
 Right associative: `= onerror`
 
 ### Types, functions, and namespaces.
+How we deal with free functions in a namespace, and methods on a struct collisions (while generating our global symbol table)?
+
 - Steal from Rust; a struct is just a memory layout. separate `implement` block for functions, thereby allowing us to treat all fuctions as free functions.
-- Can call function `myFunction(myInstance)`directly, or with `instance.myfunction()` notation (lowered).
+- We can call function `myFunction(myInstance)`directly, or with `instance.myfunction()` notation (lowered).
 
 ### Other
 - Collect as many errors as possible in one compilation attempt, synchronizing on `;` and `}`
 - `take` only valid only on expressions that produce an owned value
 - Assignment is always a statement, never an expression
-- How we deal with free functions in a namespace, and methods on a struct collisions (while generating our global symbol table)
 - Allow "closing" mutabilty by `var thing = ...;` and then later `let immutable = take thing`; immutable is now forever immutable. This would allow you to partially construct, and then lock in the final value when the value is set as needed
-
+- `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
 
 
 
@@ -172,6 +194,8 @@ Right associative: `= onerror`
 
 
 # Deferred
+
+Lexical escape with `Shared<T>`. Rather than an `Rc<RefCell<T>>`, a `Shared<T>` would present a `fn value(): Result<T, UseAfterFreeError>`. This would be a non-authorititive version of `Unsafe<T>` below. 
 
 
 ## Ownership Types
