@@ -21,7 +21,7 @@ First of all, I'd like to describe what I wish such a language looked like, star
 I understand that there are reasons for each of these design choices, and the safety that the compiler offers is incredibly strong. 
 
 Byron wants 
-- _Some_ of the biggest value adds of rusts compile time memory safety, without the complexity of the full borrow checker
+- _Some_ of the biggest value adds of rusts compile time memory double-free, use-after-free, and memory leak prevention, without the complexity of the full borrow checker (e.g. not looking for rusts aliasing model)
 - A much stricter adherence to the `Result<T, E>` pattern
 
 ### Zig
@@ -90,18 +90,49 @@ You cannot resolve the `free` obligation on an instance upon which you do not ho
 - Calling the required discharge function
 - (In the case of an error) Handling the `Result` `error` path
 
+### Examples
+
+Assume, in the following examples, the existance of
+```
+interface TransferringAllocator {
+    @obligates([.fill, .release])
+    fn alloc<T>(self: &var Self): Result<Uninitialized<Owned<T>>, OutOfMemoryError>,
+}
+
+struct Uninitialized<T> {
+    //
+}
+
+implement Uninitialized<T> {
+    @obligates([.free])
+    fn fill(value: T): Owned<T> {...}
+    fn release() {...}
+}
+
+struct GeneralPurposeAllocator {
+}
+
+implement TransferringAllocator for GeneralPurposeAllocator {
+    @obligates([.fill, .release])
+    fn alloc<T>(self: &var Self): Result<Uninitialized<Owned<T>>, OutOfMemoryError> {...}
+}
+
+struct Owned<T> {
+
+}
+
+implement Owned<T> {
+    free(&self: Owned<Self>)
+}
+
+```
 #### Calling the annoted discharge function
 
 ```
-struct  TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
-
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = take allocatoralloc<Bar>()?;
 
-    // Note that the obligation is to call .free on the myBar instance
+    const myMemory = take allocator.alloc<Bar>()?; // Note that the obligation is to call .fill on the myMemory instance
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42}); // Note that the obligation is to call .free on the myBar instance
     myBar.free();
     Return Ok;
 }
@@ -110,13 +141,10 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 #### Returning the instance
 
 ```
-struct TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
-
 fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
-    const myBar = take allocatoralloc<Bar>()?;
+    
+    const myMemory = take allocator.alloc<Bar>()?;
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
 
     // ...
 
@@ -127,19 +155,16 @@ fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
 #### `Give`ing the the instance to a function prepared to `take` ownership
 
 ```
-struct TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
-
 fn receive(take myBar: Owned<Bar>): void {
+
+    ...
     myBar.free();
 }
 
 fn foo(allocator: &var TransferringAllocator): void {
-    const myBar = take allocator.alloc<Bar>() onerror { return; };
 
-    // ...
+    const myMemory = take allocator.alloc<Bar>()?;
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
 
     receive(give myBar);
 }
@@ -149,13 +174,12 @@ fn foo(allocator: &var TransferringAllocator): void {
 #### Early return error propogation with `?`
 
 ```
-struct TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
 
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = take allocator.alloc<Bar>()?
+
+    const myMemory = take allocator.alloc<Bar>()?;
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
+
     myBar.free();
     Return Ok;
 }
@@ -164,17 +188,16 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 
 #### Handling the error with `onerror` 
 ```
-
-struct TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
-
 fn foo(allocator: &var TransferringAllocator): Result<Owned<Bar>> {
-    const myBar = take allocator.alloc<Bar>() onerror e { 
+
+    const myMemory = take allocator.alloc<Bar>() onerror e { 
         logError(e)
         return e;
-    };
+    };;
+
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
+
+    const myBar = take allocator.alloc<Bar>()
     return myBar;
 }
 ```
@@ -189,20 +212,13 @@ fn foo(): Option<i32> {
 
 ### Compilation failures
 
-Let's assume the following struct
-```
-struct TransferringAllocator {
-    @obligates([.free])
-    fn alloc<T>(self &var TransferringAllocator): Result<Owned<T>> {...}
-}
-```
 #### Not resolving or returning the insnace
 
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
 
-    const myBar = take allocator.alloc<Bar>()?;
-    // myBar.free(); // Did not resolve obligation or return the instance
+    const myMemory = take allocator.alloc<Bar>()?;
+    // let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42}); // Did not resolve obligation or return the instance
     Return Ok;
 
 }
@@ -213,7 +229,8 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
 
-    const myBar = take allocator.alloc<Bar>()?;
+    const myMemory = take allocator.alloc<Bar>()?;
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
     myBar.free();
     myBar.free(); // Tried to resolve obligation a second time
     Return Ok;
@@ -224,11 +241,11 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    let myBool = false;
 
-    const myBar = take allocator.alloc<Bar>()?;
+    let myBool = false;
+    const myMemory = take allocator.alloc<Bar>()?;
     if(myBool) {
-        myBar.free();
+        myBar.release();
     } else {
         // Did not resolve obligation in this execution path
     }
@@ -240,8 +257,12 @@ fn foo(allocator: &var TransferringAllocator): Result<void> {
 
 ```
 fn foo(allocator: &var TransferringAllocator): Result<void> {
-    const myBar = take allocator.alloc<Bar>();
-    myBar.free(); // Did not handle the Error path of the result
+
+    const myMemory = take allocator.alloc<Bar>();
+    
+    // Did not handle the Error path of the myMemory result, note the missing `?` from the line above
+    let myBar = take myMemory.fill(MyBar{member1: 1, member2: 42});
+    myBar.free(); 
     Return Ok;
 }
 ```
@@ -259,7 +280,8 @@ take    // caller accepts the ownership of a returned instance from a call or a 
 
 ```
 fn example(allocator: &TransferringAllocator): Result<void> {
-    let myValue = take allocator.alloc<MyType>()?;
+    let myMemory = take allocator.alloc<MyType>()? 
+    let myValue = take myMemory.fill(MyType {i: 1});
     consume(give myValue); 
     Return Ok;
 }
@@ -275,35 +297,45 @@ fn example(myValue: &var MyType): void {
 
 ### Take
 
-
 You are required to `take` ownership when a function expects to return an `Owned<T>` or when accepting a moved binding
 
 #### Taking ownership of a returned value
 
 ```
-let myValue = take allocator.alloc<MyType>()?;              // correct
+let myMemory = take allocator.alloc<MyType>()?;              // correct
 ```
 
 ```
-var node = allocator.alloc<MyType>()?;                      // COMPILE ERROR: Owned<T> must be taken because allocator.alloc<T> returns Result<Owned<T>>
+var myMemory = allocator.alloc<MyType>()?;                      // COMPILE ERROR: Uninitialized<T> must be taken because allocator.alloc<T> returns Result<Uninitialized<T>>
+```
+
+#### Closing mutability
+```
+var myInt: i32 = 42;
+myInt = 41;
+let nowImmutable = take myInt; // correct. myInt is inaccessible, and the backing value is now immutable.
 ```
 
 #### When moving
 
 ```
-var myValue = take allocator.alloc<MyType>()?;    
+var myMemory = allocator.alloc<MyType>()?;
+let myValue = take myMemory.fill(MyType {i: 1});  
 var moved = take myValue;                       // correct. moved is now live and myValue is inaccessible
 ``` 
 
 ```
-var myValue = take allocator.alloc<MyType>()?;    
+var myMemory = allocator.alloc<MyType>()?;
+let myValue = take myMemory.fill(MyType {i: 1});
 var moved = myValue;                             // COMPILE ERROR: Move must be taken
 ```
 
 ```
-var myValue = take allocator.alloc<MyType>()?;    
-var moved = take myValue;                        // COMPILE ERROR: myValue is inaccessibly having already been moved
-var secondMove = take myValue
+
+var myMemory = allocator.alloc<MyType>()?;
+let myValue = take myMemory.fill(MyType {i: 1});
+var moved = take myValue;                        
+var secondMove = take myValue // COMPILE ERROR: myValue is inaccessibly having already been moved
 ```
 
 #### Deconstruction
@@ -330,40 +362,66 @@ let (a, b, c) = take (x, y, x)      // z was not taken, x was taken twice
 
 ## Allocators
 
-Byron has two allocator interfaces, that either give, or retain, memory ownership, depending on your needs
+Byron has two allocator interfaces, that either give, or retain, memory ownership, depending on your needs.
+
+Each presents an `alloc` function, that returns a type-safe block of uninitialized memory, which you are obligated to `fill` with a value. 
 
 ### TransferringAllocator
 
-Returns `Owned<T>`. The caller takes the obligation and is responsible for eventually freeing the memory. A General Purpose Allocator would be an example.
+The `alloc` function returns `Uninitialized<T>` which represents an empty block of memory, that the caller is responsible for, large enough to place an `Owned<T>` A value is placed by calling the `fill` function, returning the `Owned<T>`. Calling `.fill` is an obligation. The caller takes ownership of the `Owned<T>` instance, including the `free` obligation and is responsible for eventually freeing the memory. A General Purpose Allocator would be an example.
 
 ```
 interface TransferringAllocator {
-    fn alloc<T>(self: &var Self): Result<Owned<T>>,
-    fn free<T>(self: &var Self, take value: Owned<T>): Result<void>,
+    @obligates([.fill, .release])
+    fn alloc<T>(self: &var Self): Result<Uninitialized<T>>,
+}
+
+struct Uninitialized<T> {
+    allocator: &var TransferringAllocator
+}
+
+implement struct Uninitialized<T> {
+    @obligates([.free])
+    fill(self: Owned<Self>, value: T): Owned<T> {...},
+    release(self: Owned<Self>): void {...}
 }
 ```
 
 ```
 var gpa = take GeneralPurposeAllocator.init()?;
-var myBar = take gpa.alloc<Bar>()?;
+var allocator = gpa.allocator();
+var memory = take allocator.alloc<Bar>()?;
+let myBar = take memory.fill(Bar{a: 42});
 myBar.free();
 gpa.deinit();
 ```
 
 ### RetainingAllocator
 
-Returns `&var T`. The allocator retains the `Owned<T>` and thereby all memory responsibility. Resources are freed when the allocator is deinited with no individual resolution required or even possible. An ArenaAllocator would be an example
+The `alloc` function returns `MemoryLease<T>` which represents an empty block of memory, that the allocator retains responsibility for, large enough to place a `T` A value is placed by calling the `fill` function, returning `&var T`. Calling `.fill` is an obligation. The allocator retainns ownership of the `Owned<T>` instance, including the `free` obligation and is responsible for eventually freeing the memory. An Arena Allocator would be an example.
 
 ```
 interface RetainingAllocator {
-    fn alloc<T>(self: &var Self): Result<&var T>,
+    @obligates([.fill, .release])
+    fn alloc<T>(self: &var Self): Result<MemoryLease<T>>,
+}
+
+struct MemoryLease<T> {
+    allocator: &var TransferringAllocator
+}
+
+implement struct Uninitialized<T> {
+    fill(self: Owned<Self>, value: T): &var T {...},
+    release(self: Owned<Self>): void {...}
 }
 ```
 
 ```
-var scoped = take ArenaAllocator.init()?;
-var myBar = take scoped.alloc<Bar>()?;
-scoped.deinit();                                  // myBar is now freed
+var arena = take ArenaAllocator.init()?;
+var allocator = arena.allocator();
+var myLease = take allocator.alloc<Bar>()?;
+let myBar = myLease.fill(Bar{a: 42});
+allocator.deinit();                                  // myBar is now freed
 ```
 
 ### References
@@ -392,27 +450,34 @@ Owned<T>    // Denotes an owned instance og a T with obligation to free memory. 
 
 
 ### Ergonomics
-I've tried to consider the ergeoomics of working with such explicitness, because boiler plate is inevitable when we want every cost or every decision to be laid bare in front of us. To that end, here are some initial ideas of how to make the idea workable. Many of these will be deferred, however.
+I've tried to consider the ergeoomics of working with such explicitness, because boiler plate is inevitable when we want every cost or every decision to be laid bare in front of us. To that end, here are some initial ideas of how to make the idea workable. Many of these will be deferred, however. As an aside, any sugar would have to be shorthad that lowers to code that could otherwise be hand written
 
 - `?` to early return an error from a called function, e.g. `let a = i32.TryParse("gdgd")?;`
 - A short hand default value to handle errors e.g. `let a = i32.TryParse("gdgd") onerror 0;`
 - `let` and `var` for (im)mutability
 - Tagged unions with exhaustive pattern matching
 - `Ok` token for the success case of `Result<void>`
-- Optional type inferences
+- Optional type inference
 - destructuring with `take` semantics in order to take ownership of its constituent parts, e.g. `let (x, y, z) = take myPoint3d;`
-- `0..5` and `0..=5` for exclusive/inclusive upper bounds (deferred)
+- `0..5` and `0..=5` range syntax for exclusive/inclusive upper bounds (deferred)
 - `defer` and `errordefer` to place fulfilment of the obligation alongside its creations (deferred)
 - `Option<T>` with `if let Some(myValue) = someOption` (deferred)
 
 ## Where next?
 
+I'm very happy to accept that the compiler will be rejecting a lot of valid programs based on its inability to prove complex programs. It's a personal project, and I want to get good value from my time, getting as much as possible out of the limited time I have. Over time, if we ever make any progress, I'd like to make it more robust and smart.
+
 I have a goal to be able to implement the following programs in this language:
 
 - The trivial start and immediately return 0 
-- Print "Hello World" and return 0 
-- Allocate, deallocate, and return 0 
-- Accept user input N, print the fibonachi sequence up to N, and return 0
+- Invoke some function, do some arithmetic, and return the result
+- Print "Hello World"
+- Allocate and deallocate
+- Accept user input N, print the fibonachi sequence up to N
+- Implement a doubly linked list
+- A sudoku solver
+
+If we can do that, we're making enough progress to be worth pushing all the way to self hosted, I think. 
 
 # Getting Started
 
