@@ -19,6 +19,22 @@ Todo:
 0. File system i/o
 0. Designing an std
 
+# Top level declarations
+
+- module 
+- import 
+- fn
+- strict
+- enum
+- union
+- interface
+- implement 
+- error
+- alias
+- global
+- extern
+
+
 # Implementing new compilation abilities:
 
 So the general flow to implement is
