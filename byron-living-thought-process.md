@@ -1,23 +1,82 @@
 # Living notes to keep track of the decisions being made
 
 
-Todo:
+## Todo
+
 1. Add a lowering pass, and perform code generation on the low level AST
 0. Add loops: `for`, `in`, `while`
 0. Add struct support, while we stack allocate
-0. Add simple console i/o
-0. Add `implement` blocks to add functions to structs
 0. Add simple type inference with a top down walk of the AST
 0. Add `interface`s (__NOT__ for dynamic dispatch)
-0. Implement a very simple RetainingAllocator, `MemoryLease<T>`, and filling with a value. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes. Add obligation analysis to `fill` or `release` the memory. Add obligation analysis to `deinit` the allocator, freeing all of the underlying memory
-0. Implement `MemoryLease<T>.fill` return type to `&T` if binding to a `let`, and `&var T` if binding to a `var`
-0. Implement a very simple `TransferringAllocator` and `Owned<T>`, with obligation analysis to `free` the owned value.
-0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
+0. Implement enough generics to describe `Owned<T>`, `Uninitialized<T>` and `Unsafe<T>` types
+0. Add `implement` blocks to add functions to structs
+0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
+0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
+0. Implement a `CAlloator` implemeting `TransferringAllocator`. 
 0. Fixed sized collections: Arrays, Slices, Ranges
+0. Add simple `std.io.console` i/o using C `fputs` and `fgets`
+0. Introduce obligation tracking for 
+    1. `CAllocator` requires `deinit`
+    0. `Uninitialized<T>` requires `.fill` or `.release`
+    0. `Owned<T>` requires `.free` or `asUnsafe`
+0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
+0. Implement a very simple `BumpAllocator` implementing `RetainingAllocator`, and `MemoryLease<T>`. 
+0. Checked arithmetic `+?`, `*?`, `-?`. Arithmetic with `Result<NumericType, E>` arguments, compounding result error unions.
 0. Lexical escape and domination analysis, and the retaining allocator lifetime lifetime shortcut
 0. Dynamic collections: `Vector`, `HashMap`, `String`
 0. File system i/o
+0. Consider if Mutability should be introduced to the type system
 0. Designing an std
+
+# Dereferencing
+
+To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I envision auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`
+
+`Unsafe` then functions as a raw pointer. This also needs dereferencing with `myUnsafe.*.myProperty`. I don't think we will auto forward here. Linear obligation flags are carried on the unsafe ownership handle.
+
+# The basic memory cycle
+
+```
+
+struct Owned<T> {
+    payload: Unsafe<T>,
+    allocator: &var TransferringAllocator,
+}
+
+implement Owned<T> {
+    fn free(self: Self): void {
+        self.payload.deinit();
+        self.allocator.free(self.payload)
+    }
+}
+
+struct Point3d {
+    x: i32,
+    y: i32,
+    z: i32,
+}
+
+implement Point3d {
+    fn default(): Point3d {
+        return Self {x: 0, y: 0, z: 0};
+    }
+    fn deinit(self: Self): void {} // todo: Do what we can to not have to implement this function
+}
+
+
+fn main(): i32 {
+    var gpa = take GeneralPurposeAllocator.init() onerror { return 5; };
+    var allocator = gpa.allocator();
+    var myMemory = take allocator.alloc<Point3d>();
+    let myPoint = take myMemory.fill(Point3d {x: 0, y: 0, z: 0})
+    myPoint.free();
+
+    var myMemory2 = take allocator.alloc<Point3d>();
+    let myPoint2 = take myMemory2.fill(Point3d.default())
+    myPoint2.free()
+}
+
+```
 
 # Top level declarations
 
@@ -32,8 +91,39 @@ Todo:
 - error
 - alias
 - global
-- extern
+- external
 
+# Arithmetic
+By default we always wrap around. We can introduce a "can fail" or "checked" version where we return a Result rather than the wrapped value. Thinking `+?`, `-?`, `*?`. Note that `/` is always a result because divide by zero.
+
+We then get something like, for `a: i32`, `b: i32`, `c: i32`
+
+- `a +? b` is a `Result<i32, OverflowError>`
+- `a -? b` is a `Result<i32, UnderflowError>`
+- `a +? b -? c` is a `Result<i32, OverflowError | UnderflowError>`
+- `a + b -? c` is a `Result<i32, UnderflowError>`
+
+This would need some ergonomics to help this work out, and I wonder if we should consider unwrapping the Ok / returning the error as the pathway. It could be unclear that this is doing a lot of extra work, so I'm not sure how compatable it is with no hidden priciple. On the other hand, it would be mostly syntactic sugar that would lower to nested match blocks. 
+
+# Failure classifications
+- Software errors should ALL be results
+- Failure to progress errors could be provided timeouts and return a result with a TimeoutError
+- Cpu exceptions, Seg fault, Stack Overflow, FFI invocation crashes, all abort. 
+
+# Unsafe
+When deciding to use `malloc` and `free` from C, the need for `Unsafe` seemed more pressing. `Owned` could have a `asUnsafe`
+
+For me, Unsafe means that we lose the automatic memory related obligation tracking, but maintain the non-memory related obligation tracking. 
+
+Therefore, I'm thinking:
+
+- `Owned<T>` can have a `asUnsafe` function implemented that returns `Unsafe<T>`. `asUnsafe` is a valid obligation resolution mechanism that `free` fulfils.
+- Any non-memory obligations on the value remain with the value
+- `Unsafe<T>` is only allowed inside of an `unsafe` block
+- A function that returns, or accepts an `Unsafe<T>` argument is by definition also unsafe
+- Invoking an unsafe function must occur within an `unsafe` block.
+- You need to return Byron memory obligation tracked types to return to safe Byron.
+- Invoking `malloc` and `free` are by definition unsafe in the context of Byron because we can't directly attach obligations to a pointer. However returning `Uninitialized<T>` allows us to return to safe code.
 
 # Implementing new compilation abilities:
 
@@ -65,10 +155,12 @@ A key note: Only implement sugar that lowers to code that the developer could wr
 - `defer` and `errordefer` lowering not yet designed
 - Ternary `let x = condition ? trueValue : falseValue;` lowers to `let x = if condition { yield trueValue; } else { yield falseValue; }`
 - Probably lower `for` to a `while` statement
+- `myOwned.myValue` lowers to `myOwned.*.myValue`
+- `instanceOfType.functionImplementedOnType()` lowers to `functionImplementedOnType(instanceOfType)`
 
 ### Allocators
 - We need some kind of root `SystemAllocator` - this is a special case given we need _something_ to serve as a root backing allocator, and will be a simple OS page allocator. 
-- This will be our first allocator when we implement Array[]
+- This will be our first allocator when we start implementing our own allocators
 
 The idea of allocator returning the Owned<T> or &var T / Handle<T> might not be completely sound alongside the idea of no hidden . To make that work, allocator would need to both allocate the memory and fill it with the value. This means that allocator.alloc has some hidden behaviour, that we specifically want to avoid.
 

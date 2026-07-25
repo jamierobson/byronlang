@@ -437,14 +437,11 @@ Owned<T>    // Denotes an owned instance og a T with obligation to free memory. 
 
 ### Primitive types
 
- We will of course be adding in smaller versions of all number types. We are starting with these big number types if only so that I don't have to think about the smaller ones for now. 
-
 - `bool`
-- `byte`
-- `char`
-- `i64`
-- `u64`
-- `f64`
+- `rune`
+- `i8`, `i16`, `i32`, `i64`
+- `u8`, `u16`, `u32`, `u64`
+- `f8`, `f16`, `f32`, `f64`
 - `Array<T>`
 - `void`
 
@@ -457,11 +454,13 @@ I've tried to consider the ergeoomics of working with such explicitness, because
 - `let` and `var` for (im)mutability
 - Tagged unions with exhaustive pattern matching
 - `Ok` token for the success case of `Result<void>`
+- `Option<T>` with `if let Some(myValue) = someOption` or `if var Some(myValue) = someOption`
+- Auto forwarding of properties and functions from `myOwned` rather than `myOwned.*.`
 - Optional type inference
+- `0..5` and `0..=5` range syntax for exclusive/inclusive upper bounds
 - destructuring with `take` semantics in order to take ownership of its constituent parts, e.g. `let (x, y, z) = take myPoint3d;`
-- `0..5` and `0..=5` range syntax for exclusive/inclusive upper bounds (deferred)
-- `defer` and `errordefer` to place fulfilment of the obligation alongside its creations (deferred)
-- `Option<T>` with `if let Some(myValue) = someOption` (deferred)
+- `defer` and `errordefer` to place fulfilment of the obligation alongside its creations
+
 
 ## Where next?
 
@@ -471,8 +470,8 @@ I have a goal to be able to implement the following programs in this language:
 
 - The trivial start and immediately return 0 
 - Invoke some function, do some arithmetic, and return the result
+- Allocate and deallocate some struct
 - Print "Hello World"
-- Allocate and deallocate
 - Accept user input N, print the fibonachi sequence up to N
 - Implement a doubly linked list
 - A sudoku solver
