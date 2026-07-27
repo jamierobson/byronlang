@@ -4,7 +4,7 @@
 ## Todo
 
 1. ~~Add a lowering pass, and perform code generation on the low level AST~~
-0. Add loops: `for`, `in`, `while`
+0. ~~Add loops: `while`~~
 0. Add struct support, while we stack allocate
 0. Add simple type inference with a top down walk of the AST
 0. Add `interface`s (__NOT__ for dynamic dispatch)
@@ -20,6 +20,7 @@
     0. `Uninitialized<T>` requires `.fill` or `.release`
     0. `Owned<T>` requires `.free` or `asUnsafe`
 0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
+0. Implement `for .. in` loops for enumerables and ranges, lowered to while loops
 0. Implement a very simple `BumpAllocator` implementing `RetainingAllocator`, and `MemoryLease<T>`. 
 0. Checked arithmetic `+?`, `*?`, `-?`. Arithmetic with `Result<NumericType, E>` arguments, compounding result error unions.
 0. Lexical escape and domination analysis, and the retaining allocator lifetime lifetime shortcut
