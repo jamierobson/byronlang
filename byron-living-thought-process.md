@@ -3,7 +3,7 @@
 
 ## Todo
 
-1. Add a lowering pass, and perform code generation on the low level AST
+1. ~~Add a lowering pass, and perform code generation on the low level AST~~
 0. Add loops: `for`, `in`, `while`
 0. Add struct support, while we stack allocate
 0. Add simple type inference with a top down walk of the AST
@@ -30,7 +30,7 @@
 
 # Dereferencing
 
-To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I envision auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`
+To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I need to consider auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`
 
 `Unsafe` then functions as a raw pointer. This also needs dereferencing with `myUnsafe.*.myProperty`. I don't think we will auto forward here. Linear obligation flags are carried on the unsafe ownership handle.
 
@@ -155,7 +155,7 @@ A key note: Only implement sugar that lowers to code that the developer could wr
 - `defer` and `errordefer` lowering not yet designed
 - Ternary `let x = condition ? trueValue : falseValue;` lowers to `let x = if condition { yield trueValue; } else { yield falseValue; }`
 - Probably lower `for` to a `while` statement
-- `myOwned.myValue` lowers to `myOwned.*.myValue`
+- `myOwned.myValue` could lower to `myOwned.*.myValue`, though this does mean that there is the potential of naming conflicts (would require some reserved function names), and a possibly unexpected level of indirection
 - `instanceOfType.functionImplementedOnType()` lowers to `functionImplementedOnType(instanceOfType)`
 
 ### Allocators
@@ -208,33 +208,6 @@ match take resultValue {
 ```
 
 `if var Some(x) = y` would also be possible.
-
-## Parser
-
-### Strategy
-- Pratt for expressions
-- Recursive descernt for statements and declarations
-- Every nud handles prefix position
-- Every led handles infix/postfix position
-
-### Operator Prescedencce
-```
-1  onerror
-2  ||
-3  &&
-4  == !=
-5  < > <= >=
-6  + -
-7  * /
-8  unary: ! -
-9  take
-10 postfix: . () [] ?
-```
-
-### Associativity
-
-Left associative: `+ - * / && || == != < > <= >=`
-Right associative: `= onerror`
 
 ### Types, functions, and namespaces.
 How we deal with free functions in a namespace, and methods on a struct collisions (while generating our global symbol table)?

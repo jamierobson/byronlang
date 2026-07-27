@@ -1,5 +1,6 @@
 using Byron.Compiler.AST;
-using Byron.Compiler.AST.HighLevel;
+using Byron.Compiler.AST.LowLevel;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.CodeGen;
 
@@ -24,7 +25,7 @@ public class LlvmIrGenerator
                 GenerateFunctionDeclaration(func);
                 break;
             default:
-                throw new NotImplementedException($"Top-level node {node.GetType().Name} is not implemented.");
+                throw new ByronNotImplementedException(node.GetType().Name, this);
         }
     }
 
@@ -42,7 +43,7 @@ public class LlvmIrGenerator
                 GenerateVariableDeclaration(declaration);
                 break;
             default:
-                throw new NotImplementedException($"Statement {node.GetType().Name} is not implemented.");
+                throw new ByronNotImplementedException(node.GetType(), this);
         }
     }
 
@@ -55,7 +56,7 @@ public class LlvmIrGenerator
             VariableExpressionNode variable => GenerateVariableLoad(variable),
             BinaryExpressionNode binary => GenerateBinaryExpression(binary),
             CallExpressionNode call => GenerateCallExpression(call),
-            _ => throw new NotImplementedException($"Expression {node.GetType().Name} is not implemented.")
+            _ => throw new ByronNotImplementedException(node.GetType(), this)
         };
     }
     
@@ -63,7 +64,7 @@ public class LlvmIrGenerator
     {
         if (node.Callee is not VariableExpressionNode functionIdentifier)
         {
-            throw new NotImplementedException("Dynamic function pointers/closures are not implemented yet.");
+            throw new ByronNotImplementedException("Dynamic function pointers/closures", this);
         }
 
         var evaluatedArguments = node.Arguments.Select(GenerateExpression).ToList();
@@ -201,7 +202,7 @@ public class LlvmIrGenerator
 
         if (leftLlvmType != rightLlvmType)
         {
-            throw new Exception($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
+            throw new ByronCodeGenerationException($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
         }
 
         var isFloat = leftLlvmType is "float" or "double";
@@ -231,7 +232,7 @@ public class LlvmIrGenerator
                 _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
                 break;
             default:
-                throw new NotImplementedException($"LLVM IR mapping for operator {node.Operator} is not implemented.");
+                throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this);
         };
 
         return (resultRegister, returnType);
@@ -242,7 +243,7 @@ public class LlvmIrGenerator
         var (condValue, condType) = GenerateExpression(node.Condition);
         if (condType != "i1")
         {
-            throw new Exception($"If condition must be a boolean (i1), but got {condType}");
+            throw new ByronCodeGenerationException($"If condition must be a boolean (i1), but got {condType}");
         }
 
         var branchId = _context.AllocateLabelId(); // Assuming your context has a counter helper
@@ -296,7 +297,7 @@ private static bool BlockEndsWithTerminator(BlockStatementNode block)
 
     private static bool IsUnsignedLlvmType(string llvmType) => llvmType.StartsWith('u');
 
-    private static string MapType(TypeNode node)
+    private string MapType(TypeNode node)
     {
         return node switch
         {
@@ -320,7 +321,7 @@ private static bool BlockEndsWithTerminator(BlockStatementNode block)
             RuneTypeNode => "i32",
         
             ReferenceTypeNode r => $"{MapType(r.Target)}*",
-            _ => throw new NotImplementedException($"Type mapping for {node.GetType().Name} is not implemented.")
+            _ => throw new ByronNotImplementedException($"Type mapping for {node.GetType().Name}", this)
         };
     }
 }

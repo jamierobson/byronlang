@@ -1,6 +1,7 @@
 using Byron.Compiler.AST.HighLevel;
 using Xunit;
 using Byron.Compiler.AST;
+using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
@@ -113,7 +114,7 @@ public class FunctionDeclarationParserTests
         .ToList(); // fn badFunc() void {}
 
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration());
     }
 
     [Fact]
@@ -133,6 +134,6 @@ public class FunctionDeclarationParserTests
         .ToList(); // badFunc(): void {}
 
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration() );
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration() );
     }
 }

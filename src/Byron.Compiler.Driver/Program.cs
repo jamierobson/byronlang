@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
+using Byron.Compiler.AST;
 using Byron.Compiler.CodeGen;
+using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
@@ -18,9 +20,10 @@ async Task TryParseFile(string filePath)
     {
         var sourceFileLines = await File.ReadAllLinesAsync(filePath);
         var tokens = new Tokenizer(string.Concat(sourceFileLines)).Tokenise();
-        var ast = new ByronHighLevelAstParser(tokens).Parse();
+        var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();
+        var lowLevelAst = new ByronLoweringPass(highLevelAst).Lower();
         Console.WriteLine("Parsed successfully to AST");
-        var generatedCode = new LlvmIrGenerator().Generate(ast);
+        var generatedCode = new LlvmIrGenerator().Generate(lowLevelAst);
         Console.WriteLine($"Generated the following LLVM IR: {generatedCode}");
 
         var outputIrPath = Path.Combine("./Out", $"{moduleName}.ll");
@@ -59,19 +62,18 @@ async Task TryParseFile(string filePath)
         {
             Console.WriteLine(stdout);
         }
-
     }
-    catch (NotImplementedException e)
+    catch (ByronNotImplementedException e)
     {
-        Console.WriteLine($"Not implemented: {e.Message}");
+        Console.WriteLine(e.Message);
     }
-    catch (ByronParserException e)
+    catch (ByronHighLevelParserException e)
     {
         Console.WriteLine($"{e.Message} at line {e.Span.Line} column {e.Span.Column}");
     }
     catch(Exception e)
     {
-        Console.WriteLine($"Parser Error: {e.Message}");
+        Console.WriteLine($"Unhandled Parser Exception: {e.Message}");
     }
 }
 

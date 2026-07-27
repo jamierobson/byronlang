@@ -1,6 +1,7 @@
 using Byron.Compiler.AST;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.AST.HighLevel;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
@@ -37,7 +38,7 @@ public partial class ByronHighLevelAstParser
         if (ConsumingActiveTokenMatch(TokenKind.QuestionMark))
         {
             var operationToken = Previous();
-            return new TryOperatorExpressionNode(expression, new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, operationToken.Span.End));
+            return new BubbleError(expression, new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, operationToken.Span.End));
         }
 
         return expression;
@@ -58,7 +59,7 @@ public partial class ByronHighLevelAstParser
             var precedence = GetOperatorPrecedence(maybeBinaryOperator.Value);
             if(expression is BinaryExpressionNode binaryOperator && minPrecedence == BitwiseOperationPrecedence && precedence == BitwiseOperationPrecedence && maybeBinaryOperator.Value != binaryOperator.Operator)
             {
-                throw new ByronParserException("Brackets requried when chaining bitwise operations", Peek().Span);
+                throw new ByronHighLevelParserException("Brackets requried when chaining bitwise operations", Peek().Span);
             }
 
             if (precedence < minPrecedence)
@@ -120,6 +121,6 @@ public partial class ByronHighLevelAstParser
             }
             return new VariableExpressionNode(identifier.Lexeme, identifier.Span);
         }
-        throw new ByronParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
+        throw new ByronHighLevelParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
     }
 }

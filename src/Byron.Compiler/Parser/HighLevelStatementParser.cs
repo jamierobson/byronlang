@@ -1,5 +1,6 @@
 using Byron.Compiler.Lexer;
 using Byron.Compiler.AST.HighLevel;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
@@ -51,10 +52,11 @@ public partial class ByronHighLevelAstParser
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
             return new VariableDeclarationNode(isMutable, name.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
         }
-        throw new NotImplementedException("Fallback basic statements not implemented.");
+
+        throw new ByronNotImplementedException("Fallback basic statements", this);
     }
     
-    private IfStatementNode ParseIfStatement()
+    private IfElseStatement ParseIfStatement()
     {
         var ifToken = Previous();
         Consume(TokenKind.LParen, "Expected '(' after 'if'.");
@@ -62,20 +64,16 @@ public partial class ByronHighLevelAstParser
         Consume(TokenKind.RParen, "Expected ')' after condition.");
 
         var thenBranch = ParseBlockStatement();
+        var span = ifToken.Span;
+        
+        BlockStatementNode? elseBranch = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.Else))
         {
-            var elseBranch = ParseBlockStatement();
-            return new IfElseStatementNode(
-                condition, 
-                thenBranch, 
-                elseBranch, 
-                ifToken.Span with { End = elseBranch.Span.End }
-            );
+            elseBranch = ParseBlockStatement();
+            span = ifToken.Span with { End = elseBranch.Span.End };
         }
-        else
-        {
-            return new IfStatementNode(condition, thenBranch, ifToken.Span);
-        }
+        
+        return new IfElseStatement(condition, thenBranch, elseBranch, span);
     }
 }

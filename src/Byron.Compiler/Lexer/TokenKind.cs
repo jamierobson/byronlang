@@ -22,6 +22,7 @@ public enum TokenKind
     For,
     Match,
     Return,
+    Yield,
     Continue,
     Break,
 

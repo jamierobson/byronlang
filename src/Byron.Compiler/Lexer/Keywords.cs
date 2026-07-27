@@ -23,6 +23,7 @@ public static class Keywords
         ["for"]         = TokenKind.For,
         ["match"]       = TokenKind.Match,
         ["return"]      = TokenKind.Return,
+        ["yield"]      = TokenKind.Yield,
         ["continue"]    = TokenKind.Continue,
         ["break"]       = TokenKind.Break,
 

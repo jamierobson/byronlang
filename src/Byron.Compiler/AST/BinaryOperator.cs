@@ -27,7 +27,7 @@ public enum BinaryOperator
     LogicalOr
 }
 
-public static partial class TokenKindExtensions
+public static class TokenKindExtensions
 {
     extension(TokenKind tokenKind)
     {
