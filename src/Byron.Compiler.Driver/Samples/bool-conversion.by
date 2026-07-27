@@ -1,1 +1,0 @@
-fn main(): boolean { return (1==1); }

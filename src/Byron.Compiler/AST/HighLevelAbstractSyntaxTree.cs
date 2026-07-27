@@ -36,12 +36,32 @@ public record VariableDeclarationNode(
     SourceSpan Span
 ) : StatementNode(Span);
 
+public record AssignmentStatementNode(
+    ExpressionNode Target, 
+    ExpressionNode Value, 
+    SourceSpan Span
+) : StatementNode(Span);
+
+public record ExpressionStatementNode(
+    ExpressionNode Expression, 
+    SourceSpan Span
+) : StatementNode(Span);
+
 public record IfElseStatement(
     ExpressionNode Condition, 
     BlockStatementNode ThenBranch, 
     BlockStatementNode? ElseBranch,
     SourceSpan Span
 ) : StatementNode(Span);
+
+public record WhileStatement(
+    ExpressionNode ContinuationCondition,
+    BlockStatementNode Body,
+    SourceSpan Span
+): StatementNode(Span);
+
+public record BreakStatement(SourceSpan Span): StatementNode(Span);
+public record ContinueStatement(SourceSpan Span): StatementNode(Span);
 
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);

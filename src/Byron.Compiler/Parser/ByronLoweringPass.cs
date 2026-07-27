@@ -2,7 +2,7 @@ using Byron.Compiler.Exceptions;
 using High = Byron.Compiler.AST.HighLevel;
 using Low = Byron.Compiler.AST.LowLevel;
 
-namespace Byron.Compiler.AST;
+namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass(High.ProgramNode highLevelAst)
 {
@@ -74,6 +74,10 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.DiscardStatementNode discard => new Low.DiscardStatementNode(Expression(discard.Initializer)),
             High.VariableDeclarationNode variable => Variable(variable),
             High.IfElseStatement ifElse => IfElse(ifElse),
+            High.BreakStatement _ => new Low.BreakStatement(),
+            High.ContinueStatement _ => new Low.ContinueStatement(),
+            High.WhileStatement @while => new Low.WhileStatement(Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
+            High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(Expression(assignment.Target), Expression(assignment.Value)),
             _ => throw new ByronNotImplementedException(statement.GetType(), this)
         };
     }

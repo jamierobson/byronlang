@@ -20,6 +20,7 @@ public enum TokenKind
     Else,
     While,
     For,
+    In,
     Match,
     Return,
     Yield,
@@ -42,8 +43,8 @@ public enum TokenKind
     Typeof,
 
     // Self
-    Self,               // self
-    CapitalSelf,        // Self
+    Self,
+    CapitalSelf,
 
     Import,
     Use,
@@ -65,8 +66,6 @@ public enum TokenKind
 
     // -------------------------------------------------------------------------
     // Reserved Identifiers
-    // These are known names, not grammar keywords.
-    // Parser / semantic pass gives them meaning.
     // -------------------------------------------------------------------------
     True,
     False,
@@ -122,7 +121,6 @@ public enum TokenKind
 
     // -------------------------------------------------------------------------
     // Future Reserved Symbols
-    // Lexed and emitted; parser will reject them for now.
     // -------------------------------------------------------------------------
     At,             // @
     Hash,           // #
@@ -145,5 +143,5 @@ public enum TokenKind
     // Meta
     // -------------------------------------------------------------------------
     Eof,
-    LexError,       // unrecognised character
+    LexError,
 }

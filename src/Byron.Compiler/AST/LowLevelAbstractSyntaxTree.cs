@@ -31,7 +31,14 @@ public record VariableDeclarationNode(
     TypeNode? ExplicitType, 
     ExpressionNode Initializer) : StatementNode;
 
+public record AssignmentStatementNode(
+    ExpressionNode Target, 
+    ExpressionNode Value 
+) : StatementNode;
 
+public record ExpressionStatementNode(
+    ExpressionNode Expression 
+) : StatementNode;
 
 public record IfStatementNode(
     ExpressionNode Condition, 
@@ -43,6 +50,14 @@ public record IfElseStatementNode(
     BlockStatementNode ThenBranch,
     BlockStatementNode ElseBranch
 ) : IfStatementNode(Condition, ThenBranch);
+
+public record WhileStatement(
+    ExpressionNode ContinuationCondition,
+    BlockStatementNode Body
+): StatementNode;
+
+public record BreakStatement: StatementNode;
+public record ContinueStatement: StatementNode;
 
 public abstract record ExpressionNode : AstNode;
 public record IntegerLiteralNode(long Value) : ExpressionNode;

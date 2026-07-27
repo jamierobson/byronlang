@@ -410,7 +410,10 @@ public class Tokenizer
             }
             else
             {
-                if (Peek() == '\n') TrackNewline();
+                if (Peek() == '\n')
+                {
+                    TrackNewline();
+                };
                 Consume();
             }
         }

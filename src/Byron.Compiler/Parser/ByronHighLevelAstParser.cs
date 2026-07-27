@@ -69,7 +69,7 @@ public partial class ByronHighLevelAstParser
                 }
                 
                 var parameterType = ParseTypeSignature();
-                parameters.Add(new ParameterNode(receiverBindingOwnership, parameterName.Lexeme, parameterType, new SourceSpan(parameterName.Span.Line, parameterName.Span.Column, parameterName.Span.Start, parameterType.Span.End)));
+                parameters.Add(new ParameterNode(receiverBindingOwnership, parameterName.Lexeme, parameterType, parameterName.Span with {End = parameterType.Span.End}));
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
 

@@ -21,6 +21,7 @@ public static class Keywords
         ["else"]        = TokenKind.Else,
         ["while"]       = TokenKind.While,
         ["for"]         = TokenKind.For,
+        ["in"]          = TokenKind.In,
         ["match"]       = TokenKind.Match,
         ["return"]      = TokenKind.Return,
         ["yield"]      = TokenKind.Yield,

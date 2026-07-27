@@ -27,6 +27,23 @@ public enum BinaryOperator
     LogicalOr
 }
 
+public static class BinaryOperatorExtensions
+{
+    extension(BinaryOperator @operator)
+    {
+        public bool IsRelationalComparison()
+        {
+            return @operator is
+                BinaryOperator.Equal or
+                BinaryOperator.NotEqual or
+                BinaryOperator.LessThan or
+                BinaryOperator.LessThanOrEqual or
+                BinaryOperator.GreaterThan or
+                BinaryOperator.GreaterThanOrEqual;
+        }
+    }
+}
+
 public static class TokenKindExtensions
 {
     extension(TokenKind tokenKind)

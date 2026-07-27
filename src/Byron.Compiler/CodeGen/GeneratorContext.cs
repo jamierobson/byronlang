@@ -1,4 +1,5 @@
 using System.Text;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.CodeGen;
 
@@ -6,6 +7,8 @@ public class GeneratorContext
 {
     private readonly StringBuilder _irOutputBuilder = new();
     private readonly Dictionary<string, string> _symbolTable = new();
+    private readonly Stack<(string ContinueLabel, string BreakLabel)> _loopStack = new();
+    
     private int _nextRegister = 1;
     private int _nextLabelId = 0;
 
@@ -29,4 +32,15 @@ public class GeneratorContext
     public string GetGeneratedIr() => _irOutputBuilder.ToString();
     
     public void DeclareVariable(string name, string register) => _symbolTable[name] = register;
+
+    public void PushLoop(string continueLabel, string breakLabel) 
+        => _loopStack.Push((continueLabel, breakLabel));
+
+    public void PopLoop() 
+        => _loopStack.Pop();
+
+    public (string ContinueLabel, string BreakLabel) CurrentLoop 
+        => _loopStack.Count > 0 
+            ? _loopStack.Peek() 
+            : throw new ByronCodeGenerationException("Break/Continue used outside of loop");
 }
