@@ -39,6 +39,22 @@ public partial class ByronHighLevelAstParser
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
             return new ReturnStatementNode(expr, new SourceSpan(start.Span.Line, start.Span.Column, start.Span.Start, semiColon.Span.End));
         }
+        if (ConsumingActiveTokenMatch(TokenKind.Break))
+        {
+            var start = Previous();
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            return new BreakStatement(start.Span with {End = semiColon.Span.End} );
+        }
+        if (ConsumingActiveTokenMatch(TokenKind.Continue))
+        {
+            var start = Previous();
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            return new ContinueStatement(start.Span with {End = semiColon.Span.End} );
+        }
+        if (ConsumingActiveTokenMatch(TokenKind.While))
+        {
+            return ParseWhileLoopStatement();
+        }
         
         if (ConsumingActiveTokenMatch(TokenKind.Let) || ConsumingActiveTokenMatch(TokenKind.Var))
         {
@@ -76,4 +92,16 @@ public partial class ByronHighLevelAstParser
         
         return new IfElseStatement(condition, thenBranch, elseBranch, span);
     }
+
+    private WhileStatement ParseWhileLoopStatement()
+    {
+        var whileSpan = Previous().Span;
+        Consume(TokenKind.LParen, "Expected '(' after 'while'.");
+        var condition = ParseExpression();
+        Consume(TokenKind.RParen, "Expected ')' after condition.");
+        
+        var body = ParseBlockStatement();
+            
+        return new WhileStatement(condition, body, whileSpan with{ End = body.Span.End });
+    } 
 }

@@ -1,5 +1,0 @@
-fn main(): i32 { 
-    let a = 3;
-    var b = 7;
-    return a + b;
-}

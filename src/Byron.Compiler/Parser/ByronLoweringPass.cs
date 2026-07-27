@@ -2,7 +2,7 @@ using Byron.Compiler.Exceptions;
 using High = Byron.Compiler.AST.HighLevel;
 using Low = Byron.Compiler.AST.LowLevel;
 
-namespace Byron.Compiler.AST;
+namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass(High.ProgramNode highLevelAst)
 {
