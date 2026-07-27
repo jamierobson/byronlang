@@ -2,6 +2,19 @@
 
 Welcome to the Byron language repository. This readme serves as a motivation statement and philosophical cornerstone of a systems programming language that I feel that I would enjoy using.
 
+## AI disclosure
+
+This project is AI assisted in the following ways
+
+- LLVM code generation has heavy help since I don't know LLVM
+- Knowledge of different compiler concerns is gathered through conversations with an LLM
+- Some of the initial boiler plate has been generated, for example the AST types
+- Some of the ramifications of decisions being made are explored with the LLM to sanity check the ideas. 
+
+AI code is never blindly accepted, and is examined, sought understood, and tweaked (sometimes heavily) to fit in with existing patterns and style.
+
+The core ideas are mine, as is lots of of the parsing, lowering, and semantic analysis code. 
+
 ## Motivation
 
 Byron is a systems language with explicit manual control and compile time resource accountability. This is a personal project to explore the nuts and bolts of languages and compilers. I'm most at home in C#, but want to get to know systems programming. I've explored both Rust and Zig and feel more at home in the Zig space, sometimes finding myself wishing that both had features from each other.
