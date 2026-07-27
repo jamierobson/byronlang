@@ -31,7 +31,14 @@ public record VariableDeclarationNode(
     TypeNode? ExplicitType, 
     ExpressionNode Initializer) : StatementNode;
 
+public record AssignmentStatementNode(
+    ExpressionNode Target, 
+    ExpressionNode Value 
+) : StatementNode;
 
+public record ExpressionStatementNode(
+    ExpressionNode Expression 
+) : StatementNode;
 
 public record IfStatementNode(
     ExpressionNode Condition, 

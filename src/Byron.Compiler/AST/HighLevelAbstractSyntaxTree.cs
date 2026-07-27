@@ -36,6 +36,17 @@ public record VariableDeclarationNode(
     SourceSpan Span
 ) : StatementNode(Span);
 
+public record AssignmentStatementNode(
+    ExpressionNode Target, 
+    ExpressionNode Value, 
+    SourceSpan Span
+) : StatementNode(Span);
+
+public record ExpressionStatementNode(
+    ExpressionNode Expression, 
+    SourceSpan Span
+) : StatementNode(Span);
+
 public record IfElseStatement(
     ExpressionNode Condition, 
     BlockStatementNode ThenBranch, 

@@ -69,6 +69,20 @@ public partial class ByronHighLevelAstParser
             return new VariableDeclarationNode(isMutable, name.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
         }
 
+        var freeExpression = ParseExpression();
+
+        if (ConsumingActiveTokenMatch(TokenKind.Equals))
+        {
+            var value = ParseExpression();
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after assignment.");
+            return new AssignmentStatementNode(freeExpression, value, value.Span with {End = semiColon.Span.End});
+        }
+
+        if (ConsumingActiveTokenMatch(TokenKind.Semicolon))
+        {
+            return new ExpressionStatementNode(freeExpression, freeExpression.Span with { End = Previous().Span.End });
+        }
+        
         throw new ByronNotImplementedException("Fallback basic statements", this);
     }
     
