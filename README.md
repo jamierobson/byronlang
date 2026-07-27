@@ -9,7 +9,8 @@ This project is AI assisted in the following ways
 - LLVM code generation has heavy help since I don't know LLVM
 - Knowledge of different compiler concerns is gathered through conversations with an LLM
 - Some of the initial boiler plate has been generated, for example the AST types
-- Some of the ramifications of decisions being made are explored with the LLM to sanity check the ideas. 
+- Some of the ramifications of decisions being made are explored with the LLM to sanity check the ideas.
+- Some test generation, based upon my skeleton implementations
 
 AI code is never blindly accepted, and is examined, sought understood, and tweaked (sometimes heavily) to fit in with existing patterns and style.
 
