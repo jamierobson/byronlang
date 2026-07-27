@@ -43,6 +43,15 @@ public record IfElseStatement(
     SourceSpan Span
 ) : StatementNode(Span);
 
+public record WhileStatement(
+    ExpressionNode ContinuationCondition,
+    BlockStatementNode Body,
+    SourceSpan Span
+): StatementNode(Span);
+
+public record BreakStatement(SourceSpan Span): StatementNode(Span);
+public record ContinueStatement(SourceSpan Span): StatementNode(Span);
+
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);

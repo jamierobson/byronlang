@@ -44,6 +44,14 @@ public record IfElseStatementNode(
     BlockStatementNode ElseBranch
 ) : IfStatementNode(Condition, ThenBranch);
 
+public record WhileStatement(
+    ExpressionNode ContinuationCondition,
+    BlockStatementNode Body
+): StatementNode;
+
+public record BreakStatement: StatementNode;
+public record ContinueStatement: StatementNode;
+
 public abstract record ExpressionNode : AstNode;
 public record IntegerLiteralNode(long Value) : ExpressionNode;
 public record VariableExpressionNode(string Name) : ExpressionNode;
