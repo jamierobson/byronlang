@@ -1,6 +1,7 @@
 using Byron.Compiler.AST;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.AST.HighLevel;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
@@ -64,7 +65,7 @@ public partial class ByronHighLevelAstParser
                 }
                 else
                 {
-                    throw new ByronParserException(Peek());
+                    throw new ByronHighLevelParserException(Peek());
                 }
                 
                 var parameterType = ParseTypeSignature();
@@ -95,7 +96,7 @@ public partial class ByronHighLevelAstParser
             "void" => new VoidTypeNode(token.Span),
             "unit" => new UnitTypeNode(token.Span),
             "rune" => new RuneTypeNode(token.Span),
-            _ => throw new ByronParserException($"Unknown type signature target: {token.Lexeme}", token.Span)
+            _ => throw new ByronHighLevelParserException($"Unknown type signature target: {token.Lexeme}", token.Span)
         };
     }
 
@@ -121,5 +122,5 @@ public partial class ByronHighLevelAstParser
     private Token Previous() => _tokens[_activeTokenIndex - 1];
     private Token PeekNext() => _tokens[_activeTokenIndex + 1];
     private bool IsAtEnd() => _activeTokenIndex >= _tokens.Count || Peek().Kind == TokenKind.Eof;
-    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronParserException(error, SourceSpan.Empty);
+    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, SourceSpan.Empty);
 }

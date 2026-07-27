@@ -36,18 +36,12 @@ public record VariableDeclarationNode(
     SourceSpan Span
 ) : StatementNode(Span);
 
-public record IfStatementNode(
+public record IfElseStatement(
     ExpressionNode Condition, 
     BlockStatementNode ThenBranch, 
+    BlockStatementNode? ElseBranch,
     SourceSpan Span
 ) : StatementNode(Span);
-
-public record IfElseStatementNode(
-    ExpressionNode Condition,
-    BlockStatementNode ThenBranch,
-    BlockStatementNode ElseBranch,
-    SourceSpan Span
-) : IfStatementNode(Condition, ThenBranch, Span);
 
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
@@ -90,4 +84,4 @@ public record RuneTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
 
 // Lowerable expressions
 public record OnErrorExpressionNode(ExpressionNode Source, ExpressionNode Fallback, SourceSpan Span) : ExpressionNode(Span);
-public record TryOperatorExpressionNode(ExpressionNode Source, SourceSpan Span) : ExpressionNode(Span);
+public record BubbleError(ExpressionNode Source, SourceSpan Span) : ExpressionNode(Span);

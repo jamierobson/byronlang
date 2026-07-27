@@ -1,6 +1,7 @@
 using Byron.Compiler.AST.HighLevel;
 using Xunit;
 using Byron.Compiler.AST;
+using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
@@ -44,7 +45,7 @@ public class FunctionArgumentParserTests
         List<Token> tokenStream = [ ToToken(TokenKind.LParen, "(") ]; // (
     
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -81,7 +82,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32,)
     
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -98,7 +99,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, : i32)
     
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -115,7 +116,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, y:)
     
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
@@ -132,7 +133,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, y i32)
     
         // Act + Assert
-        Assert.Throws<ByronParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionArguments());
     }
     
     [Fact]
