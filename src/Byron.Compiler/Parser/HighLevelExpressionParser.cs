@@ -26,10 +26,8 @@ public partial class ByronHighLevelAstParser
     
     private ExpressionNode ParseExpression()
     {
-        // 1. Evaluate all math and binary operations first, starting from the absolute floor
         var expression = ParseBinaryExpression(0);
 
-        // 2. Handle post-fix syntax sugar operations safely on the fully built math tree
         if (ConsumingActiveTokenMatch(TokenKind.OnError))
         {
             var fallback = ParsePrimaryExpression();

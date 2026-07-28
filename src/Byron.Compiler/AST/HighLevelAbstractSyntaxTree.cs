@@ -15,7 +15,7 @@ public record FunctionDeclarationNode(string Name, List<ParameterNode> Parameter
 public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 
 public record StructDeclarationNode(string Name, List<StructFieldNode> Fields, SourceSpan Span) : TopLevelDeclarationNode(Span);
-public record StructFieldNode(string Name, TypeNode type, SourceSpan Span) : AstNode(Span);
+public record StructFieldNode(string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 public record StructFieldInitializerNode(string FieldName, ExpressionNode Value, SourceSpan Span) : AstNode(Span);
 
 // Statements

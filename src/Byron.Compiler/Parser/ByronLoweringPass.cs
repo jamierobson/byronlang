@@ -20,17 +20,24 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         return declaration switch
         {
             High.FunctionDeclarationNode function => FunctionDeclaration(function),
+            High.StructDeclarationNode @struct => StructDeclaration(@struct),
             _ => throw new ByronNotImplementedException(declaration.GetType(), this) 
         };
     }
 
-    private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode function)
+    private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
-        var parameters = function.Parameters.Select(Parameter).ToList();
-        var returnType = Type(function.ReturnType);
-        var body = BlockStatement(function.Body);
+        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x.Name, Type(x.Type))).ToList();
+        return new Low.StructDeclarationNode(@struct.Name, fields);
+    } 
 
-        return new Low.FunctionDeclarationNode(function.Name, parameters, returnType, body);
+    private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
+    {
+        var parameters = declaration.Parameters.Select(Parameter).ToList();
+        var returnType = Type(declaration.ReturnType);
+        var body = BlockStatement(declaration.Body);
+
+        return new Low.FunctionDeclarationNode(declaration.Name, parameters, returnType, body);
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)

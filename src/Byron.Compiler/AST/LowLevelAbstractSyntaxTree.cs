@@ -14,7 +14,7 @@ public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, Typ
 
 // Structs
 public record StructDeclarationNode(string Name, List<StructFieldNode> Fields) : TopLevelDeclarationNode;
-public record StructFieldNode(string Name, string TypeNode) : AstNode;
+public record StructFieldNode(string Name, TypeNode Type) : AstNode;
 public record StructFieldInitializerNode(string FieldName, ExpressionNode Value) : AstNode;
 
 
