@@ -43,7 +43,8 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
     {
         return type switch
         {
-            High.ReferenceTypeNode refType => new Low.ReferenceTypeNode(Type(refType.Target), refType.IsMutable),
+            High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(Type(referenceType.Target), referenceType.IsMutable),
+            High.UserDeclaredTypeNode userDeclaredType => new Low.UserDeclaredTypeNode(userDeclaredType.FullyQualifiedName()),
             
             High.VoidTypeNode => new Low.VoidTypeNode(),
             High.UnitTypeNode => new Low.UnitTypeNode(),
@@ -63,7 +64,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             _ => throw new ByronNotImplementedException(type.GetType(), this)
         };
     }
-    
+
     private Low.StatementNode Statement(High.StatementNode statement)
     {
         return statement switch
@@ -91,11 +92,22 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable.Name),
             High.CallExpressionNode call => CallExpression(call),
             High.BinaryExpressionNode binary => new Low.BinaryExpressionNode(Expression(binary.Left), binary.Operator, Expression(binary.Right)),
-
+            High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
+            High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(Expression(memberAccess.Target), memberAccess.MemberName),
+            
             // Lowerable expressions here
 
             _ => throw new ByronNotImplementedException(expression.GetType(), this)
         };
+    }
+
+    private Low.StructFieldInitializationExpressionNode StructFieldInitializationExpression(High.StructFieldInitializationExpressionNode structFieldInitialization)
+    {
+        return new Low.StructFieldInitializationExpressionNode(
+            structFieldInitialization.StructName,
+            structFieldInitialization.FieldInitializers.Select(
+                x => new Low.StructFieldInitializerNode(x.FieldName, Expression(x.Value))).ToList()
+            );
     }
     
     private Low.VariableDeclarationNode Variable(High.VariableDeclarationNode variable)

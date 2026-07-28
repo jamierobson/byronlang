@@ -31,5 +31,5 @@ fn getPoint(point2d: Point2d): MyType {
         a: 1,
         b: 2,
         c: point2d
-    }
+    };
 }

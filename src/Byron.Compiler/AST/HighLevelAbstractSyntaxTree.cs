@@ -7,62 +7,33 @@ public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
 
 public abstract record AstNode(SourceSpan Span);
 
+
+// Top Level Declarations
 public abstract record TopLevelDeclarationNode(SourceSpan Span) : AstNode(Span);
 
-public record ParameterNode(
-    ReceiverBindingOwnership Ownership,
-    string Name, 
-    TypeNode Type, 
-    SourceSpan Span) : AstNode(Span);
+public record FunctionDeclarationNode(string Name, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Span);
+public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 
-public record FunctionDeclarationNode(
-    string Name, 
-    List<ParameterNode> Parameters, 
-    TypeNode ReturnType, 
-    BlockStatementNode Body, 
-    SourceSpan Span
-) : TopLevelDeclarationNode(Span);
+public record StructDeclarationNode(string Name, List<StructFieldNode> Fields, SourceSpan Span) : TopLevelDeclarationNode(Span);
+public record StructFieldNode(string Name, TypeNode type, SourceSpan Span) : AstNode(Span);
+public record StructFieldInitializerNode(string FieldName, ExpressionNode Value, SourceSpan Span) : AstNode(Span);
 
+// Statements
 public abstract record StatementNode(SourceSpan Span) : AstNode(Span);
 public record BlockStatementNode(List<StatementNode> Statements, SourceSpan Span) : StatementNode(Span);
 public record ReturnStatementNode(ExpressionNode? Expression, SourceSpan Span) : StatementNode(Span);
-public record YieldStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span);
+public record YieldStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span); // todo: Since yield turns a block statement into a block region, does that make yield an expression?
 public record DiscardStatementNode(ExpressionNode Initializer, SourceSpan Span) : StatementNode(Span);
-public record VariableDeclarationNode(
-    bool IsMutable,
-    string Name, 
-    TypeNode? ExplicitType, 
-    ExpressionNode Initializer, 
-    SourceSpan Span
-) : StatementNode(Span);
+public record VariableDeclarationNode(bool IsMutable, string Name, TypeNode? ExplicitType, ExpressionNode Initializer, SourceSpan Span ) : StatementNode(Span);
+public record AssignmentStatementNode(ExpressionNode Target, ExpressionNode Value, SourceSpan Span ) : StatementNode(Span);
+public record ExpressionStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span);
+public record IfElseStatement(ExpressionNode Condition, BlockStatementNode ThenBranch, BlockStatementNode? ElseBranch, SourceSpan Span ) : StatementNode(Span);
 
-public record AssignmentStatementNode(
-    ExpressionNode Target, 
-    ExpressionNode Value, 
-    SourceSpan Span
-) : StatementNode(Span);
-
-public record ExpressionStatementNode(
-    ExpressionNode Expression, 
-    SourceSpan Span
-) : StatementNode(Span);
-
-public record IfElseStatement(
-    ExpressionNode Condition, 
-    BlockStatementNode ThenBranch, 
-    BlockStatementNode? ElseBranch,
-    SourceSpan Span
-) : StatementNode(Span);
-
-public record WhileStatement(
-    ExpressionNode ContinuationCondition,
-    BlockStatementNode Body,
-    SourceSpan Span
-): StatementNode(Span);
-
+public record WhileStatement(ExpressionNode ContinuationCondition, BlockStatementNode Body, SourceSpan Span ): StatementNode(Span);
 public record BreakStatement(SourceSpan Span): StatementNode(Span);
 public record ContinueStatement(SourceSpan Span): StatementNode(Span);
 
+// Expressions
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
@@ -70,36 +41,34 @@ public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionN
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
 public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span);
 
+public record StructFieldInitializationExpressionNode(string StructName, List<StructFieldInitializerNode> FieldInitializers, SourceSpan Span) : ExpressionNode(Span);
+public record MemberAccessExpressionNode(ExpressionNode Target, string MemberName, SourceSpan Span ) : ExpressionNode(Span);
+
+// Types
 public abstract record TypeNode(SourceSpan Span) : AstNode(Span);
+
+public record UserDeclaredTypeNode(List<string> ModulePath, string Name, SourceSpan Span) : TypeNode(Span)
+{
+    public string FullyQualifiedName() => ModulePath.Count != 0 ? $"{Name}.{string.Join(".", ModulePath)}" : Name;
+}
+
 public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span);
 
-// Built-in types
+// todo: Do we want to split out primitive types and composite types as their own AST node types?
 public abstract record BuiltInTypeNode(SourceSpan Span) : TypeNode(Span);
 public record VoidTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
 public record UnitTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Int8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Int16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Int32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Int64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record UInt8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record UInt16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record UInt32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record UInt64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Float32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record Float64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record BoolTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-
 public record RuneTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
 
 // Lowerable expressions

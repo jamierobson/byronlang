@@ -54,7 +54,9 @@ public partial class ByronHighLevelAstParser
             var maybeBinaryOperator = followingToken.Kind.ToBinaryOperator();
 
             if (maybeBinaryOperator is null)
+            {
                 break;
+            }
 
             var precedence = GetOperatorPrecedence(maybeBinaryOperator.Value);
             if(expression is BinaryExpressionNode binaryOperator && minPrecedence == BitwiseOperationPrecedence && precedence == BitwiseOperationPrecedence && maybeBinaryOperator.Value != binaryOperator.Operator)
@@ -106,6 +108,7 @@ public partial class ByronHighLevelAstParser
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
             var identifier = Previous();
+            ExpressionNode expression;
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
                 var arguments = new List<ExpressionNode>();
@@ -116,11 +119,66 @@ public partial class ByronHighLevelAstParser
                         arguments.Add(ParseExpression());
                     } while (ConsumingActiveTokenMatch(TokenKind.Comma));
                 }
-                var rparen = Consume(TokenKind.RParen, "Expected ')'.");
-                return new CallExpressionNode(new VariableExpressionNode(identifier.Lexeme, identifier.Span), arguments, new SourceSpan(identifier.Span.Line, identifier.Span.Column, identifier.Span.Start, rparen.Span.End));
+                var endToken = Consume(TokenKind.RParen, "Expected ')'.");
+                expression = new CallExpressionNode(
+                    new VariableExpressionNode(identifier.Lexeme, identifier.Span), arguments, 
+                    new SourceSpan(identifier.Span.Line, identifier.Span.Column, identifier.Span.Start, endToken.Span.End));
             }
-            return new VariableExpressionNode(identifier.Lexeme, identifier.Span);
+            else if (ConsumingActiveTokenMatch(TokenKind.LBrace))
+            {
+                var initializers = ParseStructFieldInitializers();
+                var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
+
+                var typeNode = new UserDeclaredTypeNode([], identifier.Lexeme, identifier.Span);
+
+                expression = new StructFieldInitializationExpressionNode(typeNode.Name, initializers,
+                    identifier.Span with { End = endToken.Span.End });
+            }
+            else
+            {
+                expression = new VariableExpressionNode(identifier.Lexeme, identifier.Span);
+            }
+
+            return ParsePostfixExpression(expression);
         }
         throw new ByronHighLevelParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
+    }
+    
+    private ExpressionNode ParsePostfixExpression(ExpressionNode expression)
+    {
+        while (ConsumingActiveTokenMatch(TokenKind.Dot))
+        {
+            var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
+            expression = new MemberAccessExpressionNode(
+                expression, 
+                memberToken.Lexeme, 
+                expression.Span with { End = memberToken.Span.End }
+            );
+        }
+        return expression;
+    }
+    
+    private List<StructFieldInitializerNode> ParseStructFieldInitializers()
+    {
+        var initializers = new List<StructFieldInitializerNode>();
+
+        while (!ActiveTokenMatch(TokenKind.RBrace))
+        {
+            var nameToken = Consume(TokenKind.Identifier, "Expected field name in struct initialization.");
+            Consume(TokenKind.Colon, "Expected ':' after field name.");
+        
+            var fieldValueExpression = ParseExpression();
+        
+            initializers.Add(new StructFieldInitializerNode(nameToken.Lexeme, fieldValueExpression, nameToken.Span with { End = fieldValueExpression.Span.End }) );
+
+            if (ActiveTokenMatch(TokenKind.RBrace))
+            {
+                break;
+            }
+
+            Consume(TokenKind.Comma, "Expected ',' or '}' in struct field initializers.");
+        }
+
+        return initializers;
     }
 }
