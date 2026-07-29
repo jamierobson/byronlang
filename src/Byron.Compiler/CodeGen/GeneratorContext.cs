@@ -6,7 +6,9 @@ namespace Byron.Compiler.CodeGen;
 public class GeneratorContext
 {
     private readonly StringBuilder _irOutputBuilder = new();
-    private readonly Dictionary<string, string> _symbolTable = new();
+    private readonly Dictionary<string, SymbolAddress> _symbolTable = new();
+    private readonly Dictionary<string, StructLayout> _structLayouts = new();
+    private readonly Dictionary<string, LlvmType> _functionSignatures = new();
     private readonly Stack<(string ContinueLabel, string BreakLabel)> _loopStack = new();
     
     private int _nextRegister = 1;
@@ -25,13 +27,32 @@ public class GeneratorContext
         _symbolTable.Clear();
     }
     
-    public string LookupVariable(string name) => _symbolTable.TryGetValue(name, out var register)
-        ? register
-        : throw new KeyNotFoundException($"Compiler error: Undefined variable '{name}' requested.");
-
     public string GetGeneratedIr() => _irOutputBuilder.ToString();
     
-    public void DeclareVariable(string name, string register) => _symbolTable[name] = register;
+    public SymbolAddress LookupVariable(string name) => _symbolTable.TryGetValue(name, out var address) // todo: Here
+        ? address
+        : throw new KeyNotFoundException($"Compiler error: Undefined variable '{name}' requested.");
+    
+    public void DeclareVariable(string name, SymbolAddress register) => _symbolTable[name] = register;
+    
+    public void RegisterFunction(string functionName, LlvmType returnType)
+    {
+        _functionSignatures[functionName] = returnType;
+    }
+    
+    public void RegisterStructLayout(StructLayout layout)
+    {
+        _structLayouts[layout.Name] = layout;
+    }
+    
+    public StructLayout GetStructLayout(string structName) => _structLayouts.TryGetValue(structName, out var layout)
+        ? layout
+        : throw new ByronCodeGenerationException($"Compiler error: Unknown struct layout '{structName}'.");
+    
+    public LlvmType GetFunctionReturnType(string functionName) 
+        => _functionSignatures.TryGetValue(functionName, out var returnType)
+            ? returnType
+            : throw new ByronCodeGenerationException($"Compiler error: Unknown function '{functionName}'.");
 
     public void PushLoop(string continueLabel, string breakLabel) 
         => _loopStack.Push((continueLabel, breakLabel));

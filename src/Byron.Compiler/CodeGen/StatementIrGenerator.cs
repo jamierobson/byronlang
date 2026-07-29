@@ -37,10 +37,17 @@ public partial class LlvmIrGenerator
 
     private void GenerateAssignStatement(AssignmentStatementNode node)
     {
-        string stackPointer;
+        string targetPointer;
+        LlvmType expectedLlvmType;
         if (node.Target is VariableExpressionNode variable)
         {
-            stackPointer = _context.LookupVariable(variable.Name);
+            var symbolAddress = _context.LookupVariable(variable.Name);
+            targetPointer = symbolAddress.Pointer.ToString();
+            expectedLlvmType = symbolAddress.LlvmType;
+        }
+        else if (node.Target is MemberAccessExpressionNode memberAccess)
+        {
+            (targetPointer, expectedLlvmType) = GenerateMemberAccessPointer(memberAccess);
         }
         else
         {
@@ -48,35 +55,77 @@ public partial class LlvmIrGenerator
         }
 
         var (value, llvmType) = GenerateExpression(node.Value);
-        _context.EmitLine($"    store {llvmType} {value}, {llvmType}* {stackPointer}");
+        _context.EmitLine($"    store {llvmType} {value}, {expectedLlvmType}* {targetPointer}");
+    }
+    
+    private (string FieldPointerRegister, LlvmType FieldType) GenerateMemberAccessPointer(MemberAccessExpressionNode node)
+    {
+        string targetPointerRegister;
+        LlvmType targetType;
+
+        if (node.Target is VariableExpressionNode variable)
+        {
+            // Get pointer directly from symbol table, DO NOT load value!
+            var symbolAddress = _context.LookupVariable(variable.Name);
+            targetPointerRegister = symbolAddress.Pointer.ToString();
+            targetType = symbolAddress.LlvmType;
+        }
+        else if (node.Target is MemberAccessExpressionNode nested)
+        {
+            // Chained member access: e.g. foo.bar.baz
+            (targetPointerRegister, targetType) = GenerateMemberAccessPointer(nested);
+        }
+        else
+        {
+            // Fallback for expressions that evaluate to values (e.g., getPoint().x)
+            var (valReg, valType) = GenerateExpression(node.Target);
+            targetPointerRegister = _context.AllocateRegister();
+            _context.EmitLine($"    {targetPointerRegister} = alloca {valType}");
+            _context.EmitLine($"    store {valType} {valReg}, {valType}* {targetPointerRegister}");
+            targetType = valType;
+        }
+
+        if (targetType is not LlvmType.Struct structType)
+        {
+            throw new ByronCodeGenerationException($"Cannot access member '{node.MemberName}' on non-struct type '{targetType}'.");
+        }
+
+        var layout = _context.GetStructLayout(structType.Name);
+        var fieldIndex = layout.GetFieldIndex(node.MemberName);
+        var fieldType = LlvmType.From(layout.GetFieldType(node.MemberName));
+
+        var fieldPointerRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {targetPointerRegister}, i32 0, i32 {fieldIndex}");
+
+        return (fieldPointerRegister, fieldType);
     }
 
     private void GenerateWhileStatement(WhileStatement node)
     {
         var loopId = _context.AllocateLabelId();
-        var condLabel = $"while_cond_{loopId}";
+        var conditionLabel = $"while_cond_{loopId}";
         var bodyLabel = $"while_body_{loopId}";
         var exitLabel = $"while_exit_{loopId}";
 
-        _context.EmitLine($"    br label %{condLabel}");
+        _context.EmitLine($"    br label %{conditionLabel}");
 
-        _context.EmitLine($"\n{condLabel}:");
-        var (condValue, condType) = GenerateExpression(node.ContinuationCondition);
-        if (condType != "i1")
+        _context.EmitLine($"\n{conditionLabel}:");
+        var (conditionValue, conditionType) = GenerateExpression(node.ContinuationCondition);
+        if (conditionType is not LlvmType.Boolean)
         {
-            throw new ByronCodeGenerationException($"While condition must be boolean (i1), got {condType}");
+            throw new ByronCodeGenerationException($"While condition must be boolean (i1), got {conditionType}");
         }
-        _context.EmitLine($"    br i1 {condValue}, label %{bodyLabel}, label %{exitLabel}");
+        _context.EmitLine($"    br i1 {conditionValue}, label %{bodyLabel}, label %{exitLabel}");
 
         _context.EmitLine($"\n{bodyLabel}:");
     
-        _context.PushLoop(continueLabel: condLabel, breakLabel: exitLabel);
+        _context.PushLoop(continueLabel: conditionLabel, breakLabel: exitLabel);
         GenerateBlockStatement(node.Body);
         _context.PopLoop();
 
         if (!BlockEndsWithTerminator(node.Body))
         {
-            _context.EmitLine($"    br label %{condLabel}");
+            _context.EmitLine($"    br label %{conditionLabel}");
         }
 
         _context.EmitLine($"\n{exitLabel}:");
@@ -118,28 +167,33 @@ public partial class LlvmIrGenerator
     {
         var (variableValue, variableType) = GenerateExpression(node.Initializer);
 
-        var stackPointer = $"%{node.Name}.addr";
-        _context.DeclareVariable(node.Name, stackPointer);
-        _context.EmitLine($"    {stackPointer} = alloca {variableType}");
-        _context.EmitLine($"    store {variableType} {variableValue}, {variableType}* {stackPointer}");
+        var stackPointerName = $"{node.Name}.addr";
+        var stackPointerRegister = $"%{stackPointerName}";
+        
+        var symbolType = node.ExplicitType is not null ? LlvmType.From(node.ExplicitType) : variableType;
+        var address = new SymbolAddress(new Value.Register(stackPointerName), symbolType);
+        
+        _context.DeclareVariable(node.Name, address);
+        _context.EmitLine($"    {stackPointerRegister} = alloca {variableType}");
+        _context.EmitLine($"    store {variableType} {variableValue}, {variableType}* {stackPointerRegister}");
     }
     
     private void GenerateIfStatement(IfStatementNode node)
     {
-        var (condValue, condType) = GenerateExpression(node.Condition);
-        if (condType != "i1")
+        var (conditionValue, conditionType) = GenerateExpression(node.Condition);
+        if (conditionType is not LlvmType.Boolean)
         {
-            throw new ByronCodeGenerationException($"If condition must be a boolean (i1), but got {condType}");
+            throw new ByronCodeGenerationException($"If condition must be a boolean (i1), but got {conditionType}");
         }
 
-        var branchId = _context.AllocateLabelId(); // Assuming your context has a counter helper
+        var branchId = _context.AllocateLabelId();
         var thenLabel = $"if_then_{branchId}";
         var elseLabel = $"if_else_{branchId}";
         var mergeLabel = $"if_merge_{branchId}";
 
         var falsePathLabel = node is IfElseStatementNode ? elseLabel : mergeLabel;
 
-        _context.EmitLine($"    br i1 {condValue}, label %{thenLabel}, label %{falsePathLabel}");
+        _context.EmitLine($"    br i1 {conditionValue}, label %{thenLabel}, label %{falsePathLabel}");
 
         _context.EmitLine($"\n{thenLabel}:");
         GenerateBlockStatement(node.ThenBranch);

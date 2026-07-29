@@ -16,12 +16,12 @@ fn main(): i32 {
     };
     
     myPoint = Point2d { 
-        x: 10, 
-        y: 20
+        x: 3, 
+        y: 4
     };
     
     var instance: MyType = getPoint(myPoint);
-    instance.c.y = instance.c.y + 1000;
+    instance.c.y = instance.c.y + 1;
     
     return instance.a + instance.b + instance.c.x + instance.c.y;
 }

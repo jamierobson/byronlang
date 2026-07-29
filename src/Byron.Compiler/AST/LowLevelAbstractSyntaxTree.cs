@@ -51,26 +51,39 @@ public record MemberAccessExpressionNode(ExpressionNode Target, string MemberNam
 // public record MatchExpressionArmNode(bool IsMutable, string VariantName, string BindingIdentifier, BlockExpressionNode Body) : AstNode;
 
 // Types
-public abstract record TypeNode : AstNode { public abstract string ToLlvmTypeString(); }
-public record UserDeclaredTypeNode(string FullyQualifiedName) : TypeNode { public override string ToLlvmTypeString() => $"%{FullyQualifiedName}"; };
+public abstract record TypeNode : AstNode;
 
-public record ReferenceTypeNode(TypeNode Target, bool IsMutable) : TypeNode { public override string ToLlvmTypeString() => $"{Target.ToLlvmTypeString()}*"; }
+public record UserDeclaredTypeNode(string FullyQualifiedName) : TypeNode;
+
+public record ReferenceTypeNode(TypeNode Target, bool IsMutable) : TypeNode;
+
 
 public abstract record BuiltInTypeNode : TypeNode;
-public record Int8TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i8"; }
-public record Int16TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i16"; }
-public record Int32TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i32"; }
-public record Int64TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i64"; }
+public abstract record PrimitiveTypeNode : BuiltInTypeNode;
 
-public record UInt8TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i8"; }
-public record UInt16TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i16"; }
-public record UInt32TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i32"; }
-public record UInt64TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i64"; }
+public record Int8TypeNode : PrimitiveTypeNode;
 
-public record Float32TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "float"; }
-public record Float64TypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "double"; }
+public record Int16TypeNode : PrimitiveTypeNode;
 
-public record BoolTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i1"; }
-public record RuneTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "i32"; }
-public record VoidTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "void"; }
-public record UnitTypeNode : BuiltInTypeNode { public override string ToLlvmTypeString() => "void"; }
+public record Int32TypeNode : PrimitiveTypeNode;
+
+public record Int64TypeNode : PrimitiveTypeNode;
+
+public record UInt8TypeNode : PrimitiveTypeNode;
+
+public record UInt16TypeNode : PrimitiveTypeNode;
+
+public record UInt32TypeNode : PrimitiveTypeNode;
+
+public record UInt64TypeNode : PrimitiveTypeNode;
+
+public record Float32TypeNode : PrimitiveTypeNode;
+
+public record Float64TypeNode : PrimitiveTypeNode;
+
+public record BoolTypeNode : PrimitiveTypeNode;
+
+public record RuneTypeNode : PrimitiveTypeNode;
+
+public record VoidTypeNode : PrimitiveTypeNode;
+public record UnitTypeNode : PrimitiveTypeNode;
