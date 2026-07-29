@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Byron.Compiler.AST;
 using Byron.Compiler.CodeGen;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;

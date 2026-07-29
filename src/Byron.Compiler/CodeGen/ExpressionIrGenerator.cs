@@ -6,22 +6,55 @@ namespace Byron.Compiler.CodeGen;
 
 public partial class LlvmIrGenerator
 {
-    private const string TemporaryDefaultReturnType = "i32";
-    
-    private (string ReturnValue, string ReturnType) GenerateExpression(ExpressionNode node)
+    private (string ReturnValue, LlvmType ReturnType) GenerateExpression(ExpressionNode node)
     {
         return node switch
         {
-            IntegerLiteralNode literal => (literal.Value.ToString(), "i32"),
-            BoolLiteralNode boolean => (boolean.Value ? "1" : "0", "i1"),
+            IntegerLiteralNode literal => (literal.Value.ToString(), new LlvmType.Int(32)),
+            BoolLiteralNode boolean => (boolean.Value ? "1" : "0", new LlvmType.Boolean()),
             VariableExpressionNode variable => GenerateVariableLoad(variable),
             BinaryExpressionNode binary => GenerateBinaryExpression(binary),
             CallExpressionNode call => GenerateCallExpression(call),
+            
+            StructFieldInitializationExpressionNode fieldInitialization => GenerateStructFieldInitializationExpression(fieldInitialization),
+            MemberAccessExpressionNode memberAccess => GenerateMemberAccessExpression(memberAccess),
+            
             _ => throw new ByronNotImplementedException(node.GetType(), this)
         };
     }
     
-    private (string ReturnValue, string ReturnType) GenerateCallExpression(CallExpressionNode node)
+    private (string ReturnValue, LlvmType ReturnType) GenerateStructFieldInitializationExpression(StructFieldInitializationExpressionNode node)
+    {
+        var layout = _context.GetStructLayout(node.StructName);
+        var structType = new LlvmType.Struct(node.StructName);
+
+        var structPointerRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {structPointerRegister} = alloca {structType}");
+
+        foreach (var fieldInitializer in node.FieldInitializers)
+        {
+            var (fieldValue, fieldType) = GenerateExpression(fieldInitializer.Value);
+            var fieldIndex = layout.GetFieldIndex(fieldInitializer.FieldName);
+            var fieldPointerRegister = _context.AllocateRegister();
+            _context.EmitLine($"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {structPointerRegister}, i32 0, i32 {fieldIndex}");
+            _context.EmitLine($"    store {fieldType} {fieldValue}, {fieldType}* {fieldPointerRegister}");
+        }
+        
+        var valueRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {valueRegister} = load {structType}, {structType}* {structPointerRegister}");
+        return (valueRegister, structType);
+    }
+    
+    private (string ReturnValue, LlvmType ReturnType) GenerateMemberAccessExpression(MemberAccessExpressionNode node)
+    {
+        var (fieldPointerRegister, fieldType) = GenerateMemberAccessPointer(node);
+        var loadedValueRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {loadedValueRegister} = load {fieldType}, {fieldType}* {fieldPointerRegister}");
+
+        return (loadedValueRegister, fieldType);
+    }
+    
+    private (string ReturnValue, LlvmType ReturnType) GenerateCallExpression(CallExpressionNode node)
     {
         if (node.Callee is not VariableExpressionNode functionIdentifier)
         {
@@ -31,12 +64,12 @@ public partial class LlvmIrGenerator
         var evaluatedArguments = node.Arguments.Select(GenerateExpression).ToList();
         var argumentIr = string.Join(", ", evaluatedArguments.Select(arg => $"{arg.ReturnType} {arg.ReturnValue}"));
 
-        var llvmType = TemporaryDefaultReturnType; 
+        var llvmType = _context.GetFunctionReturnType(functionIdentifier.Name);
 
-        if (llvmType == "void")
+        if (llvmType is LlvmType.Void)
         {
             _context.EmitLine($"    call void @{functionIdentifier.Name}({argumentIr})");
-            return ("void", "void");
+            return ("void", new LlvmType.Void());
         }
         else
         {
@@ -46,15 +79,58 @@ public partial class LlvmIrGenerator
         }
     }
     
-    private (string ReturnValue, string ReturnType) GenerateVariableLoad(VariableExpressionNode node)
+    private (string ReturnValue, LlvmType ReturnType) GenerateVariableLoad(VariableExpressionNode node)
     {
         var stackPointer = _context.LookupVariable(node.Name);
         var register = _context.AllocateRegister();
 
-        var llvmType = TemporaryDefaultReturnType;
+        var llvmType = stackPointer.LlvmType;
         
-        _context.EmitLine($"    {register} = load {llvmType}, {llvmType}* {stackPointer}");
+        _context.EmitLine($"    {register} = load {llvmType}, {llvmType}* {stackPointer.Pointer}");
         return (register, llvmType);
+    }
+    
+    private (string ReturnValue, LlvmType ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
+    {
+        var (leftValue, leftLlvmType) = GenerateExpression(node.Left);
+        var (rightValue, rightLlvmType) = GenerateExpression(node.Right);
+
+        if (leftLlvmType != rightLlvmType)
+        {
+            throw new ByronCodeGenerationException($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
+        }
+
+        var isFloat = leftLlvmType is LlvmType.Float;
+        var isUnsigned = leftLlvmType is LlvmType.UnsignedInt;
+
+        var resultRegister = _context.AllocateRegister();
+        var returnType = leftLlvmType;
+        
+        switch(node.Operator)
+        {
+            case BinaryOperator.Add:
+            case BinaryOperator.Subtract:
+            case BinaryOperator.Multiply: 
+            case BinaryOperator.Divide:
+                var arithmeticOperation = ArithmeticOperationInstruction(node.Operator, isFloat, isUnsigned); 
+                _context.EmitLine($"    {resultRegister} = {arithmeticOperation} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            case BinaryOperator.Equal:
+            case BinaryOperator.NotEqual:
+            case BinaryOperator.LessThan:
+            case BinaryOperator.LessThanOrEqual:
+            case BinaryOperator.GreaterThan:
+            case BinaryOperator.GreaterThanOrEqual:
+                var typeComparisonInstruction = isFloat ? "fcmp" : "icmp";
+                returnType = new LlvmType.Boolean();
+                var booleanInstruction = BooleanOperationInstruction(node.Operator, isFloat, isUnsigned);
+                _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            default:
+                throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this);
+        };
+
+        return (resultRegister, returnType);
     }
 
     private string ArithmeticOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
@@ -84,48 +160,5 @@ public partial class LlvmIrGenerator
             
             _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a boolean operation")
         };
-    }
-    
-    private (string ReturnValue, string ReturnType) GenerateBinaryExpression(BinaryExpressionNode node)
-    {
-        var (leftValue, leftLlvmType) = GenerateExpression(node.Left);
-        var (rightValue, rightLlvmType) = GenerateExpression(node.Right);
-
-        if (leftLlvmType != rightLlvmType)
-        {
-            throw new ByronCodeGenerationException($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
-        }
-
-        var isFloat = leftLlvmType is "float" or "double";
-        var isUnsigned = IsUnsignedLlvmType(leftLlvmType);
-
-        var resultRegister = _context.AllocateRegister();
-        var returnType = leftLlvmType;
-        
-        switch(node.Operator)
-        {
-            case BinaryOperator.Add:
-            case BinaryOperator.Subtract:
-            case BinaryOperator.Multiply: 
-            case BinaryOperator.Divide:
-                var arithmeticOperation = ArithmeticOperationInstruction(node.Operator, isFloat, isUnsigned); 
-                _context.EmitLine($"    {resultRegister} = {arithmeticOperation} {leftLlvmType} {leftValue}, {rightValue}");
-                break;
-            case BinaryOperator.Equal:
-            case BinaryOperator.NotEqual:
-            case BinaryOperator.LessThan:
-            case BinaryOperator.LessThanOrEqual:
-            case BinaryOperator.GreaterThan:
-            case BinaryOperator.GreaterThanOrEqual:
-                var typeComparisonInstruction = isFloat ? "fcmp" : "icmp";
-                returnType = "i1";
-                var booleanInstruction = BooleanOperationInstruction(node.Operator, isFloat, isUnsigned);
-                _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
-                break;
-            default:
-                throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this);
-        };
-
-        return (resultRegister, returnType);
     }
 }

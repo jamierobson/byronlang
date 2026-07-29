@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Byron.Compiler.AST;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.AST.HighLevel;
@@ -5,22 +6,68 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
-public partial class ByronHighLevelAstParser
+public partial class ByronHighLevelAstParser(List<Token> tokens)
 {
-    private readonly List<Token> _tokens;
+    // ReSharper disable once RedundantDefaultMemberInitializer
     private int _activeTokenIndex = 0;
-
-    public ByronHighLevelAstParser(List<Token> tokens) => _tokens = tokens;
 
     public ProgramNode Parse()
     {
         var functions = new List<FunctionDeclarationNode>();
+        var structs = new List<StructDeclarationNode>(); 
+        
         while (!IsAtEnd())
         {
-            functions.Add(ParseFunctionDeclaration());
+            var token = Peek();
+            // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
+            switch (token.Kind)
+            {
+                case TokenKind.Fn:
+                    functions.Add(ParseFunctionDeclaration());
+                    break;
+                case TokenKind.Struct:
+                    structs.Add(ParseStructDeclaration());
+                    break;
+                default:
+                    throw new ByronNotImplementedException(token.Kind.ToString(), this);
+            }   
         }
 
-        return new ProgramNode([..functions]);
+        return new ProgramNode([..functions, ..structs]);
+    }
+
+    private StructDeclarationNode ParseStructDeclaration()
+    {
+        var structToken = Consume(TokenKind.Struct, "Expected 'struct'.");
+        var nameToken = Consume(TokenKind.Identifier, "Expected struct name.");
+
+        var fields = ParseStructFields();
+        
+        return new StructDeclarationNode(nameToken.Lexeme, fields, structToken.Span with { End = Peek().Span.End} );
+    }
+
+    private List<StructFieldNode> ParseStructFields()
+    {
+        var fields = new List<StructFieldNode>();
+        _ = Consume(TokenKind.LBrace, "Expected '{'.");
+
+        while (!ActiveTokenMatch(TokenKind.RBrace))
+        {
+            var name = Consume(TokenKind.Identifier, "Expected field name");
+            _ = Consume(TokenKind.Colon, "Expected ':'.");
+            var type = ParseTypeSignature();
+
+            fields.Add(new StructFieldNode(name.Lexeme, type, name.Span with { End = type.Span.End }));
+
+            if (ActiveTokenMatch(TokenKind.RBrace))
+            {
+                break;
+            }
+            _ = Consume(TokenKind.Comma, "Expected ',' separator between field declarations.");
+        }
+        
+        Advance();
+        return fields;
     }
 
     public FunctionDeclarationNode ParseFunctionDeclaration()
@@ -79,8 +126,32 @@ public partial class ByronHighLevelAstParser
 
     private TypeNode ParseTypeSignature()
     {
+        if (ConsumingActiveTokenMatch(TokenKind.Ampersand))
+        {
+            var ampersand = Previous();   
+            var isMutable = ConsumingActiveTokenMatch(TokenKind.Var);
+            var targetType = ParseTypeSignature();
+            return new ReferenceTypeNode(targetType, isMutable, ampersand.Span with {End = targetType.Span.End});
+        }
+        
         var token = Advance();
-        return token.Lexeme switch
+
+        if (TryGetPrimitive(token, out var primitive))
+        {
+            return primitive;
+        }
+        
+        if (token.Kind == TokenKind.Identifier)
+        {
+            return ParseUserDeclaredType(token);
+        }
+
+        throw new ByronHighLevelParserException($"Unknown type signature target: {token.Lexeme}", token.Span);
+    }
+
+    private bool TryGetPrimitive(Token token, [NotNullWhen(true)]out TypeNode? type)
+    {
+        type = token.Lexeme switch
         {
             "boolean" => new BoolTypeNode(token.Span),
             "i8" => new Int8TypeNode(token.Span),
@@ -96,13 +167,37 @@ public partial class ByronHighLevelAstParser
             "void" => new VoidTypeNode(token.Span),
             "unit" => new UnitTypeNode(token.Span),
             "rune" => new RuneTypeNode(token.Span),
-            _ => throw new ByronHighLevelParserException($"Unknown type signature target: {token.Lexeme}", token.Span)
+            _ => null
         };
+
+        return type is not null;
+    }
+    
+    private UserDeclaredTypeNode ParseUserDeclaredType(Token firstIdentifier)
+    {
+        var path = new List<string> { firstIdentifier.Lexeme };
+        var startSpan = firstIdentifier.Span;
+        var endSpan = firstIdentifier.Span;
+
+        while (ConsumingActiveTokenMatch(TokenKind.Dot))
+        {
+            var segment = Consume(TokenKind.Identifier, "Expected identifier after '.' in type path.");
+            path.Add(segment.Lexeme);
+            endSpan = segment.Span;
+        }
+
+        var name = path[^1];
+        path.RemoveAt(path.Count - 1);
+
+        return new UserDeclaredTypeNode(path, name, startSpan with { End = endSpan.End });
     }
 
     private Token Advance()
     {
-        if (!IsAtEnd()) _activeTokenIndex++;
+        if (!IsAtEnd())
+        {
+            _activeTokenIndex++;
+        }
         return Previous();
     }
 
@@ -118,9 +213,8 @@ public partial class ByronHighLevelAstParser
     }
 
     private bool ActiveTokenMatch(TokenKind kind) => !IsAtEnd() && Peek().Kind == kind;
-    private Token Peek() => _tokens[_activeTokenIndex];
-    private Token Previous() => _tokens[_activeTokenIndex - 1];
-    private Token PeekNext() => _tokens[_activeTokenIndex + 1];
-    private bool IsAtEnd() => _activeTokenIndex >= _tokens.Count || Peek().Kind == TokenKind.Eof;
-    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, SourceSpan.Empty);
+    private Token Peek() => tokens[_activeTokenIndex];
+    private Token Previous() => tokens[_activeTokenIndex - 1];
+    private bool IsAtEnd() => _activeTokenIndex >= tokens.Count || Peek().Kind == TokenKind.Eof;
+    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, Previous().Span);
 }

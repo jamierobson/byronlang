@@ -10,7 +10,7 @@ public partial class ByronHighLevelAstParser
     {
         var open = Consume(TokenKind.LBrace, "Expected '{'.");
         var statements = new List<StatementNode>();
-        while (!ActiveTokenMatch(TokenKind.RBrace) && !IsAtEnd())
+        while (!ActiveTokenMatch(TokenKind.RBrace))
         {
             statements.Add(ParseStatement());
         }

@@ -1,5 +1,4 @@
 using Byron.Compiler.AST.LowLevel;
-using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.CodeGen;
 
@@ -9,34 +8,45 @@ public partial class LlvmIrGenerator
 
     public string Generate(ProgramNode program)
     {
-        foreach (var declaration in program.Declarations)
+        foreach (var structDeclaration in program.Declarations.OfType<StructDeclarationNode>())
         {
-            GenerateTopLevelDeclaration(declaration);
+            RegisterStructLayout(structDeclaration);
         }
+
+        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
+        {
+            _context.RegisterFunction(functionDeclaration.Name, LlvmType.From(functionDeclaration.ReturnType));
+        }
+
+        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
+        {
+            GenerateFunctionDeclaration(functionDeclaration);
+        }
+        
         return _context.GetGeneratedIr();
     }
-
-    private void GenerateTopLevelDeclaration(TopLevelDeclarationNode node)
+    
+    private void RegisterStructLayout(StructDeclarationNode structDeclaration)
     {
-        switch (node)
-        {
-            case FunctionDeclarationNode func:
-                GenerateFunctionDeclaration(func);
-                break;
-            default:
-                throw new ByronNotImplementedException(node.GetType().Name, this);
-        }
+        var fields = structDeclaration.Fields.Select(x => (x.Name, x.Type)).ToList();
+        var layout = StructLayout.CalculateLayout(structDeclaration.Name, fields);
+        _context.RegisterStructLayout(layout);
+        var llvmFieldTypes = string.Join(", ", structDeclaration.Fields.Select(f => LlvmType.From(f.Type)));
+        
+        _context.EmitLine($"%{structDeclaration.Name} = type {{ {llvmFieldTypes} }}");
+        _context.EmitLine(string.Empty);
     }
 
     private void GenerateFunctionDeclaration(FunctionDeclarationNode node)
     {
         _context.ResetRegisters();
         
-        var returnType = MapType(node.ReturnType);
+        var returnType = LlvmType.From(node.ReturnType);
+        _context.RegisterFunction(node.Name, returnType);
         
-        var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{MapType(parameterNode.Type)} %arg_{i}"));
+        var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{LlvmType.From(parameterNode.Type)} %arg_{i}"));
 
-        _context.EmitLine($"define {returnType} @{node.Name}({functionParameterIr}) {{");
+        _context.EmitLine($"define {LlvmType.From(node.ReturnType)} @{node.Name}({functionParameterIr}) {{");
 
         MoveArgumentsOnToStackFrame(node);
         
@@ -55,45 +65,18 @@ public partial class LlvmIrGenerator
     {
         for (var i = 0; i < node.Parameters.Count; i++)
         {
-            var param = node.Parameters[i];
-            var stackPointer = $"%{param.Name}.addr";
-            var typeStr = MapType(param.Type);
-        
-            _context.EmitLine($"    {stackPointer} = alloca {typeStr}");
-        
-            _context.EmitLine($"    store {typeStr} %arg_{i}, {typeStr}* {stackPointer}");
-        
-            _context.DeclareVariable(param.Name, stackPointer);
-        }
-    }
-
-    private static bool IsUnsignedLlvmType(string llvmType) => llvmType.StartsWith('u');
-
-    private string MapType(TypeNode node)
-    {
-        return node switch
-        {
-            VoidTypeNode => "void",
-            UnitTypeNode => "void",
+            var parameter = node.Parameters[i];
+            var stackPointerName = $"{parameter.Name}.addr";
+            var stackPointerRegister = $"%{stackPointerName}";
             
-            Int8TypeNode => "i8",
-            Int16TypeNode => "i16",
-            Int32TypeNode => "i32",
-            Int64TypeNode => "i64",
+            var llvmType = LlvmType.From(parameter.Type);
+            var symbolAddress = new SymbolAddress(new Value.Register(stackPointerName), llvmType);
+            
+            _context.EmitLine($"    {stackPointerRegister} = alloca {llvmType}");
         
-            UInt8TypeNode => "i8",
-            UInt16TypeNode => "i16",
-            UInt32TypeNode => "i32",
-            UInt64TypeNode => "i64",
+            _context.EmitLine($"    store {llvmType} %arg_{i}, {llvmType}* {stackPointerRegister}");
         
-            Float32TypeNode => "float",
-            Float64TypeNode => "double",
-        
-            BoolTypeNode => "i1",
-            RuneTypeNode => "i32",
-        
-            ReferenceTypeNode r => $"{MapType(r.Target)}*",
-            _ => throw new ByronNotImplementedException($"Type mapping for {node.GetType().Name}", this)
-        };
+            _context.DeclareVariable(parameter.Name, symbolAddress);
+        }
     }
 }

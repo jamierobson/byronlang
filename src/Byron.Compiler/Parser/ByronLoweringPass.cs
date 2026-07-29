@@ -20,17 +20,24 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         return declaration switch
         {
             High.FunctionDeclarationNode function => FunctionDeclaration(function),
+            High.StructDeclarationNode @struct => StructDeclaration(@struct),
             _ => throw new ByronNotImplementedException(declaration.GetType(), this) 
         };
     }
 
-    private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode function)
+    private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
-        var parameters = function.Parameters.Select(Parameter).ToList();
-        var returnType = Type(function.ReturnType);
-        var body = BlockStatement(function.Body);
+        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x.Name, Type(x.Type))).ToList();
+        return new Low.StructDeclarationNode(@struct.Name, fields);
+    } 
 
-        return new Low.FunctionDeclarationNode(function.Name, parameters, returnType, body);
+    private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
+    {
+        var parameters = declaration.Parameters.Select(Parameter).ToList();
+        var returnType = Type(declaration.ReturnType);
+        var body = BlockStatement(declaration.Body);
+
+        return new Low.FunctionDeclarationNode(declaration.Name, parameters, returnType, body);
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
@@ -43,7 +50,8 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
     {
         return type switch
         {
-            High.ReferenceTypeNode refType => new Low.ReferenceTypeNode(Type(refType.Target), refType.IsMutable),
+            High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(Type(referenceType.Target), referenceType.IsMutable),
+            High.UserDeclaredTypeNode userDeclaredType => new Low.UserDeclaredTypeNode(userDeclaredType.FullyQualifiedName()),
             
             High.VoidTypeNode => new Low.VoidTypeNode(),
             High.UnitTypeNode => new Low.UnitTypeNode(),
@@ -63,7 +71,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             _ => throw new ByronNotImplementedException(type.GetType(), this)
         };
     }
-    
+
     private Low.StatementNode Statement(High.StatementNode statement)
     {
         return statement switch
@@ -91,11 +99,22 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable.Name),
             High.CallExpressionNode call => CallExpression(call),
             High.BinaryExpressionNode binary => new Low.BinaryExpressionNode(Expression(binary.Left), binary.Operator, Expression(binary.Right)),
-
+            High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
+            High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(Expression(memberAccess.Target), memberAccess.MemberName),
+            
             // Lowerable expressions here
 
             _ => throw new ByronNotImplementedException(expression.GetType(), this)
         };
+    }
+
+    private Low.StructFieldInitializationExpressionNode StructFieldInitializationExpression(High.StructFieldInitializationExpressionNode structFieldInitialization)
+    {
+        return new Low.StructFieldInitializationExpressionNode(
+            structFieldInitialization.StructName,
+            structFieldInitialization.FieldInitializers.Select(
+                x => new Low.StructFieldInitializerNode(x.FieldName, Expression(x.Value))).ToList()
+            );
     }
     
     private Low.VariableDeclarationNode Variable(High.VariableDeclarationNode variable)
