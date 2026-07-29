@@ -5,7 +5,7 @@
 
 1. ~~Add a lowering pass, and perform code generation on the low level AST~~
 0. ~~Add loops: `while`~~
-0. Add struct support, while we stack allocate
+0. ~~Add struct support, while we stack allocate~~
 0. Add simple type inference with a top down walk of the AST
 0. Add `interface`s (__NOT__ for dynamic dispatch)
 0. Implement enough generics to describe `Owned<T>`, `Uninitialized<T>` and `Unsafe<T>` types
