@@ -1,34 +1,5 @@
 # Living notes to keep track of the decisions being made
 
-
-## Todo
-
-1. ~~Add a lowering pass, and perform code generation on the low level AST~~
-0. ~~Add loops: `while`~~
-0. ~~Add struct support, while we stack allocate~~
-0. Add simple type inference with a top down walk of the AST
-0. Add `interface`s (__NOT__ for dynamic dispatch)
-0. Implement enough generics to describe `Owned<T>`, `Uninitialized<T>` and `Unsafe<T>` types
-0. Add `implement` blocks to add functions to structs
-0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
-0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
-0. Implement a `CAlloator` implemeting `TransferringAllocator`. 
-0. Fixed sized collections: Arrays, Slices, Ranges
-0. Add simple `std.io.console` i/o using C `fputs` and `fgets`
-0. Introduce obligation tracking for 
-    1. `CAllocator` requires `deinit`
-    0. `Uninitialized<T>` requires `.fill` or `.release`
-    0. `Owned<T>` requires `.free` or `asUnsafe`
-0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
-0. Implement `for .. in` loops for enumerables and ranges, lowered to while loops
-0. Implement a very simple `BumpAllocator` implementing `RetainingAllocator`, and `MemoryLease<T>`. 
-0. Checked arithmetic `+?`, `*?`, `-?`. Arithmetic with `Result<NumericType, E>` arguments, compounding result error unions.
-0. Lexical escape and domination analysis, and the retaining allocator lifetime lifetime shortcut
-0. Dynamic collections: `Vector`, `HashMap`, `String`
-0. File system i/o
-0. Consider if Mutability should be introduced to the type system
-0. Designing an std
-
 # Dereferencing
 
 To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I need to consider auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`
@@ -215,6 +186,30 @@ How we deal with free functions in a namespace, and methods on a struct collisio
 
 - Steal from Rust; a struct is just a memory layout. separate `implement` block for functions, thereby allowing us to treat all fuctions as free functions.
 - We can call function `myFunction(myInstance)`directly, or with `instance.myfunction()` notation (lowered).
+
+### Owned<T> might need to be generic over the allocator
+```
+struct Owned<T> {
+    payload: Unsafe<T>,
+    allocator: &var TransferringAllocator,
+}
+
+implement Owned<T> {
+    fn free(self: Self): void {
+        self.payload.deinit();
+        self.allocator.free(self.payload)
+    }
+}
+```
+
+We can't hold allocator &var TransferringAllocator without dynamic dispatch. Probably best to make Owned generic over the allocator `Owned<T, A: TransferringAllocator>`
+This adds an oddity if holding say `myOwnedItem: Owned<T, CAllocator>` as you're now restricted to which allocators this can hold.
+
+We could look at allowing a union of allocator types if we had to `myOwnedItem: Owned<T, GeneralPurposeAllocator | CAllocator>` for example. 
+
+If this is the approach, then Unsafe, MemoryLease, and Uninitialized also all become generic over the allocator type, too. That's not ideal for ergonomics, but seems to be a natural result of all the other decisions being made, especially wishing to avoid dynamic dispatch.
+
+Later, we _could_ look at `Owned<T, dynamic TransferringAllocator>` that opted in to dynamic dispatch (potentially with default generics defaulting to DD, if wanted.)
 
 ### Other
 - Collect as many errors as possible in one compilation attempt, synchronizing on `;` and `}`

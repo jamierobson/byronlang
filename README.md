@@ -492,6 +492,36 @@ I have a goal to be able to implement the following programs in this language:
 
 If we can do that, we're making enough progress to be worth pushing all the way to self hosted, I think. 
 
+# Feature progress
+
+## Todo
+
+1. ~~Add a lowering pass, and perform code generation on the low level AST~~
+0. ~~Add loops: `while`~~
+0. ~~Add struct support, while we stack allocate~~
+0. Add simple type inference with a top down walk of the AST
+0. Add `interface`s (__NOT__ for dynamic dispatch)
+0. Implement enough generics to describe `Owned<T>`, `Uninitialized<T>` and `Unsafe<T>` types
+0. Add `implement` blocks to add functions to structs
+0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
+0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
+0. Implement a `CAlloator` implemeting `TransferringAllocator`. 
+0. Fixed sized collections: Arrays, Slices, Ranges
+0. Add simple `std.io.console` i/o using C `fputs` and `fgets`
+0. Introduce obligation tracking for 
+    1. `CAllocator` requires `deinit`
+    0. `Uninitialized<T>` requires `.fill` or `.release`
+    0. `Owned<T>` requires `.free` or `asUnsafe`
+0. Errors, Tagged Unions, Result, Option, `match` and `onerror`
+0. Implement `for .. in` loops for enumerables and ranges, lowered to while loops
+0. Implement a very simple `BumpAllocator` implementing `RetainingAllocator`, and `MemoryLease<T>`. 
+0. Checked arithmetic `+?`, `*?`, `-?`. Arithmetic with `Result<NumericType, E>` arguments, compounding result error unions.
+0. Lexical escape and domination analysis, and the retaining allocator lifetime lifetime shortcut
+0. Dynamic collections: `Vector`, `HashMap`, `String`
+0. File system i/o
+0. Consider if Mutability should be introduced to the type system
+0. Designing an std
+
 # Getting Started
 
 - Install [clang](https://releases.llvm.org/download.html)
