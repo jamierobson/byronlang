@@ -43,7 +43,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
         var fields = ParseStructFields();
         
-        return new StructDeclarationNode(nameToken.Lexeme, fields, structToken.Span with { End = Peek().Span.End} );
+        return new StructDeclarationNode(nameToken.Lexeme, [], fields, structToken.Span with { End = Peek().Span.End} );
     }
 
     private List<StructFieldNode> ParseStructFields()
@@ -80,7 +80,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var returnType = ParseTypeSignature();
         var body = ParseBlockStatement();
 
-        return new FunctionDeclarationNode(nameToken.Lexeme, parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
+        return new FunctionDeclarationNode(nameToken.Lexeme, [], parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 
     public List<ParameterNode> ParseFunctionArguments()
