@@ -3,6 +3,7 @@ using Byron.Compiler.CodeGen;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
+using Byron.Compiler.SemanticAnalysis;
 
 while (true)
 {
@@ -20,6 +21,14 @@ async Task TryParseFile(string filePath)
         var sourceText = await File.ReadAllTextAsync(filePath);
         var tokens = new Tokenizer(sourceText).Tokenise();
         var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();
+        
+        var semanticAnalysisResult = new SemanticAnalysisDriver(highLevelAst).Analyze();
+        if (!semanticAnalysisResult.Success)
+        {
+            Console.WriteLine("Semantic Analysis failed.");
+            return;
+        }
+        
         var lowLevelAst = new ByronLoweringPass(highLevelAst).Lower();
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(lowLevelAst);
