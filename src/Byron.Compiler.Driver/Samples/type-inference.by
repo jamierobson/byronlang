@@ -1,0 +1,19 @@
+struct Point2d {
+    x: i32,
+    y: i32
+}
+
+fn main(): i32 {
+    var myPoint = Point2d { 
+        x: 10, 
+        y: 20,
+    };
+    
+    let mySum = add(myPoint.x, myPoint.y);
+    return mySum; 
+}
+
+fn add(a: i32, b: i32): i32 {
+    let result = a + b;
+    return result;
+}
