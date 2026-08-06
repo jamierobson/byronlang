@@ -1,66 +1,108 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Security.Cryptography;
-using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
+
 namespace Byron.Compiler.SemanticAnalysis;
 
-public class SemanticAnalysisDriver(ProgramNode ast)
+public class SemanticAnalysisDriver(ProgramNode program)
 {
-    private FunctionRegistry _functionRegistry = new();
     private TypeMap _typeMap = new();
     private Diagnostics _diagnostics = new();
     
     public SemanticAnalysisResult Analyze()
     {
-        var typeRegistry = RegisterStructs();
-        var functionRegistry = RegisterFunctions();
         
-        var visitor = new TypeInferenceVisitor(typeRegistry, functionRegistry, _typeMap, _diagnostics);
-        foreach (var function in ast.Declarations.OfType<FunctionDeclarationNode>())
-        {
-            visitor.Analyze(function, _diagnostics);
-        }
+        var typeRegistry = new TypeRegistry();
+        var functionRegistry = new  FunctionRegistry();
+        var typeMap = new TypeMap();
+        var symbolTable = new SymbolTable();
+        
+        var typeResolver = new TypeResolver(typeRegistry, program.Declarations.OfType<StructDeclarationNode>(), _diagnostics);
+        typeResolver.Resolve();
+        
+        var functionDeclarations = program.Declarations.OfType<FunctionDeclarationNode>().ToList();
+        
+        var functionResolver = new FunctionResolver(functionRegistry, typeRegistry, functionDeclarations, _diagnostics);
+        functionResolver.Resolve();
         
         if (_diagnostics.HasErrors)
         {
-            return SemanticAnalysisResult.Error(ast, _diagnostics);
+            return SemanticAnalysisResult.Error(program, _diagnostics);
         }
-        return SemanticAnalysisResult.Ok(ast, typeRegistry, functionRegistry, _typeMap);
+        
+        var visitor = new TypeInferenceVisitor(typeRegistry, functionRegistry, typeMap, symbolTable, _diagnostics);
+
+        foreach (var function in functionDeclarations)
+        {
+            visitor.VisitFunction(function);
+        }
+
+        if (_diagnostics.HasErrors)
+        {
+            return SemanticAnalysisResult.Error(program, _diagnostics);
+        }
+
+        return SemanticAnalysisResult.Ok(program, typeRegistry, functionRegistry, typeMap);
+        
+        
+        
+        
+        
+        
+        
+        
+        //
+        //
+        // var typeRegistry = RegisterStructs();
+        // var functionRegistry = RegisterFunctions();
+        //
+        // var visitor = new TypeInferenceVisitor(typeRegistry, functionRegistry, _typeMap, _diagnostics);
+        // foreach (var function in program.Declarations.OfType<FunctionDeclarationNode>())
+        // {
+        //     visitor.Analyze(function, _diagnostics);
+        // }
+        //
+        // if (_diagnostics.HasErrors)
+        // {
+        //     return SemanticAnalysisResult.Error(program, _diagnostics);
+        // }
+        // return SemanticAnalysisResult.Ok(program, typeRegistry, functionRegistry, _typeMap);
         
     }
 
-    private TypeRegistry RegisterStructs()
-    {
-        var typeRegistry = new TypeRegistry();
-        foreach (var structDeclarationNode in ast.Declarations.OfType<StructDeclarationNode>())
-        {
-            var canonicalName = structDeclarationNode.CanonicalName();
-            if (typeRegistry.Declarations.ContainsKey(canonicalName))
-            {
-                _diagnostics.Add($"Struct declaration already exists for {canonicalName}");
-            }
-            typeRegistry.Register(structDeclarationNode);
-        }
-
-        return typeRegistry;
-    }
-
-    private FunctionRegistry RegisterFunctions()
-    {
-        var  functionRegistry = new FunctionRegistry();
-
-        foreach (var functionDeclarationNode in ast.Declarations.OfType<FunctionDeclarationNode>())
-        {
-            var canonicalName = functionDeclarationNode.CanonicalName();
-            if (functionRegistry.Declarations.ContainsKey(canonicalName))
-            {
-                _diagnostics.Add($"Function declaration already exists for {canonicalName}");
-            }
-            functionRegistry.Register(functionDeclarationNode);
-        }
-        
-        return functionRegistry;
-    }
+    // private TypeRegistry RegisterStructs()
+    // {
+    //     var typeRegistry = new TypeRegistry();
+    //     foreach (var structDeclarationNode in program.Declarations.OfType<StructDeclarationNode>())
+    //     {
+    //         var canonicalName = structDeclarationNode.CanonicalName();
+    //         if (typeRegistry.IsValidType(canonicalName))
+    //         {
+    //             _diagnostics.Add($"Struct declaration already exists for {structDeclarationNode.Name} in the {( structDeclarationNode.ModulePath.Count > 0 ? $"{string.Join(".", structDeclarationNode)}" : "root" )} module", structDeclarationNode.Span);
+    //             continue;
+    //         }
+    //         typeRegistry.Register(structDeclarationNode);
+    //     }
+    //
+    //     return typeRegistry;
+    // }
+    //
+    // private FunctionRegistry RegisterFunctions()
+    // {
+    //     var  functionRegistry = new FunctionRegistry();
+    //
+    //     foreach (var functionDeclarationNode in program.Declarations.OfType<FunctionDeclarationNode>())
+    //     {
+    //         var canonicalName = functionDeclarationNode.CanonicalName();
+    //         if (functionRegistry.Declarations.ContainsKey(canonicalName))
+    //         {
+    //             _diagnostics.Add($"Function declaration already exists for {canonicalName}", functionDeclarationNode.Span);
+    //             continue;
+    //         }
+    //         functionRegistry.Register(functionDeclarationNode);
+    //     }
+    //     
+    //     return functionRegistry;
+    // }
 }
 
 public record SemanticAnalysisResult
@@ -104,75 +146,20 @@ public record SemanticAnalysisResult
     }
 }
 
-public class FunctionRegistry
-{
-    private readonly Dictionary<string, FunctionDeclarationNode> _declarations = [];
-    public IReadOnlyDictionary<string, FunctionDeclarationNode> Declarations => _declarations;
 
-    public void Register(FunctionDeclarationNode functionDeclarationNode)
-    {
-        _declarations.Add(functionDeclarationNode.CanonicalName(), functionDeclarationNode);
-    }
-    
-    public bool TryGetFunction(string canonicalName, [NotNullWhen(true)] out FunctionDeclarationNode? function)
-    {
-        return _declarations.TryGetValue(canonicalName, out function);
-    }
-}
-
-public class TypeRegistry
-{
-    private readonly Dictionary<string, StructDeclarationNode> _declarations = [];
-    public IReadOnlyDictionary<string, StructDeclarationNode> Declarations => _declarations; 
-    public void Register(StructDeclarationNode structDeclarationNode)
-    {
-        _declarations.Add(structDeclarationNode.CanonicalName(), structDeclarationNode);
-    }
-
-    public bool TryGetStruct(string canonicalName, [NotNullWhen(true)]out StructDeclarationNode? @struct)
-    {
-        return _declarations.TryGetValue(canonicalName, out @struct);
-    }
-    
-    // public bool TryGetStructInScope(List<string> modulePath, string shortName, [NotNullWhen(true)] out StructDeclarationNode? structDecl)
-    // {
-    //     var canonicalName = CanonicalNames.InModule(modulePath, shortName);
-    //     return 
-    //         _declarations.TryGetValue(canonicalName, out structDecl) 
-    //         || _declarations.TryGetValue(shortName, out structDecl);
-    // }
-
-    public bool TryGetFieldType(string canonicalName, string fieldName, [NotNullWhen(true)] out TypeNode? fieldType)
-    {
-        fieldType = null;
-        if (_declarations.TryGetValue(canonicalName, out var structDeclaration))
-        {
-            foreach (var field in structDeclaration.Fields)
-            {
-                if (field.Name == fieldName)
-                {
-                    fieldType = field.Type;
-                    return true;
-                }
-            }
-        }
-        
-        return false;
-    }
-}
 
 public class TypeMap
 {
-    private readonly Dictionary<ExpressionNode, TypeNode> _nodeTypes = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<NodeId, TypeNode> _nodeTypes = new();
 
     public void SetType(ExpressionNode node, TypeNode type)
     {
-        _nodeTypes[node] = type;
+        _nodeTypes[node.Id] = type;
     }
 
     public TypeNode GetType(ExpressionNode node)
     {
-        if (_nodeTypes.TryGetValue(node, out var type))
+        if (_nodeTypes.TryGetValue(node.Id, out var type))
         {
             return type;
         }
@@ -182,7 +169,7 @@ public class TypeMap
 
     public bool TryGetType(ExpressionNode node, [NotNullWhen(true)] out TypeNode? type)
     {
-        return _nodeTypes.TryGetValue(node, out type);
+        return _nodeTypes.TryGetValue(node.Id, out type);
     }
 }
 
@@ -217,14 +204,4 @@ public class SymbolTable
         }
         return false;
     }
-}
-
-public class Diagnostics
-{
-    public bool HasErrors => _diagnosticMessages.Count > 0;
-    
-    private readonly List<string> _diagnosticMessages = [];
-    public IReadOnlyList<string> DiagnosticMessages => _diagnosticMessages;
-    
-    public void Add(string message) => _diagnosticMessages.Add(message);
 }

@@ -1,6 +1,6 @@
 fn main(): i32 { 
-    let a = returnConst();
-    var b = returnArgument(20);
+    let a: i32 = returnConst();
+    var b: i32 = returnArgument(20);
     return a + b;
 }
 

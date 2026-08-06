@@ -143,37 +143,36 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         
         if (token.Kind == TokenKind.Identifier)
         {
-            return ParseUserDeclaredType(token);
+            return ParseNominalTypeNode(token);
         }
 
         throw new ByronHighLevelParserException($"Unknown type signature target: {token.Lexeme}", token.Span);
     }
 
-    private bool TryGetPrimitive(Token token, [NotNullWhen(true)]out TypeNode? type)
+    private bool TryGetPrimitive(Token token, [NotNullWhen(true)]out PrimitiveTypeNode? type)
     {
         type = token.Lexeme switch
         {
-            "boolean" => new BoolTypeNode(token.Span),
-            "i8" => new Int8TypeNode(token.Span),
-            "i16" => new Int16TypeNode(token.Span),
-            "i32" => new Int32TypeNode(token.Span),
-            "i64" => new Int64TypeNode(token.Span),
-            "u8" => new UInt8TypeNode(token.Span),
-            "u16" => new UInt16TypeNode(token.Span),
-            "u32" => new UInt32TypeNode(token.Span),
-            "u64" => new UInt64TypeNode(token.Span),
-            "f32" => new Float32TypeNode(token.Span),
-            "f64" => new Float64TypeNode(token.Span),
-            "void" => new VoidTypeNode(token.Span),
-            "unit" => new UnitTypeNode(token.Span),
-            "rune" => new RuneTypeNode(token.Span),
+            PrimitiveTypeNames.boolean => new BoolTypeNode(token.Span),
+            PrimitiveTypeNames.i8 => new Int8TypeNode(token.Span),
+            PrimitiveTypeNames.i16 => new Int16TypeNode(token.Span),
+            PrimitiveTypeNames.i32 => new Int32TypeNode(token.Span),
+            PrimitiveTypeNames.i64 => new Int64TypeNode(token.Span),
+            PrimitiveTypeNames.u8 => new UInt8TypeNode(token.Span),
+            PrimitiveTypeNames.u16 => new UInt16TypeNode(token.Span),
+            PrimitiveTypeNames.u32 => new UInt32TypeNode(token.Span),
+            PrimitiveTypeNames.u64 => new UInt64TypeNode(token.Span),
+            PrimitiveTypeNames.f32 => new Float32TypeNode(token.Span),
+            PrimitiveTypeNames.f64 => new Float64TypeNode(token.Span),
+            PrimitiveTypeNames.@void => new VoidTypeNode(token.Span),
+            PrimitiveTypeNames.rune => new RuneTypeNode(token.Span),
             _ => null
         };
 
         return type is not null;
     }
     
-    private UserDeclaredTypeNode ParseUserDeclaredType(Token firstIdentifier)
+    private NominalTypeNode ParseNominalTypeNode(Token firstIdentifier)
     {
         var path = new List<string> { firstIdentifier.Lexeme };
         var startSpan = firstIdentifier.Span;
@@ -189,7 +188,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var name = path[^1];
         path.RemoveAt(path.Count - 1);
 
-        return new UserDeclaredTypeNode(path, name, startSpan with { End = endSpan.End });
+        return new NominalTypeNode(name, path, startSpan with { End = endSpan.End });
     }
 
     private Token Advance()

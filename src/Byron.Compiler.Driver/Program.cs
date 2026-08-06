@@ -21,14 +21,19 @@ async Task TryParseFile(string filePath)
         var sourceText = await File.ReadAllTextAsync(filePath);
         var tokens = new Tokenizer(sourceText).Tokenise();
         var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();
-        
+
         var semanticAnalysisResult = new SemanticAnalysisDriver(highLevelAst).Analyze();
         if (!semanticAnalysisResult.Success)
         {
-            Console.WriteLine("Semantic Analysis failed.");
+            Console.WriteLine("Semantic Analysis failed:");
+            foreach (var message in semanticAnalysisResult.Diagnostics.DiagnosticMessages)
+            {
+                Console.WriteLine(message);
+            }
+
             return;
         }
-        
+
         var lowLevelAst = new ByronLoweringPass(highLevelAst).Lower();
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(lowLevelAst);
@@ -78,6 +83,10 @@ async Task TryParseFile(string filePath)
     catch (ByronHighLevelParserException e)
     {
         Console.WriteLine($"{e.Message} at line {e.Span.Line} column {e.Span.Column}");
+    }
+    catch (ByronCodeGenerationException e)
+    {
+        Console.WriteLine($"{e.Message} at {e.StackTrace}");
     }
     catch(Exception e)
     {

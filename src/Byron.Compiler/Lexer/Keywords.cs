@@ -42,7 +42,6 @@ public static class Keywords
 
         // --- Types ---
         ["void"]        = TokenKind.Void,
-        ["Unit"]        = TokenKind.Unit,
         ["type"]        = TokenKind.Type,
         ["typeof"]      = TokenKind.Typeof,
 

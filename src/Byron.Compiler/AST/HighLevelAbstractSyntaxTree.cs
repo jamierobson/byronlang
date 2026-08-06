@@ -5,12 +5,26 @@ namespace Byron.Compiler.AST.HighLevel;
 
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
 
-public abstract record AstNode(SourceSpan Span);
+public readonly record struct NodeId(int Value) : IComparable<NodeId>
+{
+    public override string ToString() => $"#{Value}";
+    public int CompareTo(NodeId other) => Value.CompareTo(other.Value);
+}
+
+public abstract record AstNode(SourceSpan Span)
+{
+    private static int _nextId;
+    public NodeId Id { get; } = new(Interlocked.Increment(ref _nextId));
+};
 
 // Top Level Declarations
 public abstract record TopLevelDeclarationNode(string Name, List<string> ModulePath, SourceSpan Span) : AstNode(Span)
 {
-    public string CanonicalName() => CanonicalNames.InModule(ModulePath, Name);
+    private string? _canonicalName;
+    public string CanonicalName()
+    {
+        return _canonicalName ??= CanonicalNames.InModule(ModulePath, Name);
+    }
 };
 
 public record FunctionDeclarationNode(string Name, List<string> ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
@@ -26,7 +40,7 @@ public record BlockStatementNode(List<StatementNode> Statements, SourceSpan Span
 public record ReturnStatementNode(ExpressionNode? Expression, SourceSpan Span) : StatementNode(Span);
 public record YieldStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span); // todo: Since yield turns a block statement into a block region, does that make yield an expression?
 public record DiscardStatementNode(ExpressionNode Initializer, SourceSpan Span) : StatementNode(Span);
-public record VariableDeclarationNode(bool IsMutable, string Name, TypeNode? ExplicitType, ExpressionNode Initializer, SourceSpan Span ) : StatementNode(Span);
+public record VariableDeclarationNode(bool IsMutable, string Name, TypeNode? TypeAnnotation, ExpressionNode Initializer, SourceSpan Span ) : StatementNode(Span);
 public record AssignmentStatementNode(ExpressionNode Target, ExpressionNode Value, SourceSpan Span ) : StatementNode(Span);
 public record ExpressionStatementNode(ExpressionNode Expression, SourceSpan Span) : StatementNode(Span);
 public record IfElseStatement(ExpressionNode Condition, BlockStatementNode ThenBranch, BlockStatementNode? ElseBranch, SourceSpan Span ) : StatementNode(Span);
@@ -43,35 +57,50 @@ public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionN
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
 public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span);
 
-public record StructFieldInitializationExpressionNode(string StructName, List<StructFieldInitializerNode> FieldInitializers, SourceSpan Span) : ExpressionNode(Span);
+public record StructFieldInitializationExpressionNode(NominalTypeNode NominalType, List<StructFieldInitializerNode> FieldInitializers, SourceSpan Span) : ExpressionNode(Span);
 public record MemberAccessExpressionNode(ExpressionNode Target, string MemberName, SourceSpan Span ) : ExpressionNode(Span);
 
 // Types
-public abstract record TypeNode(SourceSpan Span) : AstNode(Span);
-
-public record UserDeclaredTypeNode(List<string> ModulePath, string Name, SourceSpan Span) : TypeNode(Span)
+public abstract record TypeNode(SourceSpan Span) : AstNode(Span)
 {
-    public string FullyQualifiedName() => ModulePath.Count != 0 ? $"{Name}.{string.Join(".", ModulePath)}" : Name;
+    private string? _canonicalName;
+    protected abstract string GetCanonicalName();
+
+    public string CanonicalName()
+    {
+        return _canonicalName ??= GetCanonicalName();
+    }
+};
+
+public record NominalTypeNode(string Name, List<string> ModulePath, SourceSpan Span) : TypeNode(Span)
+{
+    protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
 }
 
-public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span);
+public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span)
+{
+    protected override string GetCanonicalName() => $"&{(IsMutable ? "var " : "")}{Target.CanonicalName()}";
+};
 
-// todo: Do we want to split out primitive types and composite types as their own AST node types?
-public abstract record BuiltInTypeNode(SourceSpan Span) : TypeNode(Span);
-public record VoidTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record UnitTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Int8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Int16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Int32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Int64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record UInt8TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record UInt16TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record UInt32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record UInt64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Float32TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record Float64TypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record BoolTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
-public record RuneTypeNode(SourceSpan Span) : BuiltInTypeNode(Span);
+public abstract record BuiltInTypeNode(string Name, List<string> ModulePath, SourceSpan Span) : TypeNode(Span)
+{
+    protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
+};
+public abstract record PrimitiveTypeNode(string Name, SourceSpan Span): BuiltInTypeNode(Name, [], Span);
+
+public record VoidTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.@void, Span);
+public record Int8TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.i8, Span);
+public record Int16TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.i16, Span);
+public record Int32TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.i32, Span);
+public record Int64TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.i64, Span);
+public record UInt8TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.u8, Span);
+public record UInt16TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.u16, Span);
+public record UInt32TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.u32, Span);
+public record UInt64TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.u64, Span);
+public record Float32TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.f32, Span);
+public record Float64TypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.f64, Span);
+public record BoolTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.boolean, Span);
+public record RuneTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.rune, Span);
 
 // Lowerable expressions
 public record OnErrorExpressionNode(ExpressionNode Source, ExpressionNode Fallback, SourceSpan Span) : ExpressionNode(Span);

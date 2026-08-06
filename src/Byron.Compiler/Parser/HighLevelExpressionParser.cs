@@ -127,9 +127,9 @@ public partial class ByronHighLevelAstParser
                 var initializers = ParseStructFieldInitializers();
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
 
-                var typeNode = new UserDeclaredTypeNode([], identifier.Lexeme, identifier.Span);
+                var typeNode = new NominalTypeNode(identifier.Lexeme, [], identifier.Span);
 
-                expression = new StructFieldInitializationExpressionNode(typeNode.Name, initializers,
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
                     identifier.Span with { End = endToken.Span.End });
             }
             else

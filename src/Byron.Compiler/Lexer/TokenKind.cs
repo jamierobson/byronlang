@@ -38,7 +38,6 @@ public enum TokenKind
 
     // Types
     Void,
-    Unit,
     Type,
     Typeof,
 
