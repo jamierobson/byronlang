@@ -29,7 +29,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                     structs.Add(ParseStructDeclaration());
                     break;
                 default:
-                    throw new ByronNotImplementedException(token.Kind.ToString(), this);
+                    throw new ByronNotImplementedException(token.Kind.ToString(), this, token.Span);
             }   
         }
 

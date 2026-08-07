@@ -45,7 +45,7 @@ public class Tokenizer
             return ScanWord(initialPosition);
         }
 
-        if (char.IsDigit(character))
+        if (char.IsDigit(character) || character == '-')
         {
             return ScanNumber(initialPosition);
         }
@@ -83,6 +83,19 @@ public class Tokenizer
 
     private Token ScanNumber(int start)
     {
+        var isPositive = Peek() != '-';
+        if (!isPositive)
+        {
+            Consume();
+            var positiveToken = ScanNumber(start + 1);
+            return positiveToken.Kind switch
+            {
+                TokenKind.IntLiteral => Token.CreateWithValue(TokenKind.IntLiteral, _source[start.._position], -(long)(positiveToken.Value ?? 0), positiveToken.Span with {Start = start}),
+                TokenKind.FloatLiteral => Token.CreateWithValue(TokenKind.FloatLiteral, _source[start.._position], -(float)(positiveToken.Value ?? 0), positiveToken.Span with {Start = start}),
+                _ => positiveToken
+            };
+        }
+        
         // Base prefix
         if (Peek() == '0' && _position + 1 < _source.Length)
         {

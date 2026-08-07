@@ -59,9 +59,35 @@ public class TypeInferenceVisitor
             case ExpressionStatementNode expressionStatement:
                 VisitExpression(expressionStatement.Expression);
                 break;
+            case AssignmentStatementNode assignment:
+                VisitAssignmentStatement(assignment);
+                break;
         }
     }
-    
+
+    private void VisitAssignmentStatement(AssignmentStatementNode assignment)
+    {
+        VisitExpression(assignment.Target);
+        VisitExpression(assignment.Value);
+        
+        var targetType = _typeMap.GetType(assignment.Target);
+        var valueType = _typeMap.GetType(assignment.Value);
+        
+        if (targetType.CanonicalName() != valueType.CanonicalName())
+        {
+            _diagnostics.TypeMismatch(targetType, valueType);
+            return;
+        }
+        
+        if (assignment.Target is VariableExpressionNode variable)
+        {
+            if (_symbolTable.TryGet(variable.Name, out var symbol) && !symbol.IsMutable)
+            {
+                _diagnostics.InvalidMutation(variable, symbol.Type.Span);
+            }
+        }
+    }
+
     private void VisitExpression(ExpressionNode expression)
     {
         switch (expression)
@@ -75,7 +101,7 @@ public class TypeInferenceVisitor
                 break;    
             
             case StructFieldInitializationExpressionNode structFieldInitializationExpression:
-                _typeMap.SetType(structFieldInitializationExpression, structFieldInitializationExpression.NominalType);
+                VisitStructFieldInitializationExpression(structFieldInitializationExpression);
                 break;
 
             case VariableExpressionNode variableExpression:
@@ -96,13 +122,42 @@ public class TypeInferenceVisitor
         }
     }
 
-    private void VisitBinaryExpressionNode(BinaryExpressionNode binaryExpressionNode)
+    private void VisitStructFieldInitializationExpression(StructFieldInitializationExpressionNode initialization)
     {
-        VisitExpression(binaryExpressionNode.Left);
-        VisitExpression(binaryExpressionNode.Right);
+        _typeMap.SetType(initialization, initialization.NominalType);
+        var structName = initialization.NominalType.CanonicalName();
+        if (!_typeRegistry.TryGetStruct(structName, out var structDeclaration))
+        {
+            _diagnostics.UndeclaredType(initialization.NominalType);
+            return;
+        }
         
-        var left = _typeMap.GetType(binaryExpressionNode.Left);
-        var right = _typeMap.GetType(binaryExpressionNode.Right);
+        foreach (var fieldInitializer in initialization.FieldInitializers)
+        {
+            VisitExpression(fieldInitializer.Value);
+            var valueType = _typeMap.GetType(fieldInitializer.Value);
+
+            var matchingField = structDeclaration.Fields.FirstOrDefault(f => f.Name == fieldInitializer.FieldName);
+            if (matchingField is null)
+            {
+                _diagnostics.MissingMember(structName, fieldInitializer);
+                continue;
+            }
+
+            if (valueType.CanonicalName() != matchingField.Type.CanonicalName())
+            {
+                _diagnostics.TypeMismatch(matchingField.Type, valueType);
+            }
+        }
+    }
+
+    private void VisitBinaryExpressionNode(BinaryExpressionNode binaryExpression)
+    {
+        VisitExpression(binaryExpression.Left);
+        VisitExpression(binaryExpression.Right);
+        
+        var left = _typeMap.GetType(binaryExpression.Left);
+        var right = _typeMap.GetType(binaryExpression.Right);
 
         if (left.CanonicalName() != right.CanonicalName())
         {
@@ -110,33 +165,33 @@ public class TypeInferenceVisitor
             return;
         }
         
-        _typeMap.SetType(binaryExpressionNode, left);
+        _typeMap.SetType(binaryExpression, left);
     }
 
-    private void VisitVariableDeclaration(VariableDeclarationNode node)
+    private void VisitVariableDeclaration(VariableDeclarationNode variableDeclaration)
     {
-        VisitExpression(node.Initializer);
-        var inferredType = _typeMap.GetType(node.Initializer);
+        VisitExpression(variableDeclaration.Initializer);
+        var inferredType = _typeMap.GetType(variableDeclaration.Initializer);
         var finalType = inferredType;
 
-        if (node.TypeAnnotation is not null)
+        if (variableDeclaration.TypeAnnotation is not null)
         {
-            if (!_typeRegistry.IsValidType(node.TypeAnnotation))
+            if (!_typeRegistry.IsValidType(variableDeclaration.TypeAnnotation))
             {
-                _diagnostics.UndeclaredType(node.TypeAnnotation);
+                _diagnostics.UndeclaredType(variableDeclaration.TypeAnnotation);
                 return;
             }
 
-            if (node.TypeAnnotation.CanonicalName() != inferredType.CanonicalName())
+            if (variableDeclaration.TypeAnnotation.CanonicalName() != inferredType.CanonicalName())
             {
-                _diagnostics.TypeMismatch(node.TypeAnnotation, inferredType);
+                _diagnostics.TypeMismatch(variableDeclaration.TypeAnnotation, inferredType);
                 return;
             }
 
-            finalType = node.TypeAnnotation;
+            finalType = variableDeclaration.TypeAnnotation;
         }
 
-        _symbolTable.Declare(node.Name, finalType, node.IsMutable);
+        _symbolTable.Declare(variableDeclaration.Name, finalType, variableDeclaration.IsMutable);
     }
 
     private void VisitVariableExpression(VariableExpressionNode variableExpression)
@@ -160,7 +215,7 @@ public class TypeInferenceVisitor
 
         if (callExpression.Callee is not VariableExpressionNode variableExpression)
         {
-            throw new ByronNotImplementedException("Complex callee expressions", this);
+            throw new ByronNotImplementedException("Complex callee expressions", this, callExpression.Span);
         }
         
         if (!_functionRegistry.TryGetFunctionInScope([], variableExpression.Name, out var function))

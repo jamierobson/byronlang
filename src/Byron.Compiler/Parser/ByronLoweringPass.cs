@@ -21,7 +21,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         {
             High.FunctionDeclarationNode function => FunctionDeclaration(function),
             High.StructDeclarationNode @struct => StructDeclaration(@struct),
-            _ => throw new ByronNotImplementedException(declaration.GetType(), this) 
+            _ => throw new ByronNotImplementedException(declaration.GetType(), this, declaration.Span) 
         };
     }
 
@@ -67,7 +67,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.BoolTypeNode => new Low.BoolTypeNode(),
             High.RuneTypeNode => new Low.RuneTypeNode(),
 
-            _ => throw new ByronNotImplementedException(type.GetType(), this)
+            _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
     }
 
@@ -85,7 +85,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.ContinueStatement _ => new Low.ContinueStatement(),
             High.WhileStatement @while => new Low.WhileStatement(Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
             High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(Expression(assignment.Target), Expression(assignment.Value)),
-            _ => throw new ByronNotImplementedException(statement.GetType(), this)
+            _ => throw new ByronNotImplementedException(statement.GetType(), this, statement.Span)
         };
     }
 
@@ -103,7 +103,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             
             // Lowerable expressions here
 
-            _ => throw new ByronNotImplementedException(expression.GetType(), this)
+            _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
     }
 

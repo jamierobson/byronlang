@@ -83,7 +83,7 @@ public partial class ByronHighLevelAstParser
             return new ExpressionStatementNode(freeExpression, freeExpression.Span with { End = Previous().Span.End });
         }
         
-        throw new ByronNotImplementedException("Fallback basic statements", this);
+        throw new ByronNotImplementedException("Fallback basic statements", this, Previous().Span);
     }
     
     private IfElseStatement ParseIfStatement()

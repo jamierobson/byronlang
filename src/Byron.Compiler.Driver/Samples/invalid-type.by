@@ -1,0 +1,9 @@
+struct Point { value: i32, notThis: i32, }
+
+fn main(): i32 {
+    var x: i32 = 0;
+    x = -1;
+    x = Point { value: 42, notThis: 52 };
+    x = false; 
+    return x;
+}
