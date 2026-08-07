@@ -208,6 +208,13 @@ public class TypeInferenceVisitor
 
     private void VisitVariableDeclaration(VariableDeclarationNode variableDeclaration)
     {
+        if (_symbolTable.TryGet(variableDeclaration.Name, out _))
+        {
+            _diagnostics.Duplicate(variableDeclaration);
+            VisitExpression(variableDeclaration.Initializer);
+            return;
+        }
+        
         VisitExpression(variableDeclaration.Initializer);
         var inferredType = _typeMap.GetType(variableDeclaration.Initializer);
         var finalType = inferredType;
