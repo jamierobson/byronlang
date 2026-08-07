@@ -507,7 +507,8 @@ If we can do that, we're making enough progress to be worth pushing all the way 
 0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
 0. Implement a `CAlloator` implemeting `TransferringAllocator`. 
 0. Fixed sized collections: Arrays, Slices, Ranges
-0. Add simple `std.io.console` i/o using C `fputs` and `fgets`
+0. Add simple i/o using C `fputs` and `fgets`
+0. Add modules, organising the console io into `std.io.console`
 0. Introduce obligation tracking for 
     1. `CAllocator` requires `deinit`
     0. `Uninitialized<T>` requires `.fill` or `.release`
