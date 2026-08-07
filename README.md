@@ -499,9 +499,9 @@ If we can do that, we're making enough progress to be worth pushing all the way 
 1. ~~Add a lowering pass, and perform code generation on the low level AST~~
 0. ~~Add loops: `while`~~
 0. ~~Add struct support, while we stack allocate~~
-0. Add simple type inference with a top down walk of the AST
+0. ~~Add simple type inference with a top down walk of the AST~~
 0. Add `interface`s (__NOT__ for dynamic dispatch)
-0. Implement enough generics to describe `Owned<T>`, `Uninitialized<T>` and `Unsafe<T>` types
+0. Implement enough generics to describe `Owned<T, A: TransferringAllocator>`, `Uninitialized<T, A: TransferringAllocator>` and `Unsafe<T, A: TransferringAllocator>` types. Update the readme to note the updated realizations regarding Owned being generic over both T and the allocator in order to avoid dynamic dispatch. Note also that we are willing to consider Owned<T, dynamic TransferringAllocator> which _could_ potentially be erased.
 0. Add `implement` blocks to add functions to structs
 0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
 0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
