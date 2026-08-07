@@ -1,0 +1,24 @@
+struct Point1d { x: i32 }
+implement Point1d {
+  fn getValue(self: &Self): i32 {
+    return self.*.x;
+  }
+  
+  fn setValue(self: &var Self): void {
+    self.*.x = 20;
+  }
+}
+
+fn main(): i32 {
+    var point = Point1d { x: 5 };
+    point = Point1d { x: 7 };
+    point.setValue(); // point: Point1d coerces to &var Point1d 
+    let asMethodSyntax = point.getValue(); // point coerces to &Point1d  
+    let asFunctionSyntax = Point1d.getValue(&point); // This is the desugared version of the above invocation
+    
+    if(asMethodSyntax == asFunctionSyntax && asMethodSyntax == point.*.x) {
+        return asMethodSyntax; // Expect 20
+    } 
+    
+    return 255;
+}
