@@ -44,7 +44,9 @@ public partial class ByronHighLevelAstParser
     
     private ExpressionNode ParseBinaryExpression(int minPrecedence)
     {
-        var expression = ParsePrimaryExpression();
+        var expression = ParseUnary(); //todo: Where does this go?
+        
+        // var expression = ParsePrimaryExpression();
 
         while (!IsAtEnd())
         {
@@ -127,9 +129,9 @@ public partial class ByronHighLevelAstParser
                 var initializers = ParseStructFieldInitializers();
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
 
-                var typeNode = new UserDeclaredTypeNode([], identifier.Lexeme, identifier.Span);
+                var typeNode = new NominalTypeNode(identifier.Lexeme, [], identifier.Span);
 
-                expression = new StructFieldInitializationExpressionNode(typeNode.Name, initializers,
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
                     identifier.Span with { End = endToken.Span.End });
             }
             else
@@ -139,7 +141,8 @@ public partial class ByronHighLevelAstParser
 
             return ParsePostfixExpression(expression);
         }
-        throw new ByronHighLevelParserException("Parsing failed on token: " + Peek().Lexeme, Peek().Span);
+        
+        throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
     }
     
     private ExpressionNode ParsePostfixExpression(ExpressionNode expression)
@@ -178,5 +181,40 @@ public partial class ByronHighLevelAstParser
         }
 
         return initializers;
+    }
+    
+    private ExpressionNode ParseUnary()
+    {
+        if (ConsumingActiveTokenMatch(TokenKind.Minus))
+        {
+            var operand = ParseUnary();
+
+            if (operand is IntegerLiteralNode integerLiteral)
+            {
+                return new IntegerLiteralNode(-integerLiteral.Value, Previous().Span with { End = integerLiteral.Span.End });
+            }
+
+            // Fold -<float> into FloatLiteralNode
+            // if (operand is literalnode floatLit)
+            // {
+            //     return new FloatLiteralNode(-floatLit.Value, CombineSpans(operationSpan, floatLit.Span));
+            // }
+
+            return new UnaryExpressionNode(UnaryOperator.Negative, operand, Previous().Span with { End = operand.Span.End });
+        }
+
+        if (ConsumingActiveTokenMatch(TokenKind.Bang))
+        {
+            var operand = ParseUnary();
+
+            if (operand is BoolLiteralNode booleanLiteral)
+            {
+                return new BoolLiteralNode(!booleanLiteral.Value, Previous().Span with { End = booleanLiteral.Span.End });
+            }
+
+            return new UnaryExpressionNode(UnaryOperator.Not, operand, Previous().Span with { End = operand.Span.End });
+        }
+
+        return ParsePrimaryExpression();
     }
 }

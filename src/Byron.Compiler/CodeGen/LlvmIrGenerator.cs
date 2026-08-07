@@ -53,7 +53,7 @@ public partial class LlvmIrGenerator
         GenerateBlockStatement(node.Body);
         
         // Add a return when reaching the end of a void function
-        if (node.ReturnType is VoidTypeNode or UnitTypeNode)
+        if (node.ReturnType is VoidTypeNode)
         {
             _context.EmitLine("    ret void");
         }

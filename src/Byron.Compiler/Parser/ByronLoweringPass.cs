@@ -21,7 +21,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         {
             High.FunctionDeclarationNode function => FunctionDeclaration(function),
             High.StructDeclarationNode @struct => StructDeclaration(@struct),
-            _ => throw new ByronNotImplementedException(declaration.GetType(), this) 
+            _ => throw new ByronNotImplementedException(declaration.GetType(), this, declaration.Span) 
         };
     }
 
@@ -51,10 +51,9 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         return type switch
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(Type(referenceType.Target), referenceType.IsMutable),
-            High.UserDeclaredTypeNode userDeclaredType => new Low.UserDeclaredTypeNode(userDeclaredType.FullyQualifiedName()),
+            High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType.CanonicalName()),
             
             High.VoidTypeNode => new Low.VoidTypeNode(),
-            High.UnitTypeNode => new Low.UnitTypeNode(),
             High.Int8TypeNode => new Low.Int8TypeNode(),
             High.Int16TypeNode => new Low.Int16TypeNode(),
             High.Int32TypeNode => new Low.Int32TypeNode(),
@@ -68,7 +67,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.BoolTypeNode => new Low.BoolTypeNode(),
             High.RuneTypeNode => new Low.RuneTypeNode(),
 
-            _ => throw new ByronNotImplementedException(type.GetType(), this)
+            _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
     }
 
@@ -86,7 +85,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             High.ContinueStatement _ => new Low.ContinueStatement(),
             High.WhileStatement @while => new Low.WhileStatement(Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
             High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(Expression(assignment.Target), Expression(assignment.Value)),
-            _ => throw new ByronNotImplementedException(statement.GetType(), this)
+            _ => throw new ByronNotImplementedException(statement.GetType(), this, statement.Span)
         };
     }
 
@@ -104,14 +103,14 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
             
             // Lowerable expressions here
 
-            _ => throw new ByronNotImplementedException(expression.GetType(), this)
+            _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
     }
 
     private Low.StructFieldInitializationExpressionNode StructFieldInitializationExpression(High.StructFieldInitializationExpressionNode structFieldInitialization)
     {
         return new Low.StructFieldInitializationExpressionNode(
-            structFieldInitialization.StructName,
+            structFieldInitialization.NominalType.Name,
             structFieldInitialization.FieldInitializers.Select(
                 x => new Low.StructFieldInitializerNode(x.FieldName, Expression(x.Value))).ToList()
             );
@@ -119,7 +118,7 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
     
     private Low.VariableDeclarationNode Variable(High.VariableDeclarationNode variable)
     {
-        var explicitType = variable.ExplicitType != null ? Type(variable.ExplicitType) : null;
+        var explicitType = variable.TypeAnnotation != null ? Type(variable.TypeAnnotation) : null;
         var initializer = Expression(variable.Initializer);
         
         return new Low.VariableDeclarationNode(variable.IsMutable, variable.Name, explicitType, initializer);

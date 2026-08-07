@@ -12,6 +12,11 @@ public partial class ByronHighLevelAstParser
         var statements = new List<StatementNode>();
         while (!ActiveTokenMatch(TokenKind.RBrace))
         {
+            if (ConsumingActiveTokenMatch(TokenKind.BlockComment) || ConsumingActiveTokenMatch(TokenKind.DocComment) ||
+                ConsumingActiveTokenMatch(TokenKind.LineComment))
+            {
+                continue;
+            }
             statements.Add(ParseStatement());
         }
 
@@ -83,7 +88,7 @@ public partial class ByronHighLevelAstParser
             return new ExpressionStatementNode(freeExpression, freeExpression.Span with { End = Previous().Span.End });
         }
         
-        throw new ByronNotImplementedException("Fallback basic statements", this);
+        throw new ByronNotImplementedException("Fallback basic statements", this, Previous().Span);
     }
     
     private IfElseStatement ParseIfStatement()

@@ -10,6 +10,14 @@
         <Product>Byron</Product>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
     <ItemGroup>
         <None Include="Samples\*.*">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -27,6 +35,10 @@
 
     <ItemGroup>
       <Folder Include="Out\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="LLVMSharp" Version="20.1.2" />
     </ItemGroup>
 
 </Project>

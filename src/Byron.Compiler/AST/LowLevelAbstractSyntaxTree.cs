@@ -53,7 +53,7 @@ public record MemberAccessExpressionNode(ExpressionNode Target, string MemberNam
 // Types
 public abstract record TypeNode : AstNode;
 
-public record UserDeclaredTypeNode(string FullyQualifiedName) : TypeNode;
+public record NominalTypeNode(string CanonicalName) : TypeNode;
 
 public record ReferenceTypeNode(TypeNode Target, bool IsMutable) : TypeNode;
 
@@ -86,4 +86,3 @@ public record BoolTypeNode : PrimitiveTypeNode;
 public record RuneTypeNode : PrimitiveTypeNode;
 
 public record VoidTypeNode : PrimitiveTypeNode;
-public record UnitTypeNode : PrimitiveTypeNode;

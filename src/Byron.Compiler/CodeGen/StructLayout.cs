@@ -31,7 +31,6 @@ public class SymbolEnvironment(SymbolEnvironment? parentScope = null)
 {
     private readonly Dictionary<string, SymbolAddress> _variables = new();
     private readonly Dictionary<string, StructLayout> _structLayouts = new();
-    private readonly SymbolEnvironment? _parentScope;
     
     public void RegisterVariable(string name, SymbolAddress address)
     {
@@ -45,9 +44,9 @@ public class SymbolEnvironment(SymbolEnvironment? parentScope = null)
             return addr;
         }
 
-        if (_parentScope != null)
+        if (parentScope != null)
         {
-            return _parentScope.GetVariable(name);
+            return parentScope.GetVariable(name);
         }
 
         throw new InvalidOperationException($"Lowering error: Undefined variable '{name}'.");
@@ -65,9 +64,9 @@ public class SymbolEnvironment(SymbolEnvironment? parentScope = null)
             return layout;
         }
 
-        if (_parentScope != null)
+        if (parentScope != null)
         {
-            return _parentScope.GetStructLayout(structName);
+            return parentScope.GetStructLayout(structName);
         }
 
         throw new InvalidOperationException($"Lowering error: Unknown struct type '{structName}'.");

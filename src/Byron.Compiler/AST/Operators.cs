@@ -2,6 +2,25 @@ using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.AST;
 
+public enum UnaryOperator
+{
+    Negative,
+    Not
+}
+
+public static class UnaryOperatorExtensions
+{
+    extension(UnaryOperator unaryOperator)
+    {
+        public string ToLexeme() => unaryOperator switch
+        {
+            UnaryOperator.Negative => "-",
+            UnaryOperator.Not => "!",
+            _ => throw new ArgumentOutOfRangeException(nameof(unaryOperator), unaryOperator, null)
+        };
+    }
+}
+
 public enum BinaryOperator
 {
     Add,
