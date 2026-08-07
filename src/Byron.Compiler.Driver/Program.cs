@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Byron.Compiler.CodeGen;
+using Byron.Compiler.Driver;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
@@ -19,6 +20,10 @@ async Task TryParseFile(string filePath)
     try
     {
         var sourceText = await File.ReadAllTextAsync(filePath);
+        
+        Console.WriteLine("Parsing the following program");
+        Console.WriteLine(sourceText);
+        
         var tokens = new Tokenizer(sourceText).Tokenise();
         var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();
 
@@ -37,7 +42,8 @@ async Task TryParseFile(string filePath)
         var lowLevelAst = new ByronLoweringPass(highLevelAst).Lower();
         Console.WriteLine("Parsed successfully to AST");
         var generatedCode = new LlvmIrGenerator().Generate(lowLevelAst);
-        Console.WriteLine($"Generated the following LLVM IR: {generatedCode}");
+        Console.WriteLine("Generated the following LLVM IR");
+        Console.WriteLine(generatedCode);
 
         var outputIrPath = Path.Combine("./Out", $"{moduleName}.ll");
         var outputExePath = Path.ChangeExtension(outputIrPath, ".exe");
@@ -75,6 +81,12 @@ async Task TryParseFile(string filePath)
         {
             Console.WriteLine(stdout);
         }
+        
+        Console.WriteLine();
+        Console.WriteLine();
+        var exitState = InProcessExecutionEngine.Execute(generatedCode);
+        Console.WriteLine($"Program executed: Exit state: {exitState}");
+        Console.WriteLine();
     }
     catch (ByronNotImplementedException e)
     {
