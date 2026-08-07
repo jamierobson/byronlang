@@ -12,6 +12,11 @@ public partial class ByronHighLevelAstParser
         var statements = new List<StatementNode>();
         while (!ActiveTokenMatch(TokenKind.RBrace))
         {
+            if (ConsumingActiveTokenMatch(TokenKind.BlockComment) || ConsumingActiveTokenMatch(TokenKind.DocComment) ||
+                ConsumingActiveTokenMatch(TokenKind.LineComment))
+            {
+                continue;
+            }
             statements.Add(ParseStatement());
         }
 

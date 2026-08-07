@@ -164,7 +164,7 @@ public class TypeMap
             return type;
         }
 
-        throw new InvalidOperationException($"Node {node.GetType().Name} (Id: {node}) has not been assigned a type.");
+        throw new InvalidOperationException($"Node {node.GetType().Name} (Id: {node}) has not been assigned a type at {node.Span}.");
     }
 
     public bool TryGetType(ExpressionNode node, [NotNullWhen(true)] out TypeNode? type)
