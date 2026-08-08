@@ -1,3 +1,4 @@
+using System.Globalization;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.LowLevel;
 using Byron.Compiler.Exceptions;
@@ -6,11 +7,21 @@ namespace Byron.Compiler.CodeGen;
 
 public partial class LlvmIrGenerator
 {
+    private LlvmType IntegerType(long value) => value < int.MinValue || value > int.MaxValue
+        ? new LlvmType.Int(64)
+        : new LlvmType.Int(32);
+    
+    
+    private LlvmType FloatType(double value) => value < float.MinValue || value > float.MaxValue
+        ? new LlvmType.Float(64)
+        : new LlvmType.Float(32);
+    
     private (string ReturnValue, LlvmType ReturnType) GenerateExpression(ExpressionNode node)
     {
         return node switch
         {
-            IntegerLiteralNode literal => (literal.Value.ToString(), new LlvmType.Int(32)),
+            IntegerLiteralNode intLiteral => (intLiteral.Value.ToString(), IntegerType(intLiteral.Value)),
+            FloatLiteralNode floatLiteral => (floatLiteral.Value.ToString(CultureInfo.InvariantCulture), FloatType(floatLiteral.Value)),
             BoolLiteralNode boolean => (boolean.Value ? "1" : "0", new LlvmType.Boolean()),
             VariableExpressionNode variable => GenerateVariableLoad(variable),
             BinaryExpressionNode binary => GenerateBinaryExpression(binary),
@@ -97,7 +108,19 @@ public partial class LlvmIrGenerator
 
         if (leftLlvmType != rightLlvmType)
         {
-            throw new ByronCodeGenerationException($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
+            
+            // if (CanPromoteToType(leftLlvmType, rightLlvmType))
+            // {
+            //     (leftValue, leftLlvmType) = EmitPromotion(leftValue, leftLlvmType, rightLlvmType);
+            // }
+            // else if (CanPromoteToType(rightLlvmType, leftLlvmType))
+            // {
+            //     (rightValue, rightLlvmType) = EmitPromotion(rightValue, rightLlvmType, leftLlvmType);
+            // }
+            // else
+            // {
+                throw new ByronCodeGenerationException($"Type mismatch in binary expression: {leftLlvmType} and {rightLlvmType}");
+            // }
         }
 
         var isFloat = leftLlvmType is LlvmType.Float;
@@ -132,6 +155,62 @@ public partial class LlvmIrGenerator
 
         return (resultRegister, returnType);
     }
+
+    // todo: This belongs inn semantic analysis
+    // private bool CanPromoteToType(LlvmType promotionCandidate, LlvmType targetType)
+    // {
+    //     if (promotionCandidate is LlvmType.Int && targetType is LlvmType.Float)
+    //     {
+    //         return true;
+    //     }
+    //
+    //     if (promotionCandidate is LlvmType.Int sourceInt && targetType is LlvmType.Int targetInt)
+    //     {
+    //         return sourceInt.BitWidth <  targetInt.BitWidth;
+    //     }
+    //
+    //     if (promotionCandidate is LlvmType.Float sourceFloat && targetType is LlvmType.Float targetFloat)
+    //     {
+    //         return sourceFloat.BitWidth < targetFloat.BitWidth;
+    //     }
+    //
+    //     return false;
+    // }
+
+    //todo: This belongs in lowering pass
+    // private (string ReturnValue, LlvmType ReturnType) EmitPromotion(
+    //     string value,
+    //     LlvmType promotingType,
+    //     LlvmType targetType
+    //     )
+    // {
+    //     if (promotingType == targetType)
+    //     {
+    //         return (value, promotingType);
+    //     }
+    //
+    //     var resultRegister = _context.AllocateRegister();
+    //
+    //     if (promotingType is LlvmType.Int && targetType is LlvmType.Float)
+    //     {
+    //         _context.EmitLine($"{resultRegister} = sitofp {promotingType} {value} to {targetType}");
+    //         return (resultRegister, targetType);
+    //     }
+    //     
+    //     if (promotingType is LlvmType.Int sourceInt && targetType is LlvmType.Int targetInt && sourceInt.BitWidth < targetInt.BitWidth)
+    //     {
+    //         _context.EmitLine($"{resultRegister} = sext {promotingType} {value} to {targetType}");
+    //         return (resultRegister, targetType);
+    //     }
+    //     
+    //     if (promotingType is LlvmType.Float sourceFloat && targetType is LlvmType.Float targetFloat && sourceFloat.BitWidth < targetFloat.BitWidth)
+    //     {
+    //         _context.EmitLine($"{resultRegister} = fpext {promotingType} {value} to {targetType}");
+    //         return (resultRegister, targetType);
+    //     }
+    //
+    //     throw new ByronNotImplementedException($"promotion of {promotingType} to {targetType}", this);
+    // }
 
     private string ArithmeticOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
     {

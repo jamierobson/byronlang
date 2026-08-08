@@ -44,7 +44,7 @@ public partial class ByronHighLevelAstParser
     
     private ExpressionNode ParseBinaryExpression(int minPrecedence)
     {
-        var expression = ParseUnary(); //todo: Where does this go?
+        var expression = ParseUnary();
         
         // var expression = ParsePrimaryExpression();
 
@@ -96,6 +96,11 @@ public partial class ByronHighLevelAstParser
         if (ConsumingActiveTokenMatch(TokenKind.IntLiteral))
         {
             return new IntegerLiteralNode(Convert.ToInt64(Previous().Lexeme), Previous().Span);
+        }
+
+        if (ConsumingActiveTokenMatch(TokenKind.FloatLiteral))
+        {
+            return new FloatLiteralNode(Convert.ToDouble(Previous().Lexeme), Previous().Span);
         }
         if (ConsumingActiveTokenMatch(TokenKind.True))
         {
@@ -194,11 +199,10 @@ public partial class ByronHighLevelAstParser
                 return new IntegerLiteralNode(-integerLiteral.Value, Previous().Span with { End = integerLiteral.Span.End });
             }
 
-            // Fold -<float> into FloatLiteralNode
-            // if (operand is literalnode floatLit)
-            // {
-            //     return new FloatLiteralNode(-floatLit.Value, CombineSpans(operationSpan, floatLit.Span));
-            // }
+            if (operand is FloatLiteralNode floatLiteral)
+            {
+                return new FloatLiteralNode(-floatLiteral.Value, Previous().Span with { End = floatLiteral.Span.End });
+            }
 
             return new UnaryExpressionNode(UnaryOperator.Negative, operand, Previous().Span with { End = operand.Span.End });
         }

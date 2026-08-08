@@ -27,6 +27,7 @@ public class Diagnostics
     public void Duplicate(StructDeclarationNode node, SourceSpan duplicateSpan) => _diagnosticMessages.Add($"Duplicate struct declaration {node.CanonicalName()} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(VariableDeclarationNode variableDeclaration) => _diagnosticMessages.Add($"A local variable {variableDeclaration.Name} cannot be declared at {variableDeclaration.Span} because the variable name already has another binding");
     public void TypeMismatch(TypeNode leftType, TypeNode rightType) => _diagnosticMessages.Add($"Cannot convert {leftType.CanonicalName()} to type {rightType.CanonicalName()} at {rightType.Span}");
+    public void TypeMismatch(TypeNode leftType, string rightType) => _diagnosticMessages.Add($"Cannot convert {leftType.CanonicalName()} to type {rightType} at {leftType.Span}");
     public void OutOfRange(IntegerLiteralNode literal, TypeNode type) => _diagnosticMessages.Add($"{literal.Value} is out of range for type {type.CanonicalName()} at {literal.Span}");
     public void MissingMember(string canonicalName, MemberAccessExpressionNode expression) => _diagnosticMessages.Add($"{canonicalName} does not contain field {expression.MemberName} at {expression.Span}");
     public void MissingMember(string canonicalName, StructFieldInitializerNode initializer) => _diagnosticMessages.Add($"{canonicalName} does not contain field {initializer.FieldName} at {initializer.Span}");

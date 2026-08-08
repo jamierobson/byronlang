@@ -5,7 +5,6 @@ namespace Byron.Compiler.SemanticAnalysis;
 
 public class SemanticAnalysisDriver(ProgramNode program)
 {
-    private TypeMap _typeMap = new();
     private Diagnostics _diagnostics = new();
     
     public SemanticAnalysisResult Analyze()
@@ -143,6 +142,22 @@ public record SemanticAnalysisResult
             false, 
             ast,
             diagnostics: diagnostics);
+    }
+    
+    public void Deconstruct(
+        out ProgramNode ast,
+        out TypeRegistry typeRegistry,
+        out TypeMap typeMap,
+        out FunctionRegistry functionRegistry)
+    {
+        if (!Success)
+        {
+            throw new InvalidOperationException($"Cannot deconstruct the program contents of the {nameof(SemanticAnalysisResult)} when semantic analysis rejected the program");
+        }
+        ast = Ast;
+        typeRegistry = TypeRegistry;
+        typeMap = TypeMap;
+        functionRegistry = FunctionRegistry;
     }
 }
 

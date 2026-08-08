@@ -10,3 +10,6 @@ public class ByronHighLevelParserException(string message, SourceSpan span) : By
     {
     }
 }
+public class ByronLowLevelParserException(string message) : ByronException(message)
+{
+}

@@ -1,6 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Exceptions;
+
 
 namespace Byron.Compiler.SemanticAnalysis;
 
@@ -62,7 +65,50 @@ public class TypeInferenceVisitor
             case AssignmentStatementNode assignment:
                 VisitAssignmentStatement(assignment);
                 break;
+            case  IfElseStatement ifElse:
+                VisitIfElseStatement(ifElse);
+                break;
+            case ReturnStatementNode @return:
+                VisitReturnStatement(@return);
+                break;
+            case WhileStatement @while:
+                VisitStatementWhile(@while);
+                break;
         }
+    }
+
+    private void VisitStatementWhile(WhileStatement @while)
+    {
+        VisitExpression(@while.ContinuationCondition);
+        VisitBlock(@while.Body);
+    }
+
+    private void VisitReturnStatement(ReturnStatementNode @return)
+    {
+        if (@return.Expression is not null)
+        {
+            VisitExpression(@return.Expression);
+            // todo: Type check expression vs current function return type.
+        }
+    }
+
+    private void VisitIfElseStatement(IfElseStatement ifElse)
+    {
+        VisitExpression(ifElse.Condition);
+        var conditionType = _typeMap.GetType(ifElse.Condition);
+        if (conditionType is not BoolTypeNode)
+        {
+            _diagnostics.TypeMismatch(conditionType, PrimitiveTypeNames.boolean);
+            return;
+        }
+        
+        VisitBlock(ifElse.ThenBranch);
+    
+        if (ifElse.ElseBranch != null)
+        {
+            VisitBlock(ifElse.ElseBranch);
+        }
+
     }
 
     private void VisitAssignmentStatement(AssignmentStatementNode assignment)
@@ -95,9 +141,23 @@ public class TypeInferenceVisitor
             case UnaryExpressionNode unary:   
                 VisitUnaryExpression(unary);
                 break;
+            
             case IntegerLiteralNode integerLiteral:
-                _typeMap.SetType(integerLiteral, new Int32TypeNode(integerLiteral.Span));
+                var int32Type = new Int32TypeNode(integerLiteral.Span);
+                SignedIntTypeNode intType = TypeBounds.CanCoerceToType(integerLiteral.Value, int32Type)
+                    ? int32Type
+                    : new Int64TypeNode(integerLiteral.Span);
+                _typeMap.SetType(integerLiteral, intType); 
                 break;
+            
+            case FloatLiteralNode floatLiteral:
+                var float32Type = new Float32TypeNode(floatLiteral.Span);
+                FloatTypeNode floatType = TypeBounds.CanCoerceToType(floatLiteral.Value, float32Type)
+                    ? float32Type
+                    : new Float64TypeNode(floatLiteral.Span);
+                _typeMap.SetType(floatLiteral, floatType);
+                break;
+            
             case BoolLiteralNode boolLiteral:
                 _typeMap.SetType(boolLiteral, new BoolTypeNode(boolLiteral.Span));
                 break;    
@@ -122,6 +182,8 @@ public class TypeInferenceVisitor
                 VisitBinaryExpressionNode(binaryExpressionNode);
                 break;
         }
+        
+        // throw new ByronNotImplementedException(expression.GetType(), this, expression.Span);
     }
 
     private void VisitUnaryExpression(UnaryExpressionNode unary)
@@ -133,7 +195,7 @@ public class TypeInferenceVisitor
         {
             case UnaryOperator.Negative:
             {
-                if (operandType is not SignedIntNode and not FloatNode)
+                if (operandType is not SignedIntTypeNode and not FloatTypeNode)
                 {
                     _diagnostics.InvalidUnaryOperation(unary, operandType);
                 }
@@ -176,10 +238,7 @@ public class TypeInferenceVisitor
                 continue;
             }
 
-            if (
-                // !IsAssignable(fieldInitializer, valueType)
-                valueType.CanonicalName() != matchingField.Type.CanonicalName()
-                )
+            if (!IsAssignable(fieldInitializer.Value, valueType, matchingField.Type))
             {
                 _diagnostics.TypeMismatch(matchingField.Type, valueType);
             }
@@ -191,19 +250,67 @@ public class TypeInferenceVisitor
         VisitExpression(binaryExpression.Left);
         VisitExpression(binaryExpression.Right);
         
-        var left = _typeMap.GetType(binaryExpression.Left);
-        var right = _typeMap.GetType(binaryExpression.Right);
+        var leftType = _typeMap.GetType(binaryExpression.Left);
+        var rightType = _typeMap.GetType(binaryExpression.Right);
 
-        // if (left.CanonicalName() != right.CanonicalName())
-        if (
-            left.CanonicalName() != right.CanonicalName()
-            )
+        var isAssignable = IsAssignable(binaryExpression.Left, leftType, rightType);
+        if (!isAssignable)
         {
-            _diagnostics.TypeMismatch(right, left);
+            _diagnostics.TypeMismatch(leftType, rightType);
+        }
+        
+        if (binaryExpression.Operator.IsRelationalComparison())
+        {
+            var boolType = new BoolTypeNode(binaryExpression.Span);
+            _typeMap.SetType(binaryExpression, boolType);
             return;
         }
         
-        _typeMap.SetType(binaryExpression, left);
+        if (!IsAssignable(binaryExpression.Left, leftType, rightType))
+        {
+            return;
+        }
+
+        if (TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType, out var coercedType))
+        {
+            _typeMap.SetType(binaryExpression, coercedType);
+        }
+    }
+
+    private bool TryGetPreferredCoercionType(ExpressionNode leftExpression, TypeNode leftType, ExpressionNode rightExpression, TypeNode rightType, [NotNullWhen(true)] out TypeNode? preferredType)
+    {
+        preferredType = null;
+        
+        if (leftType.CanonicalName() == rightType.CanonicalName())
+        {
+            preferredType = leftType;
+            return true;
+        }
+        
+        if (leftType is IntegerTypeNode integerLeft && rightType is FloatTypeNode && TypeBounds.CanCoerceToType(rightExpression, integerLeft))
+        {
+            preferredType = leftType;
+            return true;
+        }
+
+        if (rightType is IntegerTypeNode integerRight && leftType is FloatTypeNode && TypeBounds.CanCoerceToType(leftExpression, integerRight))
+        {
+            preferredType = rightType;
+            return true;
+        }
+
+        if (TryPromoteNumericTypes(leftType, rightType, out var promotedType))
+        {
+            preferredType = promotedType;
+            return true;
+        }
+        
+        return false;
+    }
+
+    private bool TryPromoteNumericTypes(TypeNode leftType, TypeNode rightType, [NotNullWhen(true)] out TypeNode? promotedType)
+    {
+        throw new ByronNotImplementedException("TryPromoteNumericTypes", this);
     }
 
     private void VisitVariableDeclaration(VariableDeclarationNode variableDeclaration)
@@ -255,11 +362,11 @@ public class TypeInferenceVisitor
             return true;
         }
 
-        if (declaredType is NumericNode declaredNumeric && assignedValueType is NumericNode)
+        if (declaredType is NumericTypeNode declaredNumeric && assignedValueType is NumericTypeNode)
         {
             if (variableDeclaration.Initializer is IntegerLiteralNode intLiteral)
             {
-                if (TypeBounds.ValueFitsInType(intLiteral.Value, declaredNumeric))
+                if (TypeBounds.CanCoerceToType(intLiteral.Value, declaredNumeric))
                 {
                     return true;
                 }
@@ -269,6 +376,50 @@ public class TypeInferenceVisitor
         }
 
         return false;
+    }
+    
+    private bool IsAssignable(ExpressionNode value, TypeNode assignedType, TypeNode targetType)
+    {
+        if (assignedType.CanonicalName() == targetType.CanonicalName())
+        {
+            return true;
+        }
+
+        if (assignedType is not NumericTypeNode assignedNumeric || targetType is not NumericTypeNode targetNumeric)
+        {
+            return false;
+        }
+
+        if (value is IntegerLiteralNode intLiteral && TypeBounds.CanCoerceToType(intLiteral.Value, targetNumeric))
+        {
+            return true;
+        }
+        if (value is FloatLiteralNode floatLiteral && TypeBounds.CanCoerceToType(floatLiteral.Value, targetNumeric))
+        {
+            return true;
+        }
+        
+        return (assignedNumeric, targetNumeric) switch
+        {
+            (SignedIntTypeNode assigned, SignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
+            (UnsignedIntTypeNode assigned, UnsignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
+            (UnsignedIntTypeNode assigned, SignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
+            (SignedIntTypeNode, UnsignedIntTypeNode) => false,
+            (SignedIntTypeNode assigned, FloatTypeNode target) => target.BitWidth switch
+            {
+                32 => assigned.BitWidth <= 16,
+                64 => assigned.BitWidth <= 32,
+                _ => false
+            },
+            (UnsignedIntTypeNode assigned, FloatTypeNode target) => target.BitWidth switch
+            {
+                32 => assigned.BitWidth <= 16,
+                64 => assigned.BitWidth <= 32,
+                _ => false
+            },
+            (FloatTypeNode assigned, FloatTypeNode target) => assigned.BitWidth < target.BitWidth,
+            _ => false
+        };
     }
 
     private bool IsAssignable(AssignmentStatementNode assignment, TypeNode assignedValueType)
@@ -282,11 +433,11 @@ public class TypeInferenceVisitor
             return true;
         }
 
-        if (targetType is NumericNode declaredNumeric && assignedValueType is NumericNode)
+        if (targetType is NumericTypeNode declaredNumeric && assignedValueType is NumericTypeNode)
         {
             if (assignment.Value is IntegerLiteralNode intLiteral)
             {
-                if (TypeBounds.ValueFitsInType(intLiteral.Value, declaredNumeric))
+                if (TypeBounds.CanCoerceToType(intLiteral.Value, declaredNumeric))
                 {
                     return true;
                 }
@@ -333,12 +484,15 @@ public class TypeInferenceVisitor
             _diagnostics.InvalidArgumentCount(callExpression, function);
         }
 
-        for (var i = 0; i < callExpression.Arguments.Count; i++)
+        var maximumArgumentCount = Math.Min(callExpression.Arguments.Count, function.Parameters.Count);
+        
+        for (var i = 0; i < maximumArgumentCount; i++)
         {
-            var argumentType = _typeMap.GetType(callExpression.Arguments[i]);
+            var expression = callExpression.Arguments[i];
+            var argumentType = _typeMap.GetType(expression);
             var parameterType = function.Parameters[i].Type;
 
-            if (argumentType.CanonicalName() != parameterType.CanonicalName())
+            if (!IsAssignable(expression, argumentType, parameterType))
             {
                 _diagnostics.InvalidArgument(argumentType.CanonicalName(), parameterType.CanonicalName(), callExpression.Span);
                 return;

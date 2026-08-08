@@ -52,6 +52,7 @@ public record ContinueStatement(SourceSpan Span): StatementNode(Span);
 // Expressions
 public abstract record ExpressionNode(SourceSpan Span) : AstNode(Span);
 public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(Span);
+public record FloatLiteralNode(double Value, SourceSpan Span) : ExpressionNode(Span);
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
@@ -59,6 +60,14 @@ public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator,
 public record StructFieldInitializationExpressionNode(NominalTypeNode NominalType, List<StructFieldInitializerNode> FieldInitializers, SourceSpan Span) : ExpressionNode(Span);
 public record MemberAccessExpressionNode(ExpressionNode Target, string MemberName, SourceSpan Span ) : ExpressionNode(Span);
 public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Operand, SourceSpan Span) : ExpressionNode(Span);
+
+// Casts
+public abstract record CastExpressionNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : ExpressionNode(Span);
+public record ExtendIntegerNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+public record ExtendFloatNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+public record CastIntToFloatNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+public record CastFloatToIntNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+
 
 // Types
 public abstract record TypeNode(SourceSpan Span) : AstNode(Span)
@@ -90,21 +99,22 @@ public abstract record PrimitiveTypeNode(string Name, SourceSpan Span): BuiltInT
 
 public record VoidTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.@void, Span);
 
-public abstract record NumericNode(string Name, SourceSpan Span) : PrimitiveTypeNode(Name, Span);
-public record UnsignedIntNode(string Name, SourceSpan Span) : NumericNode(Name, Span);
-public record SignedIntNode(string Name, SourceSpan Span) : NumericNode(Name, Span);
-public record FloatNode(string Name, SourceSpan Span) : NumericNode(Name, Span);
+public abstract record NumericTypeNode(string Name, SourceSpan Span) : PrimitiveTypeNode(Name, Span);
+public abstract record IntegerTypeNode(string Name, int BitWidth, bool Signed, SourceSpan Span) : NumericTypeNode(Name, Span);
+public record UnsignedIntTypeNode(string Name, int BitWidth, SourceSpan Span) : IntegerTypeNode(Name, BitWidth, false, Span);
+public record SignedIntTypeNode(string Name, int BitWidth, SourceSpan Span) : IntegerTypeNode(Name, BitWidth, true, Span);
+public record FloatTypeNode(string Name, int BitWidth, SourceSpan Span) : NumericTypeNode(Name, Span);
 
-public record Int8TypeNode(SourceSpan Span) : SignedIntNode(PrimitiveTypeNames.i8, Span);
-public record Int16TypeNode(SourceSpan Span) : SignedIntNode(PrimitiveTypeNames.i16, Span);
-public record Int32TypeNode(SourceSpan Span) : SignedIntNode(PrimitiveTypeNames.i32, Span);
-public record Int64TypeNode(SourceSpan Span) : SignedIntNode(PrimitiveTypeNames.i64, Span);
-public record UInt8TypeNode(SourceSpan Span) : UnsignedIntNode(PrimitiveTypeNames.u8, Span);
-public record UInt16TypeNode(SourceSpan Span) : UnsignedIntNode(PrimitiveTypeNames.u16, Span);
-public record UInt32TypeNode(SourceSpan Span) : UnsignedIntNode(PrimitiveTypeNames.u32, Span);
-public record UInt64TypeNode(SourceSpan Span) : UnsignedIntNode(PrimitiveTypeNames.u64, Span);
-public record Float32TypeNode(SourceSpan Span) : FloatNode(PrimitiveTypeNames.f32, Span);
-public record Float64TypeNode(SourceSpan Span) : FloatNode(PrimitiveTypeNames.f64, Span);
+public record Int8TypeNode(SourceSpan Span) : SignedIntTypeNode(PrimitiveTypeNames.i8, 8, Span);
+public record Int16TypeNode(SourceSpan Span) : SignedIntTypeNode(PrimitiveTypeNames.i16, 16, Span);
+public record Int32TypeNode(SourceSpan Span) : SignedIntTypeNode(PrimitiveTypeNames.i32, 32, Span);
+public record Int64TypeNode(SourceSpan Span) : SignedIntTypeNode(PrimitiveTypeNames.i64, 64, Span);
+public record UInt8TypeNode(SourceSpan Span) : UnsignedIntTypeNode(PrimitiveTypeNames.u8, 8, Span);
+public record UInt16TypeNode(SourceSpan Span) : UnsignedIntTypeNode(PrimitiveTypeNames.u16, 16, Span);
+public record UInt32TypeTypeNode(SourceSpan Span) : UnsignedIntTypeNode(PrimitiveTypeNames.u32, 32, Span);
+public record UInt64TypeNode(SourceSpan Span) : UnsignedIntTypeNode(PrimitiveTypeNames.u64, 64, Span);
+public record Float32TypeNode(SourceSpan Span) : FloatTypeNode(PrimitiveTypeNames.f32, 32, Span);
+public record Float64TypeNode(SourceSpan Span) : FloatTypeNode(PrimitiveTypeNames.f64, 64, Span);
 public record BoolTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.boolean, Span);
 public record RuneTypeNode(SourceSpan Span) : PrimitiveTypeNode(PrimitiveTypeNames.rune, Span);
 

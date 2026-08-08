@@ -38,6 +38,7 @@ public record ContinueStatement: StatementNode;
 // Expressions
 public abstract record ExpressionNode : AstNode;
 public record IntegerLiteralNode(long Value) : ExpressionNode;
+public record FloatLiteralNode(double Value) : ExpressionNode;
 public record BoolLiteralNode(bool Value) : ExpressionNode;
 public record VariableExpressionNode(string Name) : ExpressionNode;
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments) : ExpressionNode;
@@ -45,6 +46,13 @@ public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator,
 
 public record StructFieldInitializationExpressionNode(string StructName, List<StructFieldInitializerNode> FieldInitializers) : ExpressionNode;
 public record MemberAccessExpressionNode(ExpressionNode Target, string MemberName) : ExpressionNode;
+
+// Casts
+public abstract record CastExpressionNode(ExpressionNode Operand, TypeNode TargetType) : ExpressionNode;
+public record ExtendIntegerNode(ExpressionNode Operand, TypeNode TargetType) : CastExpressionNode(Operand, TargetType);
+public record ExtendFloatNode(ExpressionNode Operand, TypeNode TargetType) : CastExpressionNode(Operand, TargetType);
+public record CastIntToFloatNode(ExpressionNode Operand, TypeNode TargetType, bool Signed) : CastExpressionNode(Operand, TargetType);
+public record CastFloatToIntNode(ExpressionNode Operand, TypeNode TargetType, bool Signed) : CastExpressionNode(Operand, TargetType);
 
 // public record BlockExpressionNode(List<StatementNode> Statements) : ExpressionNode;
 // public record MatchExpressionNode(ReceiverBindingOwnership BindingOwnership, ExpressionNode Source, List<MatchExpressionArmNode> Arms) : ExpressionNode;
@@ -61,25 +69,30 @@ public record ReferenceTypeNode(TypeNode Target, bool IsMutable) : TypeNode;
 public abstract record BuiltInTypeNode : TypeNode;
 public abstract record PrimitiveTypeNode : BuiltInTypeNode;
 
-public record Int8TypeNode : PrimitiveTypeNode;
+public record IntegerTypeNode(int BitWidth, bool Signed) : PrimitiveTypeNode;
+public record UnsignedIntTypeNode(int BitWidth) : IntegerTypeNode(BitWidth, false);
+public record SignedIntTypeNode(int BitWidth) : IntegerTypeNode(BitWidth, true);
+public record FloatTypeNode(int BitWidth) : PrimitiveTypeNode;
 
-public record Int16TypeNode : PrimitiveTypeNode;
-
-public record Int32TypeNode : PrimitiveTypeNode;
-
-public record Int64TypeNode : PrimitiveTypeNode;
-
-public record UInt8TypeNode : PrimitiveTypeNode;
-
-public record UInt16TypeNode : PrimitiveTypeNode;
-
-public record UInt32TypeNode : PrimitiveTypeNode;
-
-public record UInt64TypeNode : PrimitiveTypeNode;
-
-public record Float32TypeNode : PrimitiveTypeNode;
-
-public record Float64TypeNode : PrimitiveTypeNode;
+// public record Int8TypeNode() : IntTypeNode(8);
+//
+// public record Int16TypeNode() : IntTypeNode(16);
+//
+// public record Int32TypeNode() : IntTypeNode(32);
+//
+// public record Int64TypeNode() : IntTypeNode(64);
+//
+// public record UInt8TypeNode() : UIntTypeNode(8);
+//
+// public record UInt16TypeNode() : UIntTypeNode(16);
+//
+// public record UInt32TypeNode() : UIntTypeNode(32);
+//
+// public record UInt64TypeNode() : UIntTypeNode(64);
+//
+// public record Float32TypeNode() : FloatTypeNode(32);
+//
+// public record Float64TypeNode() : FloatTypeNode(64);
 
 public record BoolTypeNode : PrimitiveTypeNode;
 
