@@ -1,3 +1,4 @@
+using System.Globalization;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.LowLevel;
 using Byron.Compiler.Exceptions;
@@ -6,15 +7,29 @@ namespace Byron.Compiler.CodeGen;
 
 public partial class LlvmIrGenerator
 {
+    private LlvmType IntegerType(long value) => value < int.MinValue || value > int.MaxValue
+        ? new LlvmType.Int(64)
+        : new LlvmType.Int(32);
+    
+    
+    private LlvmType FloatType(double value) => value < float.MinValue || value > float.MaxValue
+        ? new LlvmType.Float(64)
+        : new LlvmType.Float(32);
+    
     private (string ReturnValue, LlvmType ReturnType) GenerateExpression(ExpressionNode node)
     {
         return node switch
         {
-            IntegerLiteralNode literal => (literal.Value.ToString(), new LlvmType.Int(32)),
+            IntegerLiteralNode intLiteral => (intLiteral.Value.ToString(), IntegerType(intLiteral.Value)),
+            FloatLiteralNode floatLiteral => (floatLiteral.Value.ToString(CultureInfo.InvariantCulture), FloatType(floatLiteral.Value)),
             BoolLiteralNode boolean => (boolean.Value ? "1" : "0", new LlvmType.Boolean()),
             VariableExpressionNode variable => GenerateVariableLoad(variable),
             BinaryExpressionNode binary => GenerateBinaryExpression(binary),
             CallExpressionNode call => GenerateCallExpression(call),
+            CastFloatToIntNode floatToInt => GenerateCastFloatToInt(floatToInt),
+            CastIntToFloatNode intToFloat => GenerateCastIntToFloat(intToFloat),
+            ExtendIntegerNode extendInt => GenerateExtendInteger(extendInt),
+            ExtendFloatNode extendFloat => GenerateExtendFloat(extendFloat),
             
             StructFieldInitializationExpressionNode fieldInitialization => GenerateStructFieldInitializationExpression(fieldInitialization),
             MemberAccessExpressionNode memberAccess => GenerateMemberAccessExpression(memberAccess),
@@ -22,7 +37,61 @@ public partial class LlvmIrGenerator
             _ => throw new ByronNotImplementedException(node.GetType(), this)
         };
     }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateCastFloatToInt(CastFloatToIntNode floatToInt)
+    {
+        var (operandValue, operandType) = GenerateExpression(floatToInt.Operand);
+        var targetLlvmType = new LlvmType.Int(floatToInt.TargetType.BitWidth);
+        
+        var resultRegister = _context.AllocateRegister();
+        var instruction = floatToInt.TargetType.Signed ? "fptosi" : "fptoui";
+        
+        if (!operandValue.Contains('.') && !operandValue.Contains('e') && !operandValue.Contains('E'))
+        {
+            operandValue += ".0";
+        }
+        
+        _context.EmitLine($"    {resultRegister} = {instruction} {operandType} {operandValue} to {targetLlvmType}");
     
+        return (resultRegister, targetLlvmType);
+    }private (string ReturnValue, LlvmType ReturnType) GenerateCastIntToFloat(CastIntToFloatNode intToFloat)
+    {
+        var (operandValue, operandType) = GenerateExpression(intToFloat.Operand);
+        var targetLlvmType = new LlvmType.Float(intToFloat.TargetType.BitWidth);
+
+        var resultRegister = _context.AllocateRegister();
+        var instruction = intToFloat.SourceTypeIsSigned ? "sitofp" : "uitofp";
+
+        _context.EmitLine($"    {resultRegister} = {instruction} {operandType} {operandValue} to {targetLlvmType}");
+
+        return (resultRegister, targetLlvmType);
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateExtendInteger(ExtendIntegerNode extendInt)
+    {
+        var (operandValue, operandType) = GenerateExpression(extendInt.Operand);
+        var targetLlvmType = new LlvmType.Int(extendInt.TargetType.BitWidth);
+
+        var resultRegister = _context.AllocateRegister();
+        var instruction = extendInt.TargetType.Signed ? "sext" : "zext";
+
+        _context.EmitLine($"    {resultRegister} = {instruction} {operandType} {operandValue} to {targetLlvmType}");
+
+        return (resultRegister, targetLlvmType);
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateExtendFloat(ExtendFloatNode extendFloat)
+    {
+        var (operandValue, operandType) = GenerateExpression(extendFloat.Operand);
+        var targetLlvmType = new LlvmType.Float(extendFloat.TargetType.BitWidth);
+
+        var resultRegister = _context.AllocateRegister();
+
+        _context.EmitLine($"    {resultRegister} = fpext {operandType} {operandValue} to {targetLlvmType}");
+
+        return (resultRegister, targetLlvmType);
+    }
+
     private (string ReturnValue, LlvmType ReturnType) GenerateStructFieldInitializationExpression(StructFieldInitializationExpressionNode node)
     {
         var layout = _context.GetStructLayout(node.StructName);

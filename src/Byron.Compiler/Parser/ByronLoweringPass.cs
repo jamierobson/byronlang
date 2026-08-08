@@ -1,14 +1,32 @@
 using Byron.Compiler.Exceptions;
+using Byron.Compiler.SemanticAnalysis;
 using High = Byron.Compiler.AST.HighLevel;
 using Low = Byron.Compiler.AST.LowLevel;
 
 namespace Byron.Compiler.Parser;
 
-public class ByronLoweringPass(High.ProgramNode highLevelAst)
+public class ByronLoweringPass
 {
+    
+    private readonly High.ProgramNode _ast;
+    private readonly TypeRegistry _typeRegistry;
+    private readonly TypeMap _typeMap;
+    private readonly FunctionRegistry _functionRegistry;
+    
+    public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
+    {
+        if (!semanticAnalysisResult.Success)
+        {
+            throw new ByronLowLevelParserException("Unable to lower an invalid AST");
+        }
+        
+        (_ast, _typeRegistry, _typeMap, _functionRegistry) = semanticAnalysisResult;
+    }
+    
     public Low.ProgramNode Lower()
     {
-        var declarations = highLevelAst.Declarations
+        
+        var declarations = _ast.Declarations
         .Select(TopLevelDeclaration)
         .ToList();
 
@@ -52,18 +70,10 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(Type(referenceType.Target), referenceType.IsMutable),
             High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType.CanonicalName()),
-            
             High.VoidTypeNode => new Low.VoidTypeNode(),
-            High.Int8TypeNode => new Low.Int8TypeNode(),
-            High.Int16TypeNode => new Low.Int16TypeNode(),
-            High.Int32TypeNode => new Low.Int32TypeNode(),
-            High.Int64TypeNode => new Low.Int64TypeNode(),
-            High.UInt8TypeNode => new Low.UInt8TypeNode(),
-            High.UInt16TypeNode => new Low.UInt16TypeNode(),
-            High.UInt32TypeNode => new Low.UInt32TypeNode(),
-            High.UInt64TypeNode => new Low.UInt64TypeNode(),
-            High.Float32TypeNode => new Low.Float32TypeNode(),
-            High.Float64TypeNode => new Low.Float64TypeNode(),
+            High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed.BitWidth),
+            High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned.BitWidth),
+            High.FloatTypeNode @float => new Low.FloatTypeNode(@float.BitWidth),
             High.BoolTypeNode => new Low.BoolTypeNode(),
             High.RuneTypeNode => new Low.RuneTypeNode(),
 
@@ -93,18 +103,71 @@ public class ByronLoweringPass(High.ProgramNode highLevelAst)
     {
         return expression switch
         {
+            High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral.Value),
             High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral.Value),
             High.BoolLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral.Value),
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable.Name),
             High.CallExpressionNode call => CallExpression(call),
-            High.BinaryExpressionNode binary => new Low.BinaryExpressionNode(Expression(binary.Left), binary.Operator, Expression(binary.Right)),
+            High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
             High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(Expression(memberAccess.Target), memberAccess.MemberName),
+            
+            // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
+            High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
+            High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(Expression(intToFloat.Operand), intToFloat.IsSigned, Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
+            High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
+            High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
             
             // Lowerable expressions here
 
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
+    }
+
+    private Low.BinaryExpressionNode CoercedBinaryExpression(High.BinaryExpressionNode binary)
+    {
+        var leftType = _typeMap.GetType(binary.Left);
+        var rightType = _typeMap.GetType(binary.Left);
+
+        var coercedLeft = binary.Left;
+        var coercedRight = binary.Right;
+
+        if (leftType.CanonicalName() != rightType.CanonicalName())
+        {
+            var targetType = _typeMap.GetType(binary);
+
+            coercedLeft = Coerce(binary.Left, leftType, targetType);
+            coercedRight = Coerce(binary.Right, rightType, targetType);
+        }
+        
+        return new Low.BinaryExpressionNode(Expression(coercedLeft), binary.Operator, Expression(coercedRight));
+    }
+    
+    private High.ExpressionNode Coerce(High.ExpressionNode expression, High.TypeNode sourceType, High.TypeNode targetType)
+    {
+        if (expression is High.IntegerLiteralNode intLit && targetType is High.FloatTypeNode)
+        {
+            return new High.FloatLiteralNode(intLit.Value, expression.Span);
+        }
+        if (expression is High.FloatLiteralNode floatLit && targetType is High.IntegerTypeNode)
+        {
+            return new High.IntegerLiteralNode((long)floatLit.Value, expression.Span);
+        }
+        if (sourceType is High.IntegerTypeNode intType && targetType is High.FloatTypeNode)
+        {
+            return new High.CastIntToFloatNode(expression, targetType, intType.Signed, expression.Span);
+        }
+        if (sourceType is High.SignedIntTypeNode or High.UnsignedIntTypeNode && targetType is High.SignedIntTypeNode or High.UnsignedIntTypeNode)
+        {
+            return new High.ExtendIntegerNode(expression, targetType, expression.Span);
+        }
+
+        if (sourceType is High.FloatTypeNode && targetType is High.FloatTypeNode)
+        {
+            return new High.ExtendFloatNode(expression, targetType, expression.Span);
+        }
+
+        return expression;
     }
 
     private Low.StructFieldInitializationExpressionNode StructFieldInitializationExpression(High.StructFieldInitializationExpressionNode structFieldInitialization)

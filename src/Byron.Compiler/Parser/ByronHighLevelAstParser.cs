@@ -153,17 +153,17 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     {
         type = token.Lexeme switch
         {
-            PrimitiveTypeNames.boolean => new BoolTypeNode(token.Span),
             PrimitiveTypeNames.i8 => new Int8TypeNode(token.Span),
             PrimitiveTypeNames.i16 => new Int16TypeNode(token.Span),
             PrimitiveTypeNames.i32 => new Int32TypeNode(token.Span),
             PrimitiveTypeNames.i64 => new Int64TypeNode(token.Span),
             PrimitiveTypeNames.u8 => new UInt8TypeNode(token.Span),
             PrimitiveTypeNames.u16 => new UInt16TypeNode(token.Span),
-            PrimitiveTypeNames.u32 => new UInt32TypeNode(token.Span),
+            PrimitiveTypeNames.u32 => new UInt32TypeTypeNode(token.Span),
             PrimitiveTypeNames.u64 => new UInt64TypeNode(token.Span),
             PrimitiveTypeNames.f32 => new Float32TypeNode(token.Span),
             PrimitiveTypeNames.f64 => new Float64TypeNode(token.Span),
+            PrimitiveTypeNames.boolean => new BoolTypeNode(token.Span),
             PrimitiveTypeNames.@void => new VoidTypeNode(token.Span),
             PrimitiveTypeNames.rune => new RuneTypeNode(token.Span),
             _ => null

@@ -39,16 +39,9 @@ public abstract record LlvmType
 
     public static LlvmType From(TypeNode node) => node switch
     {
-        UInt8TypeNode => new UnsignedInt(8),
-        UInt16TypeNode => new UnsignedInt(16),
-        UInt32TypeNode => new UnsignedInt(32),
-        UInt64TypeNode => new UnsignedInt(64),
-        Int8TypeNode => new Int(8),
-        Int16TypeNode => new Int(16),
-        Int32TypeNode or RuneTypeNode => new Int(32),
-        Int64TypeNode => new Int(64),
-        Float32TypeNode => new Float(32),
-        Float64TypeNode => new Float(64),
+        UnsignedIntTypeNode @uint => new UnsignedInt(@uint.BitWidth),
+        SignedIntTypeNode @int => new Int(@int.BitWidth),
+        FloatTypeNode @float => new Int(@float.BitWidth),
         BoolTypeNode => new Boolean(),
         VoidTypeNode => new Void(),
         NominalTypeNode user => new Struct(user.CanonicalName),
