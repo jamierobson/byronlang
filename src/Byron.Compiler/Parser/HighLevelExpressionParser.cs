@@ -111,9 +111,26 @@ public partial class ByronHighLevelAstParser
         }
         if (ConsumingActiveTokenMatch(TokenKind.Self))
         {
-            var self = Previous();
-            var expression = new VariableExpressionNode(self.Lexeme, self.Span);
+            ExpressionNode expression;
+            var selfToken = Previous();
+            if (ConsumingActiveTokenMatch(TokenKind.LBrace))
+            {
+                // todo: Get the implement block declaration in here
+                var initializers = ParseStructFieldInitializers();
+                var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
+
+                var typeNode = new NominalTypeNode(identifier.Lexeme, [], identifier.Span);
+
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
+                    identifier.Span with { End = endToken.Span.End });
+            }
+            else
+            {
+                expression = new VariableExpressionNode(selfToken.Lexeme, selfToken.Span);
+            }
+            
             return ParsePostfixExpression(expression);
+            
         }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
