@@ -79,10 +79,27 @@ public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Operand
 
 // Casts
 public abstract record CastExpressionNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : ExpressionNode(Span);
-public record ExtendIntegerNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record ExtendFloatNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record CastIntToFloatNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record CastFloatToIntNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+
+public record ExtendIntegerNode(ExpressionNode Operand, IntegerTypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new IntegerTypeNode TargetType => (IntegerTypeNode)base.TargetType;
+}
+
+public record ExtendFloatNode(ExpressionNode Operand, FloatTypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new FloatTypeNode TargetType => (FloatTypeNode)base.TargetType;
+}
+
+public record CastIntToFloatNode(ExpressionNode Operand, FloatTypeNode TargetType, bool SourceTypeIsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new FloatTypeNode TargetType => (FloatTypeNode)base.TargetType;
+}
+
+public record CastFloatToIntNode(ExpressionNode Operand, IntegerTypeNode TargetType, bool IsSigned, SourceSpan Span)
+    : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new IntegerTypeNode TargetType => (IntegerTypeNode)base.TargetType;
+}
 
 
 // Types
