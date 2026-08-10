@@ -113,7 +113,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
         var nameToken = Consume(TokenKind.Identifier, "Expected function name.");
 
-        var parameters = ParseFunctionArguments(context); 
+        var parameters = ParseFunctionParameters(context); 
         _ = Consume(TokenKind.Colon, "Expected ':'.");
         var returnType = ParseTypeSignature(context, nameToken);
         var body = ParseBlockStatement(context);
@@ -131,7 +131,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return Consume(TokenKind.Identifier, "Expected parameter name.");
     }
     
-    public List<ParameterNode> ParseFunctionArguments(ScopeContext context)
+    public List<ParameterNode> ParseFunctionParameters(ScopeContext context)
     {   
         _ = Consume(TokenKind.LParen, "Expected '('.");
         var parameters = new List<ParameterNode>();

@@ -124,7 +124,7 @@ public partial class ByronHighLevelAstParser
             var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
 
             var expression = new StructFieldInitializationExpressionNode(context.ImplementBlock.TypeNode, initializers, selfToken.Span with { End = endToken.Span.End });
-            return ParsePostfixExpression(expression);
+            return ParsePostfixExpression(context, expression);
         }
         if (ConsumingActiveTokenMatch(TokenKind.SelfReceiver))
         {
@@ -136,7 +136,7 @@ public partial class ByronHighLevelAstParser
             }
             
             var expression = new VariableExpressionNode(selfToken.Lexeme, selfToken.Span);
-            return ParsePostfixExpression(expression);
+            return ParsePostfixExpression(context, expression);
             
         }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
@@ -145,18 +145,7 @@ public partial class ByronHighLevelAstParser
             ExpressionNode expression;
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
-                var arguments = new List<ExpressionNode>();
-                if (!ActiveTokenMatch(TokenKind.RParen))
-                {
-                    do
-                    {
-                        arguments.Add(ParseExpression(context));
-                    } while (ConsumingActiveTokenMatch(TokenKind.Comma));
-                }
-                var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-                expression = new CallExpressionNode(
-                    new VariableExpressionNode(identifier.Lexeme, identifier.Span), arguments, 
-                    new SourceSpan(identifier.Span.Line, identifier.Span.Column, identifier.Span.Start, endToken.Span.End));
+                expression = ParseCallExpression(context, identifier);
             }
             else if (ConsumingActiveTokenMatch(TokenKind.LBrace))
             {
@@ -173,33 +162,66 @@ public partial class ByronHighLevelAstParser
                 expression = new VariableExpressionNode(identifier.Lexeme, identifier.Span);
             }
 
-            return ParsePostfixExpression(expression);
+            return ParsePostfixExpression(context, expression);
         }
         
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
     }
-    
-    private ExpressionNode ParsePostfixExpression(ExpressionNode expression)
+
+    private CallExpressionNode ParseCallExpression(ScopeContext context, Token identifier)
     {
-        while (ConsumingActiveTokenMatch(TokenKind.Dot))
+        var arguments = new List<ExpressionNode>();
+        if (!ActiveTokenMatch(TokenKind.RParen))
         {
-            if (ConsumingActiveTokenMatch(TokenKind.Asterisk))
+            do
             {
-                var dereferenceSpan = expression.Span with { End = Peek().Span.End };
-                expression = new DereferenceExpressionNode(expression, dereferenceSpan);
+                arguments.Add(ParseExpression(context));
+            } while (ConsumingActiveTokenMatch(TokenKind.Comma));
+        }
+        var endToken = Consume(TokenKind.RParen, "Expected ')'.");
+        return new CallExpressionNode(
+            new VariableExpressionNode(identifier.Lexeme, identifier.Span), arguments, 
+            new SourceSpan(identifier.Span.Line, identifier.Span.Column, identifier.Span.Start, endToken.Span.End));
+    }
+
+    private ExpressionNode ParsePostfixExpression(ScopeContext context, ExpressionNode expression)
+    {
+        var identifier = Previous();
+        while (!IsAtEnd())
+        {
+            if (ConsumingActiveTokenMatch(TokenKind.Dot))
+            {
+                if (ConsumingActiveTokenMatch(TokenKind.Asterisk))
+                {
+                    var dereferenceSpan = expression.Span with { End = Peek().Span.End };
+                    expression = new DereferenceExpressionNode(expression, dereferenceSpan);
+                    continue;
+                }
+            
+                var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
+                expression = new MemberAccessExpressionNode(
+                    expression, 
+                    memberToken.Lexeme, 
+                    expression.Span with { End = memberToken.Span.End }
+                );
                 continue;
             }
-            
-            var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
-            expression = new MemberAccessExpressionNode(
-                expression, 
-                memberToken.Lexeme, 
-                expression.Span with { End = memberToken.Span.End }
-            );
+
+            if (ConsumingActiveTokenMatch(TokenKind.LParen))
+            {
+                if (identifier is not { Kind: TokenKind.Identifier })
+                {
+                    throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
+                }
+                expression = ParseCallExpression(context, identifier);
+                continue;
+            }
+            break;
         }
+        
         return expression;
     }
-    
+
     private List<StructFieldInitializerNode> ParseStructFieldInitializers(ScopeContext context)
     {
         var initializers = new List<StructFieldInitializerNode>();

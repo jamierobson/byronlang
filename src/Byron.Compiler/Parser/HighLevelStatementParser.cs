@@ -72,8 +72,12 @@ public partial class ByronHighLevelAstParser
             var isMutable = mutabilityToken is {Kind: TokenKind.Var};
             var nameToken = Consume(TokenKind.Identifier, "Expected variable name.");
             TypeNode? type = null;
-            if (ConsumingActiveTokenMatch(TokenKind.Colon)) { type = ParseTypeSignature(context, nameToken); }
+            if (ConsumingActiveTokenMatch(TokenKind.Colon))
+            {
+                type = ParseTypeSignature(context, nameToken); 
+            }
             Consume(TokenKind.Equals, "Expected '='.");
+            
             var initializer = ParseExpression(context);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
             return new VariableDeclarationNode(isMutable, nameToken.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
