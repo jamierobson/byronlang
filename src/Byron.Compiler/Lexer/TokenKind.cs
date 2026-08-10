@@ -42,8 +42,8 @@ public enum TokenKind
     Typeof,
 
     // Self
-    Self,
-    CapitalSelf,
+    SelfReceiver,
+    SelfType,
 
     Import,
     Use,

@@ -110,7 +110,7 @@ public partial class ByronHighLevelAstParser
             return new BoolLiteralNode(false, Previous().Span);
         }
 
-        if (ConsumingActiveTokenMatch(TokenKind.CapitalSelf))
+        if (ConsumingActiveTokenMatch(TokenKind.SelfType))
         {
             var selfToken = Previous();
             
@@ -126,7 +126,7 @@ public partial class ByronHighLevelAstParser
             var expression = new StructFieldInitializationExpressionNode(context.ImplementBlock.TypeNode, initializers, selfToken.Span with { End = endToken.Span.End });
             return ParsePostfixExpression(expression);
         }
-        if (ConsumingActiveTokenMatch(TokenKind.Self))
+        if (ConsumingActiveTokenMatch(TokenKind.SelfReceiver))
         {
             var selfToken = Previous();
             

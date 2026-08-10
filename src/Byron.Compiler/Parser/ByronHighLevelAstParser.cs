@@ -123,7 +123,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
     private Token ParamaterIdentifier(ScopeContext context)
     {
-        if (context.ImplementBlock != null && ActiveTokenMatch(TokenKind.Self))
+        if (context.ImplementBlock != null && ActiveTokenMatch(TokenKind.SelfReceiver))
         {
             return Advance();
         }
@@ -194,7 +194,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
             return ParseNominalTypeNode(token);
         }
 
-        if (token.Kind == TokenKind.CapitalSelf)
+        if (token.Kind == TokenKind.SelfType)
         {
             return ParseSelfTypeNode(context, identifierToken);
         }
