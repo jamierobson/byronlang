@@ -25,15 +25,50 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                 case TokenKind.Fn:
                     functions.Add(ParseFunctionDeclaration());
                     break;
+                case TokenKind.Implement:
+                    functions.AddRange(ParseFunctionDeclarationsFromImplementBlock());
+                    break;
                 case TokenKind.Struct:
                     structs.Add(ParseStructDeclaration());
                     break;
                 default:
-                    throw new ByronNotImplementedException(token.Kind.ToString(), this, token.Span);
+                    throw new ByronNotImplementedException(token.Kind, this, token.Span);
             }   
         }
 
         return new ProgramNode([..functions, ..structs]);
+    }
+
+    private List<FunctionDeclarationNode> ParseFunctionDeclarationsFromImplementBlock()
+    {
+        var implementFunctionDeclarations = new List<FunctionDeclarationNode>();
+        var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
+        var identifierToken = Consume(TokenKind.Identifier, "Expected identifier");
+        _ = Consume(TokenKind.LBrace, "Expected '{'.");
+        
+        var maybeFullyQualifiedNameSegments = identifierToken.Lexeme.Split('.');
+        var name =  maybeFullyQualifiedNameSegments[^1];
+        var modulePath = maybeFullyQualifiedNameSegments[0..^1].ToList(); // todo: Make sure that module scope gets in here, when implemented.
+
+        var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(name, modulePath, startDeclarationNode.Span with { End = identifierToken.Span.End });
+
+        while (!IsAtEnd())
+        {
+            if(ConsumingActiveTokenMatch(TokenKind.RBrace))
+            {
+                return implementFunctionDeclarations;
+            }
+            
+            if (!ActiveTokenMatch(TokenKind.Fn))
+            {
+                throw new  ByronHighLevelParserException(Peek());
+            }
+            
+            implementFunctionDeclarations.Add(ParseFunctionDeclaration(implementBlockDeclarationNode));
+        }
+        
+        _ = Consume(TokenKind.RBrace, "Expected '}'.");
+        return implementFunctionDeclarations;
     }
 
     private StructDeclarationNode ParseStructDeclaration()
@@ -53,11 +88,11 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
         while (!ActiveTokenMatch(TokenKind.RBrace))
         {
-            var name = Consume(TokenKind.Identifier, "Expected field name");
+            var nameToken = Consume(TokenKind.Identifier, "Expected field name");
             _ = Consume(TokenKind.Colon, "Expected ':'.");
-            var type = ParseTypeSignature();
+            var type = ParseTypeSignature(nameToken);
 
-            fields.Add(new StructFieldNode(name.Lexeme, type, name.Span with { End = type.Span.End }));
+            fields.Add(new StructFieldNode(nameToken.Lexeme, type, nameToken.Span with { End = type.Span.End }));
 
             if (ActiveTokenMatch(TokenKind.RBrace))
             {
@@ -70,20 +105,30 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return fields;
     }
 
-    public FunctionDeclarationNode ParseFunctionDeclaration()
+    public FunctionDeclarationNode ParseFunctionDeclaration(ImplementBlockDeclarationNode? implementBlock = null)
     {
         var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
         var nameToken = Consume(TokenKind.Identifier, "Expected function name.");
 
-        var parameters = ParseFunctionArguments(); 
+        var parameters = ParseFunctionArguments(implementBlock); 
         _ = Consume(TokenKind.Colon, "Expected ':'.");
-        var returnType = ParseTypeSignature();
+        var returnType = ParseTypeSignature(nameToken, implementBlock: implementBlock);
         var body = ParseBlockStatement();
 
         return new FunctionDeclarationNode(nameToken.Lexeme, [], parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 
-    public List<ParameterNode> ParseFunctionArguments()
+    private Token ParamaterIdetifier(ImplementBlockDeclarationNode? implementBlock)
+    {
+        if (implementBlock != null && ActiveTokenMatch(TokenKind.Self))
+        {
+            return Advance();
+        }
+        
+        return Consume(TokenKind.Identifier, "Expected parameter name.");
+    }
+    
+    public List<ParameterNode> ParseFunctionArguments(ImplementBlockDeclarationNode? implementBlock = null)
     {   
         _ = Consume(TokenKind.LParen, "Expected '('.");
         var parameters = new List<ParameterNode>();
@@ -91,7 +136,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         {
             do
             {
-                var parameterName = Consume(TokenKind.Identifier, "Expected parameter name.");
+                var parameterToken = ParamaterIdetifier(implementBlock);
                 _ = Consume(TokenKind.Colon, "Expected ':'.");
 
                 ReceiverBindingOwnership receiverBindingOwnership;
@@ -115,8 +160,8 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                     throw new ByronHighLevelParserException(Peek());
                 }
                 
-                var parameterType = ParseTypeSignature();
-                parameters.Add(new ParameterNode(receiverBindingOwnership, parameterName.Lexeme, parameterType, parameterName.Span with {End = parameterType.Span.End}));
+                var parameterType = ParseTypeSignature(parameterToken, implementBlock);
+                parameters.Add(new ParameterNode(receiverBindingOwnership, parameterToken.Lexeme, parameterType, parameterToken.Span with {End = parameterType.Span.End}));
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
 
@@ -124,13 +169,13 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return parameters;
     }
 
-    private TypeNode ParseTypeSignature()
+    private TypeNode ParseTypeSignature(Token? identifierToken = null, ImplementBlockDeclarationNode? implementBlock = null)
     {
         if (ConsumingActiveTokenMatch(TokenKind.Ampersand))
         {
             var ampersand = Previous();   
             var isMutable = ConsumingActiveTokenMatch(TokenKind.Var);
-            var targetType = ParseTypeSignature();
+            var targetType = ParseTypeSignature(identifierToken, implementBlock);
             return new ReferenceTypeNode(targetType, isMutable, ampersand.Span with {End = targetType.Span.End});
         }
         
@@ -144,6 +189,11 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         if (token.Kind == TokenKind.Identifier)
         {
             return ParseNominalTypeNode(token);
+        }
+
+        if (token.Kind == TokenKind.CapitalSelf)
+        {
+            return ParseSelfTypeNode(implementBlock, identifierToken);
         }
 
         throw new ByronHighLevelParserException($"Unknown type signature target: {token.Lexeme}", token.Span);
@@ -170,6 +220,21 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         };
 
         return type is not null;
+    }
+
+    private NominalTypeNode ParseSelfTypeNode(ImplementBlockDeclarationNode? implementBlock, Token? identifierToken = null)
+    {
+        if (implementBlock is null)
+        {
+            throw new ByronHighLevelParserException("The 'Self' type is only valid in implementation block function signatures", Peek().Span);
+        }
+        
+        if (identifierToken is null)
+        {
+            throw new ByronHighLevelParserException("The self parameter name must be bound to a valid 'Self' type", implementBlock.Span);
+        }
+        
+        return new NominalTypeNode(implementBlock.Name, implementBlock.ModulePath, implementBlock.Span);
     }
     
     private NominalTypeNode ParseNominalTypeNode(Token firstIdentifier)

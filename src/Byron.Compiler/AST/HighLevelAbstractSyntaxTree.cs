@@ -27,6 +27,8 @@ public abstract record TopLevelDeclarationNode(string Name, List<string> ModuleP
     }
 };
 
+public record ImplementBlockDeclarationNode(string Name, List<string> ModulePath, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
+
 public record FunctionDeclarationNode(string Name, List<string> ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
 public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 
@@ -56,6 +58,8 @@ public record FloatLiteralNode(double Value, SourceSpan Span) : ExpressionNode(S
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
+public record DereferenceExpressionNode(ExpressionNode Target, SourceSpan Span) : ExpressionNode(Span);
+
 // public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span); // todo: remove mutability again once we are returning from the visitor nodes
 
 public record BinaryExpressionNode : ExpressionNode

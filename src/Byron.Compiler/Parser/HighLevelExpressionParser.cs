@@ -46,8 +46,6 @@ public partial class ByronHighLevelAstParser
     private ExpressionNode ParseBinaryExpression(int minPrecedence)
     {
         var expression = ParseUnary();
-        
-        // var expression = ParsePrimaryExpression();
 
         while (!IsAtEnd())
         {
@@ -111,6 +109,12 @@ public partial class ByronHighLevelAstParser
         {
             return new BoolLiteralNode(false, Previous().Span);
         }
+        if (ConsumingActiveTokenMatch(TokenKind.Self))
+        {
+            var self = Previous();
+            var expression = new VariableExpressionNode(self.Lexeme, self.Span);
+            return ParsePostfixExpression(expression);
+        }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
             var identifier = Previous();
@@ -155,6 +159,13 @@ public partial class ByronHighLevelAstParser
     {
         while (ConsumingActiveTokenMatch(TokenKind.Dot))
         {
+            if (ConsumingActiveTokenMatch(TokenKind.Asterisk))
+            {
+                var dereferenceSpan = expression.Span with { End = Peek().Span.End };
+                expression = new DereferenceExpressionNode(expression, dereferenceSpan);
+                continue;
+            }
+            
             var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
             expression = new MemberAccessExpressionNode(
                 expression, 
