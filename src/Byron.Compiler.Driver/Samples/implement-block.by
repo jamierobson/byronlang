@@ -1,5 +1,12 @@
 struct Point1d { x: i32 }
 implement Point1d {
+
+  fn newSelf(): Self {
+    return Self {
+      x: -2,
+    };
+  }
+
   fn getValue(self: &Self): i32 {
     return self.*.x;
   }
@@ -9,9 +16,8 @@ implement Point1d {
   }
   
   fn new(): Self {
-    return Self {
-    //return Point1d {
-      x: -1,
+    return Point1d {
+      x: 2,
     };
   }
 }

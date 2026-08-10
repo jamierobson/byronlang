@@ -4,9 +4,14 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
+public record ScopeContext(ImplementBlockDeclarationNode? ImplementBlock)
+{
+    public static ScopeContext Global => new((ImplementBlockDeclarationNode?)null);
+}
+
 public partial class ByronHighLevelAstParser
 {
-    private BlockStatementNode ParseBlockStatement()
+    private BlockStatementNode ParseBlockStatement(ScopeContext context)
     {
         var open = Consume(TokenKind.LBrace, "Expected '{'.");
         var statements = new List<StatementNode>();
@@ -17,18 +22,18 @@ public partial class ByronHighLevelAstParser
             {
                 continue;
             }
-            statements.Add(ParseStatement());
+            statements.Add(ParseStatement(context));
         }
 
         var close = Consume(TokenKind.RBrace, "Expected '}'.");
         return new BlockStatementNode(statements, new SourceSpan(open.Span.Line, open.Span.Column, open.Span.Start, close.Span.End));
     }
 
-    private StatementNode ParseStatement()
+    private StatementNode ParseStatement(ScopeContext context)
     {
         if (ConsumingActiveTokenMatch(TokenKind.If))
         {
-            return ParseIfStatement();
+            return ParseIfStatement(context);
         }
         
         if (ConsumingActiveTokenMatch(TokenKind.Return))
@@ -38,7 +43,7 @@ public partial class ByronHighLevelAstParser
             
             if (!ActiveTokenMatch(TokenKind.Semicolon))
             {
-                expr = ParseExpression();
+                expr = ParseExpression(context);
             }
 
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
@@ -58,7 +63,7 @@ public partial class ByronHighLevelAstParser
         }
         if (ConsumingActiveTokenMatch(TokenKind.While))
         {
-            return ParseWhileLoopStatement();
+            return ParseWhileLoopStatement(context);
         }
         
         if (ConsumingActiveTokenMatch(TokenKind.Let) || ConsumingActiveTokenMatch(TokenKind.Var))
@@ -67,18 +72,18 @@ public partial class ByronHighLevelAstParser
             var isMutable = mutabilityToken is {Kind: TokenKind.Var};
             var nameToken = Consume(TokenKind.Identifier, "Expected variable name.");
             TypeNode? type = null;
-            if (ConsumingActiveTokenMatch(TokenKind.Colon)) { type = ParseTypeSignature(nameToken); }
+            if (ConsumingActiveTokenMatch(TokenKind.Colon)) { type = ParseTypeSignature(context, nameToken); }
             Consume(TokenKind.Equals, "Expected '='.");
-            var initializer = ParseExpression();
+            var initializer = ParseExpression(context);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
             return new VariableDeclarationNode(isMutable, nameToken.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
         }
 
-        var freeExpression = ParseExpression();
+        var freeExpression = ParseExpression(context);
 
         if (ConsumingActiveTokenMatch(TokenKind.Equals))
         {
-            var value = ParseExpression();
+            var value = ParseExpression(context);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after assignment.");
             return new AssignmentStatementNode(freeExpression, value, value.Span with {End = semiColon.Span.End});
         }
@@ -91,35 +96,35 @@ public partial class ByronHighLevelAstParser
         throw new ByronNotImplementedException("Fallback basic statements", this, Previous().Span);
     }
     
-    private IfElseStatement ParseIfStatement()
+    private IfElseStatement ParseIfStatement(ScopeContext context)
     {
         var ifToken = Previous();
         Consume(TokenKind.LParen, "Expected '(' after 'if'.");
-        var condition = ParseExpression();
+        var condition = ParseExpression(context);
         Consume(TokenKind.RParen, "Expected ')' after condition.");
 
-        var thenBranch = ParseBlockStatement();
+        var thenBranch = ParseBlockStatement(context);
         var span = ifToken.Span;
         
         BlockStatementNode? elseBranch = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.Else))
         {
-            elseBranch = ParseBlockStatement();
+            elseBranch = ParseBlockStatement(context);
             span = ifToken.Span with { End = elseBranch.Span.End };
         }
         
         return new IfElseStatement(condition, thenBranch, elseBranch, span);
     }
 
-    private WhileStatement ParseWhileLoopStatement()
+    private WhileStatement ParseWhileLoopStatement(ScopeContext context)
     {
         var whileSpan = Previous().Span;
         Consume(TokenKind.LParen, "Expected '(' after 'while'.");
-        var condition = ParseExpression();
+        var condition = ParseExpression(context);
         Consume(TokenKind.RParen, "Expected ')' after condition.");
         
-        var body = ParseBlockStatement();
+        var body = ParseBlockStatement(context);
             
         return new WhileStatement(condition, body, whileSpan with{ End = body.Span.End });
     } 

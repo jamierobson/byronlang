@@ -27,7 +27,7 @@ public abstract record TopLevelDeclarationNode(string Name, List<string> ModuleP
     }
 };
 
-public record ImplementBlockDeclarationNode(string Name, List<string> ModulePath, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
+public record ImplementBlockDeclarationNode(NominalTypeNode TypeNode, SourceSpan Span) : TopLevelDeclarationNode(TypeNode.Name, TypeNode.ModulePath, Span);
 
 public record FunctionDeclarationNode(string Name, List<string> ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
 public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
