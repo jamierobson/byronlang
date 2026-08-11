@@ -1,3 +1,4 @@
+using Byron.Compiler.AST;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.SemanticAnalysis;
 using High = Byron.Compiler.AST.HighLevel;
@@ -8,9 +9,10 @@ namespace Byron.Compiler.Parser;
 public class ByronLoweringPass
 {
     private readonly High.ProgramNode _ast;
-    private readonly TypeRegistry _typeRegistry;
-    private readonly TypeMap _typeMap;
-    private readonly FunctionRegistry _functionRegistry;
+    // private readonly TypeRegistry _typeRegistry;
+    private readonly TypeMap _highLevelExpressionTypeMap;
+    // private readonly FunctionRegistry _functionRegistry;
+    private readonly Dictionary<High.TypeNode, Low.TypeNode> _highToLowLevelTypeMap = new();
     
     public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
     {
@@ -19,17 +21,17 @@ public class ByronLoweringPass
             throw new ByronLowLevelParserException("Unable to lower an invalid AST");
         }
         
-        (_ast, _typeRegistry, _typeMap, _functionRegistry) = semanticAnalysisResult;
+        (_ast, _, _highLevelExpressionTypeMap, _) = semanticAnalysisResult;
+        // (_ast, _typeRegistry, _highLevelExpressionTypeMap, _functionRegistry) = semanticAnalysisResult;
     }
     
-    public Low.ProgramNode Lower()
+    public LoweredProgram Lower()
     {
-        
         var declarations = _ast.Declarations
         .Select(TopLevelDeclaration)
         .ToList();
 
-        return new Low.ProgramNode(declarations);
+        return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
     }
 
     private Low.TopLevelDeclarationNode TopLevelDeclaration(High.TopLevelDeclarationNode declaration)
@@ -60,12 +62,18 @@ public class ByronLoweringPass
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
     {
         var type = Type(parameter.Type);
+
+        if (parameter.Ownership is ReceiverBindingOwnership.MutableBorrow or ReceiverBindingOwnership.ImmutableBorrow && type is not Low.ReferenceTypeNode)
+        {
+            type = new Low.ReferenceTypeNode(parameter.Type, type);
+        }
+        
         return new Low.ParameterNode(parameter, type);
     }
 
     private Low.TypeNode Type(High.TypeNode type)
     {
-        return type switch
+        Low.TypeNode loweredType = type switch
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
             High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
@@ -78,6 +86,10 @@ public class ByronLoweringPass
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
+
+        _highToLowLevelTypeMap[type] = loweredType;
+
+        return loweredType;
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)
@@ -117,24 +129,23 @@ public class ByronLoweringPass
             High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(intToFloat,Expression(intToFloat.Operand), Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
             High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(extendInt,Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
             High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(extendFloat,Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
-            
-            // Lowerable expressions here
 
+            // Lowerable expressions here
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
     }
 
     private Low.BinaryExpressionNode CoercedBinaryExpression(High.BinaryExpressionNode binary)
     {
-        var leftType = _typeMap.GetType(binary.Left);
-        var rightType = _typeMap.GetType(binary.Left);
+        var leftType = _highLevelExpressionTypeMap.GetType(binary.Left);
+        var rightType = _highLevelExpressionTypeMap.GetType(binary.Right);
 
         var coercedLeft = binary.Left;
         var coercedRight = binary.Right;
 
         if (leftType.CanonicalName() != rightType.CanonicalName())
         {
-            var targetType = _typeMap.GetType(binary);
+            var targetType = _highLevelExpressionTypeMap.GetType(binary);
 
             coercedLeft = Coerce(binary.Left, leftType, targetType);
             coercedRight = Coerce(binary.Right, rightType, targetType);

@@ -16,8 +16,8 @@ public abstract class ProgramSnapshotTestBase
         var tokenStream = new Tokenizer(program).Tokenise();
         var ast = new ByronHighLevelAstParser(tokenStream).Parse();
         var semanticAnalysisResult = new SemanticAnalysisDriver(ast).Analyze();
-        var loweredAst = new ByronLoweringPass(semanticAnalysisResult).Lower();
-        var llvmIr = new LlvmIrGenerator(loweredAst).Generate();
+        var lowered = new ByronLoweringPass(semanticAnalysisResult).Lower();
+        var llvmIr = new LlvmIrGenerator(lowered).Generate();
         
         return Verify(llvmIr);
     }

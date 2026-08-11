@@ -4,17 +4,6 @@ using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public record ParameterSymbol(string Name, TypeNode Type);
-
-public record FunctionSymbol(
-    string CanonicalName,
-    string[] ModulePath,
-    string Name,
-    List<ParameterSymbol> Parameters,
-    TypeNode ReturnType,
-    FunctionDeclarationNode Declaration
-);
-
 public class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionSymbol> _declarations = [];

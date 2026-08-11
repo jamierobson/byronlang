@@ -4,11 +4,10 @@ using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public record PrimitiveTypeSymbol(string CanonicalName, int ByteSize, bool IsSigned);
 
 public class PrimitiveTypeRegistry
 {    
-    private readonly IReadOnlyDictionary<string, PrimitiveTypeSymbol> _primitives = new Dictionary<string, PrimitiveTypeSymbol>
+    public readonly IReadOnlyDictionary<string, PrimitiveTypeSymbol> Primitives = new Dictionary<string, PrimitiveTypeSymbol>
     {
         { PrimitiveTypeNames.i8, new PrimitiveTypeSymbol(PrimitiveTypeNames.i8, 1, true) },
         { PrimitiveTypeNames.i16, new PrimitiveTypeSymbol(PrimitiveTypeNames.i16, 2, true) },
@@ -30,7 +29,7 @@ public class PrimitiveTypeRegistry
     
     public bool TryGet(string canonicalName, out int byteSize, out bool isSigned)
     {
-        if (_primitives.TryGetValue(canonicalName, out var p))
+        if (Primitives.TryGetValue(canonicalName, out var p))
         {
             byteSize = p.ByteSize;
             isSigned = p.IsSigned;
@@ -42,7 +41,7 @@ public class PrimitiveTypeRegistry
         return false;
     }
     
-    public bool ContainsKey(string canonicalName) => _primitives.ContainsKey(canonicalName);
+    public bool ContainsKey(string canonicalName) => Primitives.ContainsKey(canonicalName);
 }
 
 public class StructRegistry
@@ -78,7 +77,7 @@ public class TypeRegistry
 {
     private readonly PrimitiveTypeRegistry _primitiveRegistry = new();
     private readonly StructRegistry _structRegistry = new();
-    
+
     public bool IsValidStructName(string canonicalName) => !_primitiveRegistry.ContainsKey(canonicalName);
     public bool TryRegister(StructDeclarationNode structDeclarationNode) => _structRegistry.TryRegister(structDeclarationNode);
     public bool TryGetStruct(string canonicalName, [NotNullWhen(true)]out StructDeclarationNode? @struct) => _structRegistry.TryGet(canonicalName, out @struct);

@@ -30,12 +30,24 @@ public partial class LlvmIrGenerator
             CastIntToFloatNode intToFloat => GenerateCastIntToFloat(intToFloat),
             ExtendIntegerNode extendInt => GenerateExtendInteger(extendInt),
             ExtendFloatNode extendFloat => GenerateExtendFloat(extendFloat),
+            DereferenceExpressionNode dereference => GenerateDereference(dereference),
             
             StructFieldInitializationExpressionNode fieldInitialization => GenerateStructFieldInitializationExpression(fieldInitialization),
             MemberAccessExpressionNode memberAccess => GenerateMemberAccessExpression(memberAccess),
             
             _ => throw new ByronNotImplementedException(node.GetType(), this)
         };
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateDereference(DereferenceExpressionNode dereference)
+    {
+        var (targetPointerValue, targetPointerType) = GenerateExpression(dereference.Target);
+        var valueTypeSymbol = program.GetType(dereference);
+        var llvmValueType = LlvmType.From(valueTypeSymbol);
+        
+        var resultRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {resultRegister} = load {llvmValueType}, {targetPointerType} {targetPointerValue}");
+        return (resultRegister, llvmValueType);
     }
 
     private (string ReturnValue, LlvmType ReturnType) GenerateCastFloatToInt(CastFloatToIntNode floatToInt)
@@ -197,7 +209,7 @@ public partial class LlvmIrGenerator
                 break;
             default:
                 throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this);
-        };
+        }
 
         return (resultRegister, returnType);
     }
@@ -209,7 +221,7 @@ public partial class LlvmIrGenerator
             BinaryOperator.Add => isFloat ? "fadd" : "add",
             BinaryOperator.Subtract => isFloat ? "fsub" : "sub",
             BinaryOperator.Multiply => isFloat ? "fmul" : "mul",
-            BinaryOperator.Divide => isFloat ? "fdiv" : (isUnsigned ? "udiv" : "sdiv"),
+            BinaryOperator.Divide => isFloat ? "fdiv" : isUnsigned ? "udiv" : "sdiv",
             _ => throw new InvalidOperationException($"Operation {nodeOperator} is not an arithmetic operation")
         };
     }
@@ -221,11 +233,11 @@ public partial class LlvmIrGenerator
             BinaryOperator.Equal => isFloat ? "oeq" : "eq",
             BinaryOperator.NotEqual => isFloat ? "one" : "ne",
             
-            BinaryOperator.LessThan => isFloat ? "olt" : (isUnsigned ? "ult" : "slt"),
-            BinaryOperator.LessThanOrEqual => isFloat ? "ole" : (isUnsigned ? "ule" : "sle"),
+            BinaryOperator.LessThan => isFloat ? "olt" : isUnsigned ? "ult" : "slt",
+            BinaryOperator.LessThanOrEqual => isFloat ? "ole" : isUnsigned ? "ule" : "sle",
             
-            BinaryOperator.GreaterThan => isFloat ? "ogt" : (isUnsigned ? "ugt" : "sgt"),
-            BinaryOperator.GreaterThanOrEqual => isFloat ? "oge" : (isUnsigned ? "uge" : "sge"),
+            BinaryOperator.GreaterThan => isFloat ? "ogt" : isUnsigned ? "ugt" : "sgt",
+            BinaryOperator.GreaterThanOrEqual => isFloat ? "oge" : isUnsigned ? "uge" : "sge",
             
             _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a boolean operation")
         };

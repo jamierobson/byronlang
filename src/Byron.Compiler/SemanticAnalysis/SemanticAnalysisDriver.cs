@@ -39,67 +39,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
         }
 
         return SemanticAnalysisResult.Ok(program, typeRegistry, functionRegistry, typeMap);
-        
-        
-        
-        
-        
-        
-        
-        
-        //
-        //
-        // var typeRegistry = RegisterStructs();
-        // var functionRegistry = RegisterFunctions();
-        //
-        // var visitor = new TypeInferenceVisitor(typeRegistry, functionRegistry, _typeMap, _diagnostics);
-        // foreach (var function in program.Declarations.OfType<FunctionDeclarationNode>())
-        // {
-        //     visitor.Analyze(function, _diagnostics);
-        // }
-        //
-        // if (_diagnostics.HasErrors)
-        // {
-        //     return SemanticAnalysisResult.Error(program, _diagnostics);
-        // }
-        // return SemanticAnalysisResult.Ok(program, typeRegistry, functionRegistry, _typeMap);
-        
     }
-
-    // private TypeRegistry RegisterStructs()
-    // {
-    //     var typeRegistry = new TypeRegistry();
-    //     foreach (var structDeclarationNode in program.Declarations.OfType<StructDeclarationNode>())
-    //     {
-    //         var canonicalName = structDeclarationNode.CanonicalName();
-    //         if (typeRegistry.IsValidType(canonicalName))
-    //         {
-    //             _diagnostics.Add($"Struct declaration already exists for {structDeclarationNode.Name} in the {( structDeclarationNode.ModulePath.Count > 0 ? $"{string.Join(".", structDeclarationNode)}" : "root" )} module", structDeclarationNode.Span);
-    //             continue;
-    //         }
-    //         typeRegistry.Register(structDeclarationNode);
-    //     }
-    //
-    //     return typeRegistry;
-    // }
-    //
-    // private FunctionRegistry RegisterFunctions()
-    // {
-    //     var  functionRegistry = new FunctionRegistry();
-    //
-    //     foreach (var functionDeclarationNode in program.Declarations.OfType<FunctionDeclarationNode>())
-    //     {
-    //         var canonicalName = functionDeclarationNode.CanonicalName();
-    //         if (functionRegistry.Declarations.ContainsKey(canonicalName))
-    //         {
-    //             _diagnostics.Add($"Function declaration already exists for {canonicalName}", functionDeclarationNode.Span);
-    //             continue;
-    //         }
-    //         functionRegistry.Register(functionDeclarationNode);
-    //     }
-    //     
-    //     return functionRegistry;
-    // }
 }
 
 public record SemanticAnalysisResult

@@ -1,6 +1,5 @@
 using Byron.Compiler.Lexer;
 
-// ReSharper disable once CheckNamespace
 namespace Byron.Compiler.AST.HighLevel;
 
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);

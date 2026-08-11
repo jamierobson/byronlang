@@ -1,6 +1,5 @@
 using High = Byron.Compiler.AST.HighLevel;
 
-// ReSharper disable once CheckNamespace
 namespace Byron.Compiler.AST.LowLevel;
 
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
@@ -46,7 +45,6 @@ public record StructFieldInitializerNode(High.StructFieldInitializerNode SourceN
     
     public string FieldName => SourceNode.FieldName;
 }
-
 
 // Statements
 public abstract record StatementNode(High.StatementNode SourceNode) : AstNode(SourceNode)
@@ -207,10 +205,12 @@ public record NominalTypeNode(High.NominalTypeNode SourceNode) : TypeNode(Source
     public string CanonicalName => SourceNode.CanonicalName();
 }
 
-public record ReferenceTypeNode(High.ReferenceTypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
+public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
+// public record ReferenceTypeNode(High.ReferenceTypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
+// public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
 {
-    public new High.ReferenceTypeNode SourceNode => (High.ReferenceTypeNode)base.SourceNode;
-    public bool IsMutable => SourceNode.IsMutable;
+    // public new High.ReferenceTypeNode SourceNode => (High.ReferenceTypeNode)base.SourceNode;
+    // public bool IsMutable => SourceNode.IsMutable;
 }
 
 public abstract record BuiltInTypeNode(High.BuiltInTypeNode SourceNode) : TypeNode(SourceNode)

@@ -1,24 +1,25 @@
 using Byron.Compiler.AST.LowLevel;
+using Byron.Compiler.Parser;
 
 namespace Byron.Compiler.CodeGen;
 
-public partial class LlvmIrGenerator(ProgramNode program)
+public partial class LlvmIrGenerator(LoweredProgram program)
 {
     private readonly GeneratorContext _context = new();
 
     public string Generate()
     {
-        foreach (var structDeclaration in program.Declarations.OfType<StructDeclarationNode>())
+        foreach (var structDeclaration in program.Program.Declarations.OfType<StructDeclarationNode>())
         {
             RegisterStructLayout(structDeclaration);
         }
 
-        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
+        foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
         {
             _context.RegisterFunction(functionDeclaration.Name, LlvmType.From(functionDeclaration.ReturnType));
         }
-
-        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
+        
+        foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
         {
             GenerateFunctionDeclaration(functionDeclaration);
         }
@@ -40,9 +41,6 @@ public partial class LlvmIrGenerator(ProgramNode program)
     private void GenerateFunctionDeclaration(FunctionDeclarationNode node)
     {
         _context.ResetRegisters();
-        
-        var returnType = LlvmType.From(node.ReturnType);
-        _context.RegisterFunction(node.Name, returnType);
         
         var functionParameterIr = string.Join(", ", node.Parameters.Select((parameterNode, i) => $"{LlvmType.From(parameterNode.Type)} %arg_{i}"));
 

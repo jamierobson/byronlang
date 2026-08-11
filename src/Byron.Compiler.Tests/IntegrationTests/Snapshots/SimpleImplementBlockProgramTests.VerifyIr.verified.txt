@@ -1,0 +1,18 @@
+﻿%Point1d = type { i32 }
+
+define i32 @getValue(%Point1d* %arg_0) {
+    %self.addr = alloca %Point1d*
+    store %Point1d* %arg_0, %Point1d** %self.addr
+    %1 = load %Point1d*, %Point1d** %self.addr
+    %2 = load %Point1d, %Point1d* %1
+    %3 = alloca %Point1d
+    store %Point1d %2, %Point1d* %3
+    %4 = getelementptr %Point1d, %Point1d* %3, i32 0, i32 0
+    %5 = load i32, i32* %4
+    ret i32 %5
+}
+
+define i32 @main() {
+    ret i32 0
+}
+
