@@ -1,0 +1,27 @@
+﻿define i32 @main() {
+    %i.addr = alloca i32
+    store i32 5, i32* %i.addr
+    %sum.addr = alloca i32
+    store i32 0, i32* %sum.addr
+    br label %while_cond_0
+
+while_cond_0:
+    %1 = load i32, i32* %i.addr
+    %2 = icmp ne i32 %1, 0
+    br i1 %2, label %while_body_0, label %while_exit_0
+
+while_body_0:
+    %3 = load i32, i32* %sum.addr
+    %4 = load i32, i32* %i.addr
+    %5 = add i32 %3, %4
+    store i32 %5, i32* %sum.addr
+    %6 = load i32, i32* %i.addr
+    %7 = sub i32 %6, 1
+    store i32 %7, i32* %i.addr
+    br label %while_cond_0
+
+while_exit_0:
+    %8 = load i32, i32* %sum.addr
+    ret i32 %8
+}
+
