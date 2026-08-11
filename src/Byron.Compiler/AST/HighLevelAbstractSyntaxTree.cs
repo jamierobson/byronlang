@@ -27,6 +27,8 @@ public abstract record TopLevelDeclarationNode(string Name, List<string> ModuleP
     }
 };
 
+public record ImplementBlockDeclarationNode(NominalTypeNode TypeNode, SourceSpan Span) : TopLevelDeclarationNode(TypeNode.Name, TypeNode.ModulePath, Span);
+
 public record FunctionDeclarationNode(string Name, List<string> ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
 public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 
@@ -56,6 +58,10 @@ public record FloatLiteralNode(double Value, SourceSpan Span) : ExpressionNode(S
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
+
+public record AddressOfExpressionNode(ExpressionNode Target, bool IsMutable, SourceSpan Span) : ExpressionNode(Span);
+public record DereferenceExpressionNode(ExpressionNode Target, SourceSpan Span) : ExpressionNode(Span);
+
 // public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span); // todo: remove mutability again once we are returning from the visitor nodes
 
 public record BinaryExpressionNode : ExpressionNode
@@ -79,10 +85,27 @@ public record UnaryExpressionNode(UnaryOperator Operator, ExpressionNode Operand
 
 // Casts
 public abstract record CastExpressionNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : ExpressionNode(Span);
-public record ExtendIntegerNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record ExtendFloatNode(ExpressionNode Operand, TypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record CastIntToFloatNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
-public record CastFloatToIntNode(ExpressionNode Operand, TypeNode TargetType, bool IsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span);
+
+public record ExtendIntegerNode(ExpressionNode Operand, IntegerTypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new IntegerTypeNode TargetType => (IntegerTypeNode)base.TargetType;
+}
+
+public record ExtendFloatNode(ExpressionNode Operand, FloatTypeNode TargetType, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new FloatTypeNode TargetType => (FloatTypeNode)base.TargetType;
+}
+
+public record CastIntToFloatNode(ExpressionNode Operand, FloatTypeNode TargetType, bool SourceTypeIsSigned, SourceSpan Span) : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new FloatTypeNode TargetType => (FloatTypeNode)base.TargetType;
+}
+
+public record CastFloatToIntNode(ExpressionNode Operand, IntegerTypeNode TargetType, bool IsSigned, SourceSpan Span)
+    : CastExpressionNode(Operand, TargetType, Span)
+{
+    public new IntegerTypeNode TargetType => (IntegerTypeNode)base.TargetType;
+}
 
 
 // Types

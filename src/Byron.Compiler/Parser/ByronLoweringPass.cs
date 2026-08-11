@@ -45,8 +45,8 @@ public class ByronLoweringPass
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
-        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x.Name, Type(x.Type))).ToList();
-        return new Low.StructDeclarationNode(@struct.Name, fields);
+        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
+        return new Low.StructDeclarationNode(@struct, fields);
     } 
 
     private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
@@ -55,27 +55,27 @@ public class ByronLoweringPass
         var returnType = Type(declaration.ReturnType);
         var body = BlockStatement(declaration.Body);
 
-        return new Low.FunctionDeclarationNode(declaration.Name, parameters, returnType, body);
+        return new Low.FunctionDeclarationNode(declaration, parameters, returnType, body);
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
     {
         var type = Type(parameter.Type);
-        return new Low.ParameterNode(parameter.Ownership, parameter.Name, type);
+        return new Low.ParameterNode(parameter, type);
     }
 
     private Low.TypeNode Type(High.TypeNode type)
     {
         return type switch
         {
-            High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(Type(referenceType.Target), referenceType.IsMutable),
-            High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType.CanonicalName()),
-            High.VoidTypeNode => new Low.VoidTypeNode(),
-            High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed.BitWidth),
-            High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned.BitWidth),
-            High.FloatTypeNode @float => new Low.FloatTypeNode(@float.BitWidth),
-            High.BoolTypeNode => new Low.BoolTypeNode(),
-            High.RuneTypeNode => new Low.RuneTypeNode(),
+            High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
+            High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
+            High.VoidTypeNode @void => new Low.VoidTypeNode(@void),
+            High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed),
+            High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned),
+            High.FloatTypeNode @float => new Low.FloatTypeNode(@float),
+            High.BoolTypeNode @bool => new Low.BoolTypeNode(@bool),
+            High.RuneTypeNode rune => new Low.RuneTypeNode(rune),
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
@@ -86,15 +86,15 @@ public class ByronLoweringPass
         return statement switch
         {
             High.BlockStatementNode block => BlockStatement(block),
-            High.ReturnStatementNode @return => new Low.ReturnStatementNode(@return.Expression != null ? Expression(@return.Expression) : null),
-            High.YieldStatementNode yield => new Low.YieldStatementNode(Expression(yield.Expression)),
-            High.DiscardStatementNode discard => new Low.DiscardStatementNode(Expression(discard.Initializer)),
+            High.ReturnStatementNode @return => new Low.ReturnStatementNode(@return, @return.Expression != null ? Expression(@return.Expression) : null),
+            High.YieldStatementNode yield => new Low.YieldStatementNode(yield, Expression(yield.Expression)),
+            High.DiscardStatementNode discard => new Low.DiscardStatementNode(discard, Expression(discard.Initializer)),
             High.VariableDeclarationNode variable => Variable(variable),
             High.IfElseStatement ifElse => IfElse(ifElse),
-            High.BreakStatement _ => new Low.BreakStatement(),
-            High.ContinueStatement _ => new Low.ContinueStatement(),
-            High.WhileStatement @while => new Low.WhileStatement(Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
-            High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(Expression(assignment.Target), Expression(assignment.Value)),
+            High.BreakStatement @break => new Low.BreakStatement(@break),
+            High.ContinueStatement @continue => new Low.ContinueStatement(@continue),
+            High.WhileStatement @while => new Low.WhileStatement(@while, Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
+            High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(assignment, Expression(assignment.Target), Expression(assignment.Value)),
             _ => throw new ByronNotImplementedException(statement.GetType(), this, statement.Span)
         };
     }
@@ -103,20 +103,20 @@ public class ByronLoweringPass
     {
         return expression switch
         {
-            High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral.Value),
-            High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral.Value),
-            High.BoolLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral.Value),
-            High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable.Name),
+            High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral),
+            High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
+            High.BoolLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
+            High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
             High.CallExpressionNode call => CallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
-            High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(Expression(memberAccess.Target), memberAccess.MemberName),
+            High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(memberAccess, Expression(memberAccess.Target), memberAccess.MemberName),
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
-            High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
-            High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(Expression(intToFloat.Operand), intToFloat.IsSigned, Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
-            High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
-            High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
+            High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(floatToInt,Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
+            High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(intToFloat,Expression(intToFloat.Operand), Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
+            High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(extendInt,Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
+            High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(extendFloat,Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
             
             // Lowerable expressions here
 
@@ -140,7 +140,7 @@ public class ByronLoweringPass
             coercedRight = Coerce(binary.Right, rightType, targetType);
         }
         
-        return new Low.BinaryExpressionNode(Expression(coercedLeft), binary.Operator, Expression(coercedRight));
+        return new Low.BinaryExpressionNode(binary, Expression(coercedLeft), Expression(coercedRight));
     }
     
     private High.ExpressionNode Coerce(High.ExpressionNode expression, High.TypeNode sourceType, High.TypeNode targetType)
@@ -153,18 +153,18 @@ public class ByronLoweringPass
         {
             return new High.IntegerLiteralNode((long)floatLit.Value, expression.Span);
         }
-        if (sourceType is High.IntegerTypeNode intType && targetType is High.FloatTypeNode)
+        if (sourceType is High.IntegerTypeNode intType && targetType is High.FloatTypeNode floatTarget)
         {
-            return new High.CastIntToFloatNode(expression, targetType, intType.Signed, expression.Span);
+            return new High.CastIntToFloatNode(expression, floatTarget, intType.Signed, expression.Span);
         }
-        if (sourceType is High.SignedIntTypeNode or High.UnsignedIntTypeNode && targetType is High.SignedIntTypeNode or High.UnsignedIntTypeNode)
+        if (sourceType is High.SignedIntTypeNode or High.UnsignedIntTypeNode && targetType is High.IntegerTypeNode intTarget)
         {
-            return new High.ExtendIntegerNode(expression, targetType, expression.Span);
+            return new High.ExtendIntegerNode(expression, intTarget, expression.Span);
         }
 
-        if (sourceType is High.FloatTypeNode && targetType is High.FloatTypeNode)
+        if (sourceType is High.FloatTypeNode && targetType is High.FloatTypeNode targetFloat)
         {
-            return new High.ExtendFloatNode(expression, targetType, expression.Span);
+            return new High.ExtendFloatNode(expression, targetFloat, expression.Span);
         }
 
         return expression;
@@ -173,9 +173,9 @@ public class ByronLoweringPass
     private Low.StructFieldInitializationExpressionNode StructFieldInitializationExpression(High.StructFieldInitializationExpressionNode structFieldInitialization)
     {
         return new Low.StructFieldInitializationExpressionNode(
-            structFieldInitialization.NominalType.Name,
+            structFieldInitialization,
             structFieldInitialization.FieldInitializers.Select(
-                x => new Low.StructFieldInitializerNode(x.FieldName, Expression(x.Value))).ToList()
+                x => new Low.StructFieldInitializerNode(x, Expression(x.Value))).ToList()
             );
     }
     
@@ -184,7 +184,7 @@ public class ByronLoweringPass
         var explicitType = variable.TypeAnnotation != null ? Type(variable.TypeAnnotation) : null;
         var initializer = Expression(variable.Initializer);
         
-        return new Low.VariableDeclarationNode(variable.IsMutable, variable.Name, explicitType, initializer);
+        return new Low.VariableDeclarationNode(variable, explicitType, initializer);
     }
 
     private Low.IfStatementNode IfElse(High.IfElseStatement ifElse)
@@ -194,22 +194,22 @@ public class ByronLoweringPass
         if (ifElse.ElseBranch != null)
         {
             var elseBranch = BlockStatement(ifElse.ElseBranch);
-            return new Low.IfElseStatementNode(condition, thenBranch, elseBranch);
+            return new Low.IfElseStatementNode(ifElse, condition, thenBranch, elseBranch);
         }
 
-        return new Low.IfStatementNode(condition, thenBranch);
+        return new Low.IfStatementNode(ifElse, condition, thenBranch);
     }
     
     private Low.CallExpressionNode CallExpression(High.CallExpressionNode call)
     {
         var callee = Expression(call.Callee);
         var args = call.Arguments.Select(Expression).ToList();
-        return new Low.CallExpressionNode(callee, args);
+        return new Low.CallExpressionNode(call, callee, args);
     }
 
     private Low.BlockStatementNode BlockStatement(High.BlockStatementNode blockStatement)
     {
         var statements = blockStatement.Statements.Select(Statement).ToList();
-        return new Low.BlockStatementNode(statements);
+        return new Low.BlockStatementNode(blockStatement, statements);
     }
 }

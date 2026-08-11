@@ -46,8 +46,8 @@ public static class Keywords
         ["typeof"]      = TokenKind.Typeof,
 
         // --- Self ---
-        ["self"]        = TokenKind.Self,
-        ["Self"]        = TokenKind.CapitalSelf,
+        ["self"]        = TokenKind.SelfReceiver,
+        ["Self"]        = TokenKind.SelfType,
 
         // --- Import / scope ---
         ["import"]      = TokenKind.Import,

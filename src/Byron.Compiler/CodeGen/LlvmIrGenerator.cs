@@ -2,11 +2,11 @@ using Byron.Compiler.AST.LowLevel;
 
 namespace Byron.Compiler.CodeGen;
 
-public partial class LlvmIrGenerator
+public partial class LlvmIrGenerator(ProgramNode program)
 {
     private readonly GeneratorContext _context = new();
 
-    public string Generate(ProgramNode program)
+    public string Generate()
     {
         foreach (var structDeclaration in program.Declarations.OfType<StructDeclarationNode>())
         {

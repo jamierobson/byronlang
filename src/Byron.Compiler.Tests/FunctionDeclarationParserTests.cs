@@ -49,7 +49,7 @@ public class FunctionDeclarationParserTests
         ); // fn foo(): void {}
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration();
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
 
         // Assert
         Assert.Equal("foo", result.Name);
@@ -77,7 +77,7 @@ public class FunctionDeclarationParserTests
         var tokenStream = CreateFunctionTokenStream("calculate", parameters, "i32", body);
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration();
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
 
         // Assert
         Assert.Equal("calculate", result.Name);
@@ -114,7 +114,7 @@ public class FunctionDeclarationParserTests
         .ToList(); // fn badFunc() void {}
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration());
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global));
     }
 
     [Fact]
@@ -134,6 +134,6 @@ public class FunctionDeclarationParserTests
         .ToList(); // badFunc(): void {}
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration() );
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global) );
     }
 }

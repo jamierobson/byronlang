@@ -25,13 +25,13 @@ public partial class ByronHighLevelAstParser
         };
     }
     
-    private ExpressionNode ParseExpression()
+    private ExpressionNode ParseExpression(ScopeContext context)
     {
-        var expression = ParseBinaryExpression(0);
-
+        var expression = PrattParseBinaryExpression(context, 0);
+        
         if (ConsumingActiveTokenMatch(TokenKind.OnError))
         {
-            var fallback = ParsePrimaryExpression();
+            var fallback = ParsePrimaryExpression(context);
             return new OnErrorExpressionNode(expression, fallback, new SourceSpan(expression.Span.Line, expression.Span.Column, expression.Span.Start, fallback.Span.End));
         }
         if (ConsumingActiveTokenMatch(TokenKind.QuestionMark))
@@ -42,12 +42,10 @@ public partial class ByronHighLevelAstParser
 
         return expression;
     }
-    
-    private ExpressionNode ParseBinaryExpression(int minPrecedence)
+
+    private ExpressionNode PrattParseBinaryExpression(ScopeContext context, int minPrecedence)
     {
-        var expression = ParseUnary();
-        
-        // var expression = ParsePrimaryExpression();
+        var expression = ParseUnary(context);
 
         while (!IsAtEnd())
         {
@@ -72,7 +70,7 @@ public partial class ByronHighLevelAstParser
 
             Advance(); 
         
-            var rightSide = ParseBinaryExpression(precedence + 1);
+            var rightSide = PrattParseBinaryExpression(context, precedence + 1);
         
             expression = new BinaryExpressionNode(
                 expression, 
@@ -84,12 +82,93 @@ public partial class ByronHighLevelAstParser
 
         return expression;
     }
+    
+    private ExpressionNode ParseUnary(ScopeContext context)
+    {
+        if (ConsumingActiveTokenMatch(TokenKind.Minus))
+        {
+            var operand = ParseUnary(context);
 
-    private ExpressionNode ParsePrimaryExpression()
+            if (operand is IntegerLiteralNode integerLiteral)
+            {
+                return new IntegerLiteralNode(-integerLiteral.Value, ExpandSpan(Previous(), integerLiteral));
+            }
+
+            if (operand is FloatLiteralNode floatLiteral)
+            {
+                return new FloatLiteralNode(-floatLiteral.Value, ExpandSpan(Previous(), floatLiteral));
+            }
+
+            return new UnaryExpressionNode(UnaryOperator.Negative, operand, ExpandSpan(Previous(), operand));
+        }
+
+        if (ConsumingActiveTokenMatch(TokenKind.Bang))
+        {
+            var operand = ParseUnary(context);
+
+            if (operand is BoolLiteralNode booleanLiteral)
+            {
+                return new BoolLiteralNode(!booleanLiteral.Value, ExpandSpan(Previous(), booleanLiteral));
+            }
+
+            return new UnaryExpressionNode(UnaryOperator.Not, operand, ExpandSpan(Previous(), operand));
+        }
+
+        if (ConsumingActiveTokenMatch(TokenKind.Ampersand))
+        {
+            var ampersand = Previous();
+            var isMutable = ConsumingActiveTokenMatch(TokenKind.Var);
+            var targetExpression = ParsePrimaryExpression(context);
+            
+            return new AddressOfExpressionNode(targetExpression, isMutable, ExpandSpan(ampersand, targetExpression));
+        }
+
+        return ParsePostfixExpression(context);
+    }
+    
+    private ExpressionNode ParsePostfixExpression(ScopeContext context)
+    {
+        var expression = ParsePrimaryExpression(context);
+        var identifier = Previous();
+        while (!IsAtEnd())
+        {
+            if (ConsumingActiveTokenMatch(TokenKind.Dot))
+            {
+                if (ConsumingActiveTokenMatch(TokenKind.Asterisk))
+                {
+                    expression = new DereferenceExpressionNode(expression, ExpandSpan(expression, Peek()));
+                    continue;
+                }
+            
+                var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
+                expression = new MemberAccessExpressionNode(
+                    expression, 
+                    memberToken.Lexeme, 
+                    ExpandSpan(expression, memberToken)
+                );
+                continue;
+            }
+
+            if (ConsumingActiveTokenMatch(TokenKind.LParen))
+            {
+                if (identifier is not { Kind: TokenKind.Identifier })
+                {
+                    throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
+                }
+                expression = ParseCallExpression(context, expression);
+                continue;
+            }
+            break;
+        }
+        
+        return expression;
+    }
+
+    private ExpressionNode ParsePrimaryExpression(ScopeContext context)
     {
         if (ConsumingActiveTokenMatch(TokenKind.LParen))
         {
-            var expression = ParseExpression();
+            var expression = ParseExpression(context);
             _ = Consume(TokenKind.RParen, "Expected closing parenthesis ')'");
 
             return expression;
@@ -111,72 +190,84 @@ public partial class ByronHighLevelAstParser
         {
             return new BoolLiteralNode(false, Previous().Span);
         }
+
+        if (ConsumingActiveTokenMatch(TokenKind.SelfType))
+        {
+            var selfToken = Previous();
+            
+            if (context.ImplementBlock is null)
+            {
+                throw new ByronHighLevelParserException(selfToken);
+            }
+            
+            _ = Consume(TokenKind.LBrace, "Expected '{' in struct field initialization.");
+            var initializers = ParseStructFieldInitializers(context);
+            var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
+
+            return new StructFieldInitializationExpressionNode(context.ImplementBlock.TypeNode, initializers, ExpandSpan(selfToken, endToken));
+        }
+        if (ConsumingActiveTokenMatch(TokenKind.SelfReceiver))
+        {
+            var selfToken = Previous();
+            
+            if (context.ImplementBlock is null)
+            {
+                throw new ByronHighLevelParserException(selfToken);
+            }
+            
+            return new VariableExpressionNode(selfToken.Lexeme, selfToken.Span);
+            
+        }
         if (ConsumingActiveTokenMatch(TokenKind.Identifier))
         {
             var identifier = Previous();
             ExpressionNode expression;
-            if (ConsumingActiveTokenMatch(TokenKind.LParen))
+            if (ConsumingActiveTokenMatch(TokenKind.LBrace))
             {
-                var arguments = new List<ExpressionNode>();
-                if (!ActiveTokenMatch(TokenKind.RParen))
-                {
-                    do
-                    {
-                        arguments.Add(ParseExpression());
-                    } while (ConsumingActiveTokenMatch(TokenKind.Comma));
-                }
-                var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-                expression = new CallExpressionNode(
-                    new VariableExpressionNode(identifier.Lexeme, identifier.Span), arguments, 
-                    new SourceSpan(identifier.Span.Line, identifier.Span.Column, identifier.Span.Start, endToken.Span.End));
-            }
-            else if (ConsumingActiveTokenMatch(TokenKind.LBrace))
-            {
-                var initializers = ParseStructFieldInitializers();
+                var initializers = ParseStructFieldInitializers(context);
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
 
                 var typeNode = new NominalTypeNode(identifier.Lexeme, [], identifier.Span);
 
-                expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
-                    identifier.Span with { End = endToken.Span.End });
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier, endToken));
             }
             else
             {
                 expression = new VariableExpressionNode(identifier.Lexeme, identifier.Span);
             }
 
-            return ParsePostfixExpression(expression);
+            return expression;
         }
         
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
     }
-    
-    private ExpressionNode ParsePostfixExpression(ExpressionNode expression)
+
+    private CallExpressionNode ParseCallExpression(ScopeContext context, ExpressionNode callee)
     {
-        while (ConsumingActiveTokenMatch(TokenKind.Dot))
+        var arguments = new List<ExpressionNode>();
+        if (!ActiveTokenMatch(TokenKind.RParen))
         {
-            var memberToken = Consume(TokenKind.Identifier, "Expected field or member name after '.'.");
-            expression = new MemberAccessExpressionNode(
-                expression, 
-                memberToken.Lexeme, 
-                expression.Span with { End = memberToken.Span.End }
-            );
+            do
+            {
+                arguments.Add(ParseExpression(context));
+            } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
-        return expression;
+        var endToken = Consume(TokenKind.RParen, "Expected ')'.");
+        return new CallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
     }
-    
-    private List<StructFieldInitializerNode> ParseStructFieldInitializers()
+
+    private List<StructFieldInitializerNode> ParseStructFieldInitializers(ScopeContext context)
     {
         var initializers = new List<StructFieldInitializerNode>();
 
         while (!ActiveTokenMatch(TokenKind.RBrace))
         {
-            var nameToken = Consume(TokenKind.Identifier, "Expected field name in struct initialization.");
+            var nameToken = Consume(TokenKind.Identifier, "Expected field name in struct initialization."); 
             Consume(TokenKind.Colon, "Expected ':' after field name.");
         
-            var fieldValueExpression = ParseExpression();
+            var fieldValueExpression = ParseExpression(context);
         
-            initializers.Add(new StructFieldInitializerNode(nameToken.Lexeme, fieldValueExpression, nameToken.Span with { End = fieldValueExpression.Span.End }) );
+            initializers.Add(new StructFieldInitializerNode(nameToken.Lexeme, fieldValueExpression, ExpandSpan(nameToken, fieldValueExpression)));
 
             if (ActiveTokenMatch(TokenKind.RBrace))
             {
@@ -187,39 +278,5 @@ public partial class ByronHighLevelAstParser
         }
 
         return initializers;
-    }
-    
-    private ExpressionNode ParseUnary()
-    {
-        if (ConsumingActiveTokenMatch(TokenKind.Minus))
-        {
-            var operand = ParseUnary();
-
-            if (operand is IntegerLiteralNode integerLiteral)
-            {
-                return new IntegerLiteralNode(-integerLiteral.Value, Previous().Span with { End = integerLiteral.Span.End });
-            }
-
-            if (operand is FloatLiteralNode floatLiteral)
-            {
-                return new FloatLiteralNode(-floatLiteral.Value, Previous().Span with { End = floatLiteral.Span.End });
-            }
-
-            return new UnaryExpressionNode(UnaryOperator.Negative, operand, Previous().Span with { End = operand.Span.End });
-        }
-
-        if (ConsumingActiveTokenMatch(TokenKind.Bang))
-        {
-            var operand = ParseUnary();
-
-            if (operand is BoolLiteralNode booleanLiteral)
-            {
-                return new BoolLiteralNode(!booleanLiteral.Value, Previous().Span with { End = booleanLiteral.Span.End });
-            }
-
-            return new UnaryExpressionNode(UnaryOperator.Not, operand, Previous().Span with { End = operand.Span.End });
-        }
-
-        return ParsePrimaryExpression();
     }
 }
