@@ -30,7 +30,7 @@ public class FunctionRegistry
     }
     
     public bool TryGetFunctionInScope(
-        List<string> modulePath, 
+        string[] modulePath, 
         string shortName, 
         [NotNullWhen(true)] out FunctionSymbol? function)
     {

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Exceptions;
+using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
@@ -31,18 +32,33 @@ public class TypeInferenceVisitor
     {
         _symbolTable.EnterScope();
 
-        foreach (var parameter in function.Parameters)
+        for (var i = 0; i < function.Parameters.Count; i++)
         {
+            var parameter = function.Parameters[i];
+            if (parameter.Name == "self")
+            {
+                if (i != 0)
+                {
+                    _diagnostics.InvalidSelfArgument(function, parameter);
+                }
+            }
+
+            var parameterType = parameter.Type.CanonicalName();
+            var expectedSelfType = function.CanonicalModuleName();
+            if (!string.Equals(parameterType, expectedSelfType))
+            {
+                _diagnostics.InvalidArgument(parameterType, expectedSelfType, parameter.Span);
+            }            
+            
             var isMutable = parameter.Ownership is ReceiverBindingOwnership.MutableBorrow or ReceiverBindingOwnership.Owned;
             var isReference = parameter.Ownership is ReceiverBindingOwnership.ImmutableBorrow or ReceiverBindingOwnership.MutableBorrow;
-            
+         
             var type = isReference
                 ? new ReferenceTypeNode(parameter.Type, isMutable, parameter.Span)
                 : parameter.Type;
             
             _symbolTable.Declare(parameter.Name, type, isMutable);
         }
-
         VisitBlock(function.Body);
 
         _symbolTable.ExitScope();
@@ -394,20 +410,9 @@ public class TypeInferenceVisitor
             preferredType = rightType;
             return true;
         }
-
-        // if (TryPromoteNumericTypes(leftType, rightType, out var promotedType))
-        // {
-        //     preferredType = promotedType;
-        //     return true;
-        // }
         
         return false;
     }
-
-    // private bool TryPromoteNumericTypes(TypeNode leftType, TypeNode rightType, [NotNullWhen(true)] out TypeNode? promotedType)
-    // {
-    //     throw new ByronNotImplementedException("TryPromoteNumericTypes", this);
-    // }
 
     private void VisitVariableDeclaration(VariableDeclarationNode variableDeclaration)
     {
@@ -564,39 +569,98 @@ public class TypeInferenceVisitor
             VisitExpression(argument);
         }
 
-        if (callExpression.Callee is not VariableExpressionNode variableExpression)
+        string[] modulePath;
+        string functionName;
+        
+        if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
-            throw new ByronNotImplementedException("Complex callee expressions", this, callExpression.Span);
+            functionName = variableExpression.Name;
+            modulePath = [];
+        }
+        else if (callExpression.Callee is MemberAccessExpressionNode memberAccess)
+        {
+            functionName = memberAccess.MemberName;
+            modulePath = memberAccess.Target switch
+            {
+                VariableExpressionNode variableTarget => [variableTarget.Name],
+                _ => []
+            };
+        }
+        else
+        {
+            throw new ByronNotImplementedException(callExpression.Callee.GetType(), this, callExpression.Span);
         }
         
-        if (!_functionRegistry.TryGetFunctionInScope([], variableExpression.Name, out var function))
+        if (!_functionRegistry.TryGetFunctionInScope(modulePath, functionName, out var function))
         {
-            _diagnostics.UndeclaredFunction(variableExpression);
+            _diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);
             return;
         }
 
+        // todo: We actually need to change this. a MemberAccessExpressionNode would include the callee as an argument
         if (function.Parameters.Count != callExpression.Arguments.Count)
         {
             _diagnostics.InvalidArgumentCount(callExpression, function);
         }
 
+        if (TryCoerceAllArguments(callExpression, function, callExpression.Span))
+        {
+            _typeMap.SetType(callExpression, function.ReturnType);
+        }
+    }
+
+    private bool TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function, SourceSpan callExpressionSpan)
+    {
+        ExpressionNode[] arguments = [methodCall.Receiver, ..methodCall.Arguments];
+        var maximumArgumentCount = Math.Min(arguments.Length, function.Parameters.Count);
+        
+        for (var i = 0; i < maximumArgumentCount; i++)
+        {
+            var argument = arguments[i];
+            var argumentType = _typeMap.GetType(argument);
+            var parameterType = function.Parameters[i].Type;
+
+            if (!IsAssignable(argument, argumentType, parameterType, out var coercedExpression))
+            {
+                _diagnostics.InvalidArgument(argumentType.CanonicalName(), parameterType.CanonicalName(), methodCall.Span);
+                return false;
+            }
+
+            if (i == 0)
+            {
+                methodCall.Receiver = coercedExpression;
+            }
+            else
+            {
+                methodCall.Arguments[i - 1] = coercedExpression;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryCoerceAllArguments(CallExpressionNode callExpression, FunctionSymbol function, SourceSpan callExpressionSpan)
+    {
         var maximumArgumentCount = Math.Min(callExpression.Arguments.Count, function.Parameters.Count);
         
         for (var i = 0; i < maximumArgumentCount; i++)
         {
-            var expression = callExpression.Arguments[i];
-            var argumentType = _typeMap.GetType(expression);
+            var argument = callExpression.Arguments[i];
+            var argumentType = _typeMap.GetType(argument);
             var parameterType = function.Parameters[i].Type;
 
-            if (!IsAssignable(expression, argumentType, parameterType))
+            if (!IsAssignable(argument, argumentType, parameterType, out var coercedExpression))
             {
                 _diagnostics.InvalidArgument(argumentType.CanonicalName(), parameterType.CanonicalName(), callExpression.Span);
-                return;
+                return false;
             }
+
+            callExpression.Arguments[i] = coercedExpression;
+
         }
-        
-        _typeMap.SetType(callExpression, function.ReturnType);
+        return true;
     }
+    
 
     private void VisitMemberExpressionNode(MemberAccessExpressionNode memberAccess)
     {

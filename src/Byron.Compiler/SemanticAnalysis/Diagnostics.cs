@@ -36,10 +36,11 @@ public class Diagnostics
     public void InvalidStructName(StructDeclarationNode structDeclaration, string canonicalName) => Add($"Invalid struct name {structDeclaration.Name} at {structDeclaration.Span}");
     public void CircularReference(string canonicalName, SourceSpan sourceSpan) => Add($"Circular reference in type {canonicalName} at {sourceSpan}");
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
-    public void UndeclaredFunction(VariableExpressionNode variableExpression) => Add($"Cannot resolve function {variableExpression.Name} at {variableExpression.Span}");
+    public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
     public void InvalidArgumentCount(CallExpressionNode callExpression, FunctionSymbol function) => Add($"{function.Name} has {function.Parameters.Count} parameter(s) but is invoked with {callExpression.Arguments.Count} arguments at {callExpression.Span}");
     public void InvalidArgument(string argumentType, string parameterType, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} at {span}");
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
     public void InvalidUnaryOperation(UnaryExpressionNode unary, TypeNode operandType) => Add($"Cannot apply {unary.Operator.ToLexeme()} operator to type {operandType.CanonicalName()} at {unary.Span}");
     public void InvalidDereference(DereferenceExpressionNode dereference, TypeNode targetType) => Add($"Cannot dereference a non-reference type {targetType.CanonicalName()} at {dereference.Span}");
+    public void InvalidSelfArgument(FunctionDeclarationNode function, ParameterNode parameter) => Add($"{parameter.Name} must be the first parameter declared in the function {function.CanonicalName()} at {function.Span}"); 
 }

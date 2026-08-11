@@ -20,10 +20,10 @@ public abstract record AstNode(SourceSpan Span)
 public abstract record TopLevelDeclarationNode(string Name, string[] ModulePath, SourceSpan Span) : AstNode(Span)
 {
     private string? _canonicalName;
-    public string CanonicalName()
-    {
-        return _canonicalName ??= CanonicalNames.InModule(ModulePath, Name);
-    }
+    private string? _moduleName;
+    public string CanonicalName() => _canonicalName ??= CanonicalNames.InModule(ModulePath, Name);
+    
+    public string CanonicalModuleName() => _moduleName ??= CanonicalNames.Module(ModulePath);
 };
 
 public record ImplementBlockDeclarationNode(NominalTypeNode TypeNode, SourceSpan Span) : TopLevelDeclarationNode(TypeNode.Name, TypeNode.ModulePath, Span);
@@ -56,17 +56,21 @@ public record IntegerLiteralNode(long Value, SourceSpan Span) : ExpressionNode(S
 public record FloatLiteralNode(double Value, SourceSpan Span) : ExpressionNode(Span);
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
-public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
 
 public record AddressOfExpressionNode(ExpressionNode Target, bool IsMutable, SourceSpan Span) : ExpressionNode(Span);
 public record DereferenceExpressionNode(ExpressionNode Target, SourceSpan Span) : ExpressionNode(Span);
+
+public abstract record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
+public record FreeFunctionCallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span): CallExpressionNode(Callee, Arguments, Span);
+public record MethodCallExpression(ExpressionNode Receiver, List<ExpressionNode> Arguments, SourceSpan Span): CallExpressionNode(Receiver, Arguments, Span);
+
 
 // public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span); // todo: remove mutability again once we are returning from the visitor nodes
 
 public record BinaryExpressionNode : ExpressionNode
 {
-    public ExpressionNode Left { get; set; }  // 👈 Mutable set!
-    public ExpressionNode Right { get; set; } // 👈 Mutable set!
+    public ExpressionNode Left { get; set; }
+    public ExpressionNode Right { get; set; }
     public BinaryOperator Operator { get; init; }
 
     public BinaryExpressionNode(ExpressionNode left, BinaryOperator op, ExpressionNode right, SourceSpan span) 

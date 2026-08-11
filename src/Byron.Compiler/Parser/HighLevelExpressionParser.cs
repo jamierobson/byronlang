@@ -151,12 +151,12 @@ public partial class ByronHighLevelAstParser
 
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
-                if (identifier is not { Kind: TokenKind.Identifier })
+                if (identifier is { Kind: TokenKind.SelfReceiver or TokenKind.Identifier})
                 {
-                    throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
+                    expression = ParseCallExpression(context, identifier, expression);
+                    continue;
                 }
-                expression = ParseCallExpression(context, expression);
-                continue;
+                throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
             }
             break;
         }
@@ -242,7 +242,7 @@ public partial class ByronHighLevelAstParser
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
     }
 
-    private CallExpressionNode ParseCallExpression(ScopeContext context, ExpressionNode callee)
+    private CallExpressionNode ParseCallExpression(ScopeContext context, Token identifier, ExpressionNode callee)
     {
         var arguments = new List<ExpressionNode>();
         if (!ActiveTokenMatch(TokenKind.RParen))
@@ -253,7 +253,13 @@ public partial class ByronHighLevelAstParser
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
         var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-        return new CallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
+
+        return identifier.Kind switch
+        {
+            TokenKind.Identifier => new FreeFunctionCallExpressionNode(callee, arguments, ExpandSpan(callee, endToken)),
+            TokenKind.SelfReceiver => new MethodCallExpression(callee, arguments, ExpandSpan(callee, endToken)),
+            _ => throw new ByronNotImplementedException(identifier.Kind, this, identifier.Span)
+        };
     }
 
     private List<StructFieldInitializerNode> ParseStructFieldInitializers(ScopeContext context)
