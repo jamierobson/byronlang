@@ -166,6 +166,11 @@ public record MemberAccessExpressionNode(High.MemberAccessExpressionNode SourceN
     public new High.MemberAccessExpressionNode SourceNode => (High.MemberAccessExpressionNode)base.SourceNode;
 }
 
+public record DereferenceExpressionNode(High.DereferenceExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
+{
+    public new High.DereferenceExpressionNode SourceNode => (High.DereferenceExpressionNode)base.SourceNode;
+}
+
 public record ExtendIntegerNode(High.ExtendIntegerNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType) : ExpressionNode(SourceNode)
 {
     public new High.ExtendIntegerNode SourceNode => (High.ExtendIntegerNode)base.SourceNode;

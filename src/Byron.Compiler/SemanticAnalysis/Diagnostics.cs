@@ -41,4 +41,5 @@ public class Diagnostics
     public void InvalidArgument(string argumentType, string parameterType, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} at {span}");
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
     public void InvalidUnaryOperation(UnaryExpressionNode unary, TypeNode operandType) => Add($"Cannot apply {unary.Operator.ToLexeme()} operator to type {operandType.CanonicalName()} at {unary.Span}");
+    public void InvalidDereference(DereferenceExpressionNode dereference, TypeNode targetType) => Add($"Cannot dereference a non-reference type {targetType.CanonicalName()} at {dereference.Span}");
 }

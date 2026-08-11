@@ -18,7 +18,7 @@ public abstract record AstNode(SourceSpan Span)
 };
 
 // Top Level Declarations
-public abstract record TopLevelDeclarationNode(string Name, List<string> ModulePath, SourceSpan Span) : AstNode(Span)
+public abstract record TopLevelDeclarationNode(string Name, string[] ModulePath, SourceSpan Span) : AstNode(Span)
 {
     private string? _canonicalName;
     public string CanonicalName()
@@ -29,10 +29,10 @@ public abstract record TopLevelDeclarationNode(string Name, List<string> ModuleP
 
 public record ImplementBlockDeclarationNode(NominalTypeNode TypeNode, SourceSpan Span) : TopLevelDeclarationNode(TypeNode.Name, TypeNode.ModulePath, Span);
 
-public record FunctionDeclarationNode(string Name, List<string> ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
+public record FunctionDeclarationNode(string Name, string[] ModulePath, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
 public record ParameterNode(ReceiverBindingOwnership Ownership, string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 
-public record StructDeclarationNode(string Name, List<string> ModulePath, List<StructFieldNode> Fields, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
+public record StructDeclarationNode(string Name, string[] ModulePath, List<StructFieldNode> Fields, SourceSpan Span) : TopLevelDeclarationNode(Name, ModulePath, Span);
 public record StructFieldNode(string Name, TypeNode Type, SourceSpan Span) : AstNode(Span);
 public record StructFieldInitializerNode(string FieldName, ExpressionNode Value, SourceSpan Span) : AstNode(Span);
 
@@ -120,7 +120,7 @@ public abstract record TypeNode(SourceSpan Span) : AstNode(Span)
     }
 };
 
-public record NominalTypeNode(string Name, List<string> ModulePath, SourceSpan Span) : TypeNode(Span)
+public record NominalTypeNode(string Name, string[] ModulePath, SourceSpan Span) : TypeNode(Span)
 {
     protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
 }

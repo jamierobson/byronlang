@@ -7,7 +7,6 @@ namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass
 {
-    
     private readonly High.ProgramNode _ast;
     private readonly TypeRegistry _typeRegistry;
     private readonly TypeMap _typeMap;
@@ -111,6 +110,7 @@ public class ByronLoweringPass
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
             High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(memberAccess, Expression(memberAccess.Target), memberAccess.MemberName),
+            High.DereferenceExpressionNode dereference => new Low.DereferenceExpressionNode(dereference, Expression(dereference.Target)),
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
             High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(floatToInt,Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 

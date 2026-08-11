@@ -4,9 +4,10 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
-public record ScopeContext(ImplementBlockDeclarationNode? ImplementBlock)
+public record ScopeContext(string[] ModulePath, ImplementBlockDeclarationNode? ImplementBlock)
 {
-    public static ScopeContext Global => new((ImplementBlockDeclarationNode?)null);
+    public static ScopeContext Global => new([], null);
+    public string[] RelativeModulePath() => ImplementBlock is null ? ModulePath : [..ModulePath, ..ImplementBlock.ModulePath, ImplementBlock.Name];
 }
 
 public partial class ByronHighLevelAstParser

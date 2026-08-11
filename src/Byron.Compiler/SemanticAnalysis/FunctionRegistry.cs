@@ -8,7 +8,7 @@ public record ParameterSymbol(string Name, TypeNode Type);
 
 public record FunctionSymbol(
     string CanonicalName,
-    List<string> ModulePath,
+    string[] ModulePath,
     string Name,
     List<ParameterSymbol> Parameters,
     TypeNode ReturnType,

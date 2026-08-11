@@ -1,9 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Security.Cryptography;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Exceptions;
-
 
 namespace Byron.Compiler.SemanticAnalysis;
 
@@ -36,7 +34,13 @@ public class TypeInferenceVisitor
         foreach (var parameter in function.Parameters)
         {
             var isMutable = parameter.Ownership is ReceiverBindingOwnership.MutableBorrow or ReceiverBindingOwnership.Owned;
-            _symbolTable.Declare(parameter.Name, parameter.Type, isMutable);
+            var isReference = parameter.Ownership is ReceiverBindingOwnership.ImmutableBorrow or ReceiverBindingOwnership.MutableBorrow;
+            
+            var type = isReference
+                ? new ReferenceTypeNode(parameter.Type, isMutable, parameter.Span)
+                : parameter.Type;
+            
+            _symbolTable.Declare(parameter.Name, type, isMutable);
         }
 
         VisitBlock(function.Body);
@@ -181,9 +185,36 @@ public class TypeInferenceVisitor
             case BinaryExpressionNode binaryExpressionNode:
                 VisitBinaryExpressionNode(binaryExpressionNode);
                 break;
+            case AddressOfExpressionNode addressOf:
+                VisitAddressOfExpression(addressOf);
+                break;
+            case DereferenceExpressionNode dereference:
+                VisitDereferenceExpressionNode(dereference);
+                break;
+        }
+    }
+
+    private void VisitDereferenceExpressionNode(DereferenceExpressionNode dereference)
+    {
+        VisitExpression(dereference.Target);
+        var targetType = _typeMap.GetType(dereference.Target);
+
+        if (targetType is ReferenceTypeNode referenceTypeNode)
+        {
+            _typeMap.SetType(dereference, referenceTypeNode.Target);
+            return;
         }
         
-        // throw new ByronNotImplementedException(expression.GetType(), this, expression.Span);
+        _diagnostics.InvalidDereference(dereference, targetType);
+    }
+
+    private void VisitAddressOfExpression(AddressOfExpressionNode addressOf)
+    {
+        VisitExpression(addressOf.Target);
+        var targetType = _typeMap.GetType(addressOf.Target);
+
+        var referenceType = new ReferenceTypeNode(targetType, addressOf.IsMutable, addressOf.Span);
+        _typeMap.SetType(addressOf, referenceType);
     }
 
     private void VisitUnaryExpression(UnaryExpressionNode unary)

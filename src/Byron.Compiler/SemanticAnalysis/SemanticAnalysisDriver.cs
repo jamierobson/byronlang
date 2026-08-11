@@ -5,11 +5,10 @@ namespace Byron.Compiler.SemanticAnalysis;
 
 public class SemanticAnalysisDriver(ProgramNode program)
 {
-    private Diagnostics _diagnostics = new();
+    private readonly Diagnostics _diagnostics = new();
     
     public SemanticAnalysisResult Analyze()
     {
-        
         var typeRegistry = new TypeRegistry();
         var functionRegistry = new  FunctionRegistry();
         var typeMap = new TypeMap();
@@ -19,7 +18,6 @@ public class SemanticAnalysisDriver(ProgramNode program)
         typeResolver.Resolve();
         
         var functionDeclarations = program.Declarations.OfType<FunctionDeclarationNode>().ToList();
-        
         var functionResolver = new FunctionResolver(functionRegistry, typeRegistry, functionDeclarations, _diagnostics);
         functionResolver.Resolve();
         
