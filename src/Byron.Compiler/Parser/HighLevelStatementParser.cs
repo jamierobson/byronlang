@@ -53,13 +53,13 @@ public partial class ByronHighLevelAstParser
         {
             var start = Previous();
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
-            return new BreakStatement(start.Span with {End = semiColon.Span.End} );
+            return new BreakStatement(ExpandSpan(start, semiColon));
         }
         if (ConsumingActiveTokenMatch(TokenKind.Continue))
         {
             var start = Previous();
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
-            return new ContinueStatement(start.Span with {End = semiColon.Span.End} );
+            return new ContinueStatement(ExpandSpan(start, semiColon));
         }
         if (ConsumingActiveTokenMatch(TokenKind.While))
         {
@@ -89,12 +89,12 @@ public partial class ByronHighLevelAstParser
         {
             var value = ParseExpression(context);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after assignment.");
-            return new AssignmentStatementNode(freeExpression, value, value.Span with {End = semiColon.Span.End});
+            return new AssignmentStatementNode(freeExpression, value, ExpandSpan(value, semiColon));
         }
 
         if (ConsumingActiveTokenMatch(TokenKind.Semicolon))
         {
-            return new ExpressionStatementNode(freeExpression, freeExpression.Span with { End = Previous().Span.End });
+            return new ExpressionStatementNode(freeExpression, ExpandSpan(freeExpression, Previous()));
         }
         
         throw new ByronNotImplementedException("Fallback basic statements", this, Previous().Span);
@@ -115,7 +115,7 @@ public partial class ByronHighLevelAstParser
         if (ConsumingActiveTokenMatch(TokenKind.Else))
         {
             elseBranch = ParseBlockStatement(context);
-            span = ifToken.Span with { End = elseBranch.Span.End };
+            span = ExpandSpan(ifToken, elseBranch);   
         }
         
         return new IfElseStatement(condition, thenBranch, elseBranch, span);
@@ -123,13 +123,13 @@ public partial class ByronHighLevelAstParser
 
     private WhileStatement ParseWhileLoopStatement(ScopeContext context)
     {
-        var whileSpan = Previous().Span;
+        var whileToken = Previous();
         Consume(TokenKind.LParen, "Expected '(' after 'while'.");
         var condition = ParseExpression(context);
         Consume(TokenKind.RParen, "Expected ')' after condition.");
         
         var body = ParseBlockStatement(context);
             
-        return new WhileStatement(condition, body, whileSpan with{ End = body.Span.End });
+        return new WhileStatement(condition, body, ExpandSpan(whileToken, body));
     } 
 }

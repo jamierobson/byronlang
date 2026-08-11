@@ -58,6 +58,8 @@ public record FloatLiteralNode(double Value, SourceSpan Span) : ExpressionNode(S
 public record BoolLiteralNode(bool Value, SourceSpan Span) : ExpressionNode(Span);
 public record VariableExpressionNode(string Name, SourceSpan Span) : ExpressionNode(Span);
 public record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
+
+public record AddressOfExpressionNode(ExpressionNode Target, bool IsMutable, SourceSpan Span) : ExpressionNode(Span);
 public record DereferenceExpressionNode(ExpressionNode Target, SourceSpan Span) : ExpressionNode(Span);
 
 // public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span); // todo: remove mutability again once we are returning from the visitor nodes
