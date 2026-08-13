@@ -463,16 +463,15 @@ Owned<T>    // Denotes an owned instance og a T with obligation to free memory. 
 ### Ergonomics
 I've tried to consider the ergeoomics of working with such explicitness, because boiler plate is inevitable when we want every cost or every decision to be laid bare in front of us. To that end, here are some initial ideas of how to make the idea workable. Many of these will be deferred, however. As an aside, any sugar would have to be shorthad that lowers to code that could otherwise be hand written
 
-- `?` to early return an error from a called function, e.g. `let a = i32.TryParse("gdgd")?;`
-- A short hand default value to handle errors e.g. `let a = i32.TryParse("gdgd") onerror 0;`
+- `?` to early return an error from a called function, e.g. `let a = i32.Parse("gdgd")?;`
+- A short hand default value to handle errors e.g. `let a = i32.Parse("gdgd") onerror 0;`
 - `let` and `var` for (im)mutability
 - Tagged unions with exhaustive pattern matching
 - `Ok` token for the success case of `Result<void>`
 - `Option<T>` with `if let Some(myValue) = someOption` or `if var Some(myValue) = someOption`
 - Auto forwarding of properties and functions from `myOwned` rather than `myOwned.*.`
 - Optional type inference
-- `0..5` and `0..=5` range syntax for exclusive/inclusive upper bounds
-- destructuring with `take` semantics in order to take ownership of its constituent parts, e.g. `let (x, y, z) = take myPoint3d;`
+- `0..<5` and `0..=5` range syntax for exclusive/inclusive upper bounds
 - `defer` and `errordefer` to place fulfilment of the obligation alongside its creations
 
 

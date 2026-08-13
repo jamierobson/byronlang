@@ -335,7 +335,8 @@ public class Tokenizer
             '.' => ConsumingMatch('.') 
                 ? ConsumingMatch('=') 
                     ? Token.Create(TokenKind.DotDotEquals, "..=", PunctuationSpan())
-                    : Token.Create(TokenKind.DotDot, "..", PunctuationSpan())
+                    : ConsumingMatch('<') ? Token.Create(TokenKind.DotDotLAngle, "..<", PunctuationSpan()) 
+                        : Token.Error(character.ToString(), $"Unexpected token '..{character}'", CreateSourceSpan(start, _position))
                     : Token.Create(TokenKind.Dot, ".", PunctuationSpan()),
             '=' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.EqualsEquals, "==", PunctuationSpan())
