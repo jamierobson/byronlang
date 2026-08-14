@@ -31,7 +31,7 @@ public partial class LlvmIrGenerator
                 GenerateAssignStatement(assign);
                 break;
             default:
-                throw new ByronNotImplementedException(node.GetType(), this);
+                throw new ByronNotImplementedException(node.GetType(), this, node.SourceNode.Span);
         }
     }
 
@@ -51,7 +51,7 @@ public partial class LlvmIrGenerator
         }
         else
         {
-            throw new ByronNotImplementedException(node.Target.GetType(), this);
+            throw new ByronNotImplementedException(node.Target.GetType(), this, node.Target.SourceNode.Span);
         }
 
         var (value, llvmType) = GenerateExpression(node.Value);

@@ -46,6 +46,6 @@ public abstract record LlvmType
         VoidTypeNode => new Void(),
         NominalTypeNode user => new Struct(user.CanonicalName),
         ReferenceTypeNode refType => new Pointer(From(refType.Target)),
-        _ => throw new ByronNotImplementedException(node.GetType(), typeof(LlvmType))
+        _ => throw new ByronNotImplementedException(node.GetType(), typeof(LlvmType), node.SourceNode.Span)
     };
 }

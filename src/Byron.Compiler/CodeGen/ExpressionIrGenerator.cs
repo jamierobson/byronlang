@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.LowLevel;
@@ -31,12 +32,18 @@ public partial class LlvmIrGenerator
             ExtendIntegerNode extendInt => GenerateExtendInteger(extendInt),
             ExtendFloatNode extendFloat => GenerateExtendFloat(extendFloat),
             DereferenceExpressionNode dereference => GenerateDereference(dereference),
+            AddressOfExpressionNode addressOf => GenerateAddressOf(addressOf),
             
             StructFieldInitializationExpressionNode fieldInitialization => GenerateStructFieldInitializationExpression(fieldInitialization),
             MemberAccessExpressionNode memberAccess => GenerateMemberAccessExpression(memberAccess),
             
-            _ => throw new ByronNotImplementedException(node.GetType(), this)
+            _ => throw new ByronNotImplementedException(node.GetType(), this, node.SourceNode.Span)
         };
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateAddressOf(AddressOfExpressionNode addressOf)
+    {
+        throw new ByronNotImplementedException(typeof(AddressOfExpressionNode), this, addressOf.SourceNode.Span);
     }
 
     private (string ReturnValue, LlvmType ReturnType) GenerateDereference(DereferenceExpressionNode dereference)
@@ -137,25 +144,30 @@ public partial class LlvmIrGenerator
     
     private (string ReturnValue, LlvmType ReturnType) GenerateCallExpression(CallExpressionNode node)
     {
-        if (node.Callee is not VariableExpressionNode functionIdentifier)
-        {
-            throw new ByronNotImplementedException("Dynamic function pointers/closures", this);
-        }
+        var variableCallee = node.Callee as VariableExpressionNode;
+        var memberAccessCall = node.Callee as MemberAccessExpressionNode;
 
+        if (variableCallee is null && memberAccessCall is null)
+        {
+            throw new ByronNotImplementedException(node.Callee.GetType(), this, node.SourceNode.Span);       
+        }
+        
         var evaluatedArguments = node.Arguments.Select(GenerateExpression).ToList();
         var argumentIr = string.Join(", ", evaluatedArguments.Select(arg => $"{arg.ReturnType} {arg.ReturnValue}"));
 
-        var llvmType = _context.GetFunctionReturnType(functionIdentifier.Name);
+        var functionName = variableCallee?.Name ?? memberAccessCall?.MemberName ?? throw new UnreachableException();
+        
+        var llvmType = _context.GetFunctionReturnType(functionName);
 
         if (llvmType is LlvmType.Void)
         {
-            _context.EmitLine($"    call void @{functionIdentifier.Name}({argumentIr})");
+            _context.EmitLine($"    call void @{functionName}({argumentIr})");
             return ("void", new LlvmType.Void());
         }
         else
         {
             var resultRegister = _context.AllocateRegister();
-            _context.EmitLine($"    {resultRegister} = call {llvmType} @{functionIdentifier.Name}({argumentIr})");
+            _context.EmitLine($"    {resultRegister} = call {llvmType} @{functionName}({argumentIr})");
             return (resultRegister, llvmType);
         }
     }
@@ -208,7 +220,7 @@ public partial class LlvmIrGenerator
                 _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
                 break;
             default:
-                throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this);
+                throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this, node.SourceNode.Span);
         }
 
         return (resultRegister, returnType);

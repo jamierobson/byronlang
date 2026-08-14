@@ -169,6 +169,11 @@ public record DereferenceExpressionNode(High.DereferenceExpressionNode SourceNod
     public new High.DereferenceExpressionNode SourceNode => (High.DereferenceExpressionNode)base.SourceNode;
 }
 
+public record AddressOfExpressionNode(High.AddressOfExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
+{
+    public new High.AddressOfExpressionNode SourceNode => (High.AddressOfExpressionNode)base.SourceNode;
+}
+
 public record ExtendIntegerNode(High.ExtendIntegerNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType) : ExpressionNode(SourceNode)
 {
     public new High.ExtendIntegerNode SourceNode => (High.ExtendIntegerNode)base.SourceNode;
@@ -205,13 +210,7 @@ public record NominalTypeNode(High.NominalTypeNode SourceNode) : TypeNode(Source
     public string CanonicalName => SourceNode.CanonicalName.ToString(); // todo: Should this also be a CanonicalName type
 }
 
-public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
-// public record ReferenceTypeNode(High.ReferenceTypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
-// public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
-{
-    // public new High.ReferenceTypeNode SourceNode => (High.ReferenceTypeNode)base.SourceNode;
-    // public bool IsMutable => SourceNode.IsMutable;
-}
+public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode);
 
 public abstract record BuiltInTypeNode(High.BuiltInTypeNode SourceNode) : TypeNode(SourceNode)
 {

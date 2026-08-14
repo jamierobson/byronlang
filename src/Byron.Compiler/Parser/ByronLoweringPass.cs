@@ -118,11 +118,13 @@ public class ByronLoweringPass
             High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
             High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
-            High.CallExpressionNode call => CallExpression(call),
+            High.MethodCallExpression call => MethodSyntaxCallExpression(call),
+            High.FreeFunctionCallExpressionNode call => FreeFunctionCallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
             High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(memberAccess, Expression(memberAccess.Target), memberAccess.MemberName),
             High.DereferenceExpressionNode dereference => new Low.DereferenceExpressionNode(dereference, Expression(dereference.Target)),
+            High.AddressOfExpressionNode address => new Low.AddressOfExpressionNode(address, Expression(address.Target)),
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
             High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(floatToInt,Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
@@ -211,10 +213,17 @@ public class ByronLoweringPass
         return new Low.IfStatementNode(ifElse, condition, thenBranch);
     }
     
-    private Low.CallExpressionNode CallExpression(High.CallExpressionNode call)
+    private Low.CallExpressionNode FreeFunctionCallExpression(High.FreeFunctionCallExpressionNode call)
     {
         var callee = Expression(call.Callee);
         var args = call.Arguments.Select(Expression).ToList();
+        return new Low.CallExpressionNode(call, callee, args);
+    }
+    
+    private Low.CallExpressionNode MethodSyntaxCallExpression(High.MethodCallExpression call)
+    {
+        var callee = Expression(call.Callee);
+        List<Low.ExpressionNode> args = [callee, ..call.Arguments.Select(Expression)];
         return new Low.CallExpressionNode(call, callee, args);
     }
 
