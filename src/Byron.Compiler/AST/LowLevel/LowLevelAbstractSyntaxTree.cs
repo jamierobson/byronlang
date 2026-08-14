@@ -130,9 +130,9 @@ public record FloatLiteralNode(High.FloatLiteralNode SourceNode) : ExpressionNod
     public double Value => SourceNode.Value;
 }
 
-public record BoolLiteralNode(High.BoolLiteralNode SourceNode) : ExpressionNode(SourceNode)
+public record BoolLiteralNode(High.BooleanLiteralNode SourceNode) : ExpressionNode(SourceNode)
 {
-    public new High.BoolLiteralNode SourceNode => (High.BoolLiteralNode)base.SourceNode;
+    public new High.BooleanLiteralNode SourceNode => (High.BooleanLiteralNode)base.SourceNode;
     public bool Value => SourceNode.Value;
 }
 

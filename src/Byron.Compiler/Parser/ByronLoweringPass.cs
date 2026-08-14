@@ -116,7 +116,7 @@ public class ByronLoweringPass
         {
             High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral),
             High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
-            High.BoolLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
+            High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
             High.CallExpressionNode call => CallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 

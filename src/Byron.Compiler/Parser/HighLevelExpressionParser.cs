@@ -106,9 +106,9 @@ public partial class ByronHighLevelAstParser
         {
             var operand = ParseUnary(context);
 
-            if (operand is BoolLiteralNode booleanLiteral)
+            if (operand is BooleanLiteralNode booleanLiteral)
             {
-                return new BoolLiteralNode(!booleanLiteral.Value, ExpandSpan(Previous(), booleanLiteral));
+                return new BooleanLiteralNode(!booleanLiteral.Value, ExpandSpan(Previous(), booleanLiteral));
             }
 
             return new UnaryExpressionNode(UnaryOperator.Not, operand, ExpandSpan(Previous(), operand));
@@ -184,11 +184,11 @@ public partial class ByronHighLevelAstParser
         }
         if (ConsumingActiveTokenMatch(TokenKind.True))
         {
-            return new BoolLiteralNode(true, Previous().Span);
+            return new BooleanLiteralNode(true, Previous().Span);
         }
         if (ConsumingActiveTokenMatch(TokenKind.False))
         {
-            return new BoolLiteralNode(false, Previous().Span);
+            return new BooleanLiteralNode(false, Previous().Span);
         }
 
         if (ConsumingActiveTokenMatch(TokenKind.SelfType))
