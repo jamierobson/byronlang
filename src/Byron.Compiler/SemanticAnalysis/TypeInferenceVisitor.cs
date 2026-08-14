@@ -104,7 +104,7 @@ public class TypeInferenceVisitor
 
     private void VisitStatementWhile(WhileStatement @while)
     {
-        VisitExpression(@while.ContinuationCondition);
+        _ = VisitExpression(@while.ContinuationCondition);
         VisitBlock(@while.Body);
     }
 
@@ -112,14 +112,14 @@ public class TypeInferenceVisitor
     {
         if (@return.Expression is not null)
         {
-            VisitExpression(@return.Expression);
-            // todo: Type check expression vs current function return type.
+            _ = VisitExpression(@return.Expression);
+            // todo: Type check expression vs current function return type using TryCoerce.
         }
     }
 
     private void VisitIfElseStatement(IfElseStatement ifElse)
     {
-        VisitExpression(ifElse.Condition);
+        _ = VisitExpression(ifElse.Condition);
         var conditionType = _typeMap.GetType(ifElse.Condition);
         if (conditionType is not BoolTypeNode)
         {
@@ -133,22 +133,23 @@ public class TypeInferenceVisitor
         {
             VisitBlock(ifElse.ElseBranch);
         }
-
     }
 
     private void VisitAssignmentStatement(AssignmentStatementNode assignment)
     {
-        VisitExpression(assignment.Target);
-        VisitExpression(assignment.Value);
+        assignment.Target = VisitExpression(assignment.Target);
+        assignment.Value = VisitExpression(assignment.Value);
 
         var targetType = _typeMap.GetType(assignment.Target);
-        var valueType = _typeMap.GetType(assignment.Value);
 
-        if (!IsAssignable(assignment, valueType))
+        if (!TryCoerce(assignment.Value, targetType, out var coercedValue))
         {
+            var valueType = _typeMap.GetType(assignment.Value);
             _diagnostics.TypeMismatch(targetType, valueType);
             return;
         }
+
+        assignment.Value = coercedValue;
 
         if (assignment.Target is VariableExpressionNode variable)
         {
@@ -278,7 +279,6 @@ public class TypeInferenceVisitor
         foreach (var fieldInitializer in initialization.FieldInitializers)
         {
             fieldInitializer.Value = VisitExpression(fieldInitializer.Value);
-            var valueType = _typeMap.GetType(fieldInitializer.Value);
 
             var matchingField = structDeclaration.Fields.FirstOrDefault(f => f.Name == fieldInitializer.FieldName);
             if (matchingField is null)
@@ -287,9 +287,14 @@ public class TypeInferenceVisitor
                 continue;
             }
 
-            if (!IsAssignable(fieldInitializer.Value, valueType, matchingField.Type))
+            if (!TryCoerce(fieldInitializer.Value, matchingField.Type, out var coercedValue))
             {
+                var valueType = _typeMap.GetType(fieldInitializer.Value);
                 _diagnostics.TypeMismatch(matchingField.Type, valueType);
+            }
+            else
+            {
+                fieldInitializer.Value = coercedValue;
             }
         }
 
@@ -323,7 +328,6 @@ public class TypeInferenceVisitor
             return binaryExpression;
         }
 
-        //todo: Update to "just" set the casts from the existing try get preferred coersion type. Probably just "Coerce" who sets diagnostics typemismatch
         if (TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType,
                 out var coerced))
         {
@@ -422,7 +426,7 @@ public class TypeInferenceVisitor
         if (_symbolTable.TryGet(variableDeclaration.Name, out _))
         {
             _diagnostics.Duplicate(variableDeclaration);
-            VisitExpression(variableDeclaration.Initializer);
+            _ = VisitExpression(variableDeclaration.Initializer);
             return;
         }
 
@@ -438,216 +442,17 @@ public class TypeInferenceVisitor
                 return;
             }
 
-            if (!IsAssignable(variableDeclaration, inferredType))
+            if (!TryCoerce(variableDeclaration.Initializer, variableDeclaration.TypeAnnotation, out var coercedInitializer))
             {
                 _diagnostics.TypeMismatch(variableDeclaration.TypeAnnotation, inferredType);
                 return;
             }
 
+            variableDeclaration.Initializer = coercedInitializer;
             finalType = variableDeclaration.TypeAnnotation;
         }
 
         _symbolTable.Declare(variableDeclaration.Name, finalType, variableDeclaration.IsMutable);
-    }
-
-    private bool IsAssignable(VariableDeclarationNode variableDeclaration, TypeNode assignedValueType)
-    {
-        if (variableDeclaration.TypeAnnotation is null)
-        {
-            return true;
-        }
-
-        var declaredType = variableDeclaration.TypeAnnotation;
-        var declaredTypeName = declaredType.CanonicalName;
-        var assignedValueTypeName = assignedValueType.CanonicalName;
-
-        if (string.Equals(declaredTypeName, assignedValueTypeName))
-        {
-            return true;
-        }
-
-        if (declaredType is NumericTypeNode declaredNumeric && assignedValueType is NumericTypeNode)
-        {
-            if (variableDeclaration.Initializer is IntegerLiteralNode intLiteral)
-            {
-                if (TypeBounds.CanCoerceToType(intLiteral.Value, declaredNumeric))
-                {
-                    return true;
-                }
-
-                _diagnostics.OutOfRange(intLiteral, declaredNumeric);
-            }
-        }
-
-        return false;
-    }
-
-    private bool IsAssignable(ExpressionNode expression, TypeNode assignedType, TypeNode targetType)
-    {
-        if (assignedType.CanonicalName == targetType.CanonicalName)
-        {
-            return true;
-        }
-
-        if (assignedType is not NumericTypeNode assignedNumeric || targetType is not NumericTypeNode targetNumeric)
-        {
-            return false;
-        }
-
-        if (expression is IntegerLiteralNode intLiteral && TypeBounds.CanCoerceToType(intLiteral.Value, targetNumeric))
-        {
-            return true;
-        }
-
-        if (expression is FloatLiteralNode floatLiteral &&
-            TypeBounds.CanCoerceToType(floatLiteral.Value, targetNumeric))
-        {
-            return true;
-        }
-
-        return (assignedNumeric, targetNumeric) switch
-        {
-            (SignedIntTypeNode assigned, SignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
-            (UnsignedIntTypeNode assigned, UnsignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
-            (UnsignedIntTypeNode assigned, SignedIntTypeNode target) => assigned.BitWidth < target.BitWidth,
-            (SignedIntTypeNode, UnsignedIntTypeNode) => false,
-            (SignedIntTypeNode assigned, FloatTypeNode target) => target.BitWidth switch
-            {
-                32 => assigned.BitWidth <= 16,
-                64 => assigned.BitWidth <= 32,
-                _ => false
-            },
-            (UnsignedIntTypeNode assigned, FloatTypeNode target) => target.BitWidth switch
-            {
-                32 => assigned.BitWidth <= 16,
-                64 => assigned.BitWidth <= 32,
-                _ => false
-            },
-            (FloatTypeNode assigned, FloatTypeNode target) => assigned.BitWidth < target.BitWidth,
-            _ => false
-        };
-    }
-
-    private bool IsAssignable(ExpressionNode expression, TypeNode assignedType, TypeNode targetType,
-        [NotNullWhen(true)] out ExpressionNode? coercedExpression)
-    {
-
-        coercedExpression = expression;
-
-        if (assignedType.CanonicalName == targetType.CanonicalName)
-        {
-            return true;
-        }
-
-        coercedExpression = AddCoercionsWhenRequired(expression, targetType);
-        return _typeMap.GetType(coercedExpression).CanonicalName == targetType.CanonicalName;
-    }
-
-    private ExpressionNode AddCoercionsWhenRequired(ExpressionNode expression, TypeNode targetType)
-    {
-        var sourceType = _typeMap.GetType(expression);
-
-        if (sourceType.CanonicalName == targetType.CanonicalName)
-        {
-            return expression;
-        }
-
-
-        //todo: just return the coercion, no need for the try stuff. 
-        if (TryCreateCoercionNode(expression, sourceType, targetType, out var coercionNode))
-        {
-            _typeMap.SetType(coercionNode, targetType);
-            return coercionNode;
-        }
-
-        return expression;
-    }
-
-    private bool TryCreateCoercionNode(
-        ExpressionNode operand,
-        TypeNode sourceType,
-        TypeNode targetType,
-        [NotNullWhen(true)] out ExpressionNode? coercionNode)
-    {
-        coercionNode = null;
-
-        if (targetType is ReferenceTypeNode targetReferenceType &&
-            sourceType.CanonicalName == targetReferenceType.Target.CanonicalName)
-        {
-            coercionNode = new AddressOfExpressionNode(operand, targetReferenceType.IsMutable, operand.Span);
-            return true;
-        }
-
-        if (sourceType is ReferenceTypeNode sourceReferenceType &&
-            sourceReferenceType.Target.CanonicalName == targetType.CanonicalName)
-        {
-            coercionNode = new DereferenceExpressionNode(operand, operand.Span);
-            return true;
-        }
-
-        if (sourceType is IntegerTypeNode sourceInt && targetType is FloatTypeNode targetFloat)
-        {
-            coercionNode = new CastIntToFloatNode(operand, targetFloat, sourceInt.Signed, operand.Span);
-            return true;
-        }
-
-        if (sourceType is FloatTypeNode && targetType is IntegerTypeNode targetInt)
-        {
-            if (operand is FloatLiteralNode floatLit && !TypeBounds.CanCoerceToType(floatLit.Value, targetInt))
-            {
-                return false;
-            }
-
-            coercionNode = new CastFloatToIntNode(operand, targetInt, targetInt.Signed, operand.Span);
-            return true;
-        }
-
-        if (sourceType is IntegerTypeNode sourceIntToWiden && targetType is IntegerTypeNode widerInt)
-        {
-            if (sourceIntToWiden.BitWidth < widerInt.BitWidth)
-            {
-                coercionNode = new ExtendIntegerNode(operand, widerInt, operand.Span);
-                return true;
-            }
-
-            return false;
-        }
-
-        if (sourceType is FloatTypeNode sourceFloatToWiden && targetType is FloatTypeNode widerFloat &&
-            sourceFloatToWiden.BitWidth < widerFloat.BitWidth)
-        {
-            coercionNode = new ExtendFloatNode(operand, widerFloat, operand.Span);
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool IsAssignable(AssignmentStatementNode assignment, TypeNode assignedValueType)
-    {
-        var targetType = _typeMap.GetType(assignment.Target);
-        var declaredTypeName = targetType.CanonicalName;
-        var assignedValueTypeName = assignedValueType.CanonicalName;
-
-        if (string.Equals(declaredTypeName, assignedValueTypeName))
-        {
-            return true;
-        }
-
-        if (targetType is NumericTypeNode declaredNumeric && assignedValueType is NumericTypeNode)
-        {
-            if (assignment.Value is IntegerLiteralNode intLiteral)
-            {
-                if (TypeBounds.CanCoerceToType(intLiteral.Value, declaredNumeric))
-                {
-                    return true;
-                }
-
-                _diagnostics.OutOfRange(intLiteral, declaredNumeric);
-            }
-        }
-
-        return false;
     }
 
     private ExpressionNode VisitVariableExpression(VariableExpressionNode variableExpression)
@@ -675,7 +480,6 @@ public class TypeInferenceVisitor
 
         string[] modulePath;
         string functionName;
-        TypeNode targetType;
 
         if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
@@ -686,7 +490,7 @@ public class TypeInferenceVisitor
         {
             if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
             {
-                if(_typeRegistry.TryGetStruct(targetVariableExpression.Name, out var targetStruct))
+                if (_typeRegistry.TryGetStruct(targetVariableExpression.Name, out var targetStruct))
                 {
                     modulePath = [.. targetStruct.ModulePath, targetStruct.Name];
                 }
@@ -694,7 +498,7 @@ public class TypeInferenceVisitor
                 {
                     memberAccess.Target = VisitExpression(targetVariableExpression);
                     functionInvocation = new MethodCallExpression(memberAccess.Target, callExpression.Arguments, callExpression.Span);
-                    targetType = _typeMap.GetType(memberAccess.Target); 
+                    var targetType = _typeMap.GetType(memberAccess.Target); 
                     modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
                 }
                 else
@@ -705,10 +509,10 @@ public class TypeInferenceVisitor
             else
             {
                 memberAccess.Target = VisitExpression(memberAccess.Target);
-        
-                if (_typeMap.TryGetType(memberAccess.Target, out targetType))
+
+                if (_typeMap.TryGetType(memberAccess.Target, out var targetType))
                 {
-                    modulePath = targetType.CanonicalName.ModulePath;
+                    modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
                     functionInvocation = new MethodCallExpression(memberAccess.Target, callExpression.Arguments, callExpression.Span);
                 }
                 else
@@ -716,7 +520,7 @@ public class TypeInferenceVisitor
                     modulePath = [];
                 }
             }
-            
+
             functionName = memberAccess.MemberName;
         }
         else
@@ -739,9 +543,7 @@ public class TypeInferenceVisitor
 
     private CallExpressionNode TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function)
     {
-        // todo: This should be hit when functionInvocation is set to MethodCall. Check that.
-        if (methodCall.Arguments.Count + 1 !=
-            function.Parameters.Count) // self should be the first argument for a method call
+        if (methodCall.Arguments.Count + 1 != function.Parameters.Count)
         {
             _diagnostics.InvalidArgumentCount(methodCall, function);
         }
@@ -800,7 +602,7 @@ public class TypeInferenceVisitor
 
             callExpression.Arguments[i] = coercedExpression;
         }
-        
+
         _typeMap.SetType(callExpression, function.ReturnType);
         return callExpression;
     }
@@ -831,17 +633,6 @@ public class TypeInferenceVisitor
         return memberAccess;
     }
 
-
-
-
-
-
-
-    /// <summary>
-    /// Attempts to coerce an expression to a target type.
-    /// If coercion is valid, returns true and populates result with the (possibly wrapped) expression,
-    /// updating _typeMap accordingly.
-    /// </summary>
     private bool TryCoerce(ExpressionNode expression, TypeNode targetType,
         [NotNullWhen(true)] out ExpressionNode? result)
     {
@@ -902,37 +693,34 @@ public class TypeInferenceVisitor
 
         if (sourceType is FloatTypeNode && targetType is IntegerTypeNode targetInt)
         {
+            if (expression is FloatLiteralNode floatLit && !TypeBounds.CanCoerceToType(floatLit.Value, targetInt))
+            {
+                result = null;
+                return false;
+            }
+
             result = new CastFloatToIntNode(expression, targetInt, targetInt.Signed, expression.Span);
             _typeMap.SetType(result, targetType);
             return true;
         }
 
-        if (sourceType is IntegerTypeNode sourceIntWiden && targetType is IntegerTypeNode widerInt)
+        if (sourceType is IntegerTypeNode sourceIntToWiden && targetType is IntegerTypeNode widerInt &&
+            sourceIntToWiden.BitWidth < widerInt.BitWidth)
         {
-            if (sourceIntWiden.BitWidth < widerInt.BitWidth)
-            {
-                result = new ExtendIntegerNode(expression, widerInt, expression.Span);
-                _typeMap.SetType(result, targetType);
-                return true;
-            }
+            result = new ExtendIntegerNode(expression, widerInt, expression.Span);
+            _typeMap.SetType(result, targetType);
+            return true;
         }
 
-        if (sourceType is FloatTypeNode sourceFloatWiden && targetType is FloatTypeNode widerFloat)
+        if (sourceType is FloatTypeNode sourceFloatToWiden && targetType is FloatTypeNode widerFloat &&
+            sourceFloatToWiden.BitWidth < widerFloat.BitWidth)
         {
-            if (sourceFloatWiden.BitWidth < widerFloat.BitWidth)
-            {
-                result = new ExtendFloatNode(expression, widerFloat, expression.Span);
-                _typeMap.SetType(result, targetType);
-                return true;
-            }
+            result = new ExtendFloatNode(expression, widerFloat, expression.Span);
+            _typeMap.SetType(result, targetType);
+            return true;
         }
 
         result = null;
         return false;
     }
 }
-
-
-
-
-
