@@ -11,9 +11,9 @@ public class FunctionRegistry
     
     public bool TryRegister(FunctionDeclarationNode declaration)
     {
-        var canonicalName = declaration.CanonicalName();
+        var canonicalName = declaration.CanonicalName.ToString();
         var symbol = new FunctionSymbol(
-            canonicalName,
+            declaration.CanonicalName,
             declaration.ModulePath,
             declaration.Name,
             declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type)).ToList(),
@@ -34,8 +34,9 @@ public class FunctionRegistry
         string shortName, 
         [NotNullWhen(true)] out FunctionSymbol? function)
     {
-        var canonicalName = CanonicalNames.InModule(modulePath, shortName);
-        return _declarations.TryGetValue(canonicalName, out function) 
+        // todo: When this is 
+        var canonicalNameString = CanonicalName.CanonicalNameString(modulePath, shortName);
+        return _declarations.TryGetValue(canonicalNameString, out function) 
                || _declarations.TryGetValue(shortName, out function);
     }
 }

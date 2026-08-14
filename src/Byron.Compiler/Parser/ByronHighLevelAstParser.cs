@@ -283,7 +283,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     private Token Peek() => tokens[_activeTokenIndex];
     private Token Previous() => tokens[_activeTokenIndex - 1];
     private bool IsAtEnd() => _activeTokenIndex >= tokens.Count || Peek().Kind == TokenKind.Eof;
-    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, Previous().Span);
+    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, Peek().Span);
     private SourceSpan ExpandSpan(Token firstToken, Token endToken) => ExpandSpan(firstToken.Span, endToken.Span);
     private SourceSpan ExpandSpan(AstNode node, Token endToken) => ExpandSpan(node.Span, endToken.Span);
     private SourceSpan ExpandSpan(Token firstToken, AstNode endNode) => ExpandSpan(firstToken.Span, endNode.Span);

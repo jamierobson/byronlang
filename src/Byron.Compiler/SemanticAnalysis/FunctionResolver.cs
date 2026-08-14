@@ -36,7 +36,7 @@ public class FunctionResolver
 
             if (!_functionRegistry.TryRegister(declaration))
             {
-                _ = _functionRegistry.TryGetFunction(declaration.CanonicalName(), out var originalDeclaration);
+                _ = _functionRegistry.TryGetFunction(declaration.CanonicalName.ToString(), out var originalDeclaration);
                 _diagnostics.Duplicate(declaration, originalDeclaration!.Declaration.Span);
             }
         }

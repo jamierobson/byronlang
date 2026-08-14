@@ -143,7 +143,7 @@ public class ByronLoweringPass
         var coercedLeft = binary.Left;
         var coercedRight = binary.Right;
 
-        if (leftType.CanonicalName() != rightType.CanonicalName())
+        if (leftType.CanonicalName != rightType.CanonicalName) // todo: Is this a potential bug? Check in failing tests
         {
             var targetType = _highLevelExpressionTypeMap.GetType(binary);
 

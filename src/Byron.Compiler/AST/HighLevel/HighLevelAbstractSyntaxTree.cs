@@ -19,11 +19,7 @@ public abstract record AstNode(SourceSpan Span)
 // Top Level Declarations
 public abstract record TopLevelDeclarationNode(string Name, string[] ModulePath, SourceSpan Span) : AstNode(Span)
 {
-    private string? _canonicalName;
-    private string? _moduleName;
-    public string CanonicalName() => _canonicalName ??= CanonicalNames.InModule(ModulePath, Name);
-    
-    public string CanonicalModuleName() => _moduleName ??= CanonicalNames.Module(ModulePath);
+    public CanonicalName CanonicalName => field ??= new(ModulePath, Name);
 };
 
 public record ImplementBlockDeclarationNode(NominalTypeNode TypeNode, SourceSpan Span) : TopLevelDeclarationNode(TypeNode.Name, TypeNode.ModulePath, Span);
@@ -62,7 +58,18 @@ public record DereferenceExpressionNode(ExpressionNode Target, SourceSpan Span) 
 
 public abstract record CallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span) : ExpressionNode(Span);
 public record FreeFunctionCallExpressionNode(ExpressionNode Callee, List<ExpressionNode> Arguments, SourceSpan Span): CallExpressionNode(Callee, Arguments, Span);
-public record MethodCallExpression(ExpressionNode Receiver, List<ExpressionNode> Arguments, SourceSpan Span): CallExpressionNode(Receiver, Arguments, Span);
+
+// public record MethodCallExpression(ExpressionNode Receiver, List<ExpressionNode> Arguments, SourceSpan Span): CallExpressionNode(Receiver, Arguments, Span);
+public record MethodCallExpression : CallExpressionNode
+{
+    public ExpressionNode Receiver { get; set; } 
+
+    public MethodCallExpression(ExpressionNode receiver, List<ExpressionNode> arguments, SourceSpan span) : base(receiver, arguments, span)
+    {
+        Receiver = receiver;
+    }
+}
+
 
 
 // public record BinaryExpressionNode(ExpressionNode Left, BinaryOperator Operator, ExpressionNode Right, SourceSpan Span) : ExpressionNode(Span); // todo: remove mutability again once we are returning from the visitor nodes
@@ -112,30 +119,30 @@ public record CastFloatToIntNode(ExpressionNode Operand, IntegerTypeNode TargetT
 
 
 // Types
-public abstract record TypeNode(SourceSpan Span) : AstNode(Span)
+public abstract record TypeNode(CanonicalName CanonicalName, SourceSpan Span) : AstNode(Span)
 {
-    private string? _canonicalName;
-    protected abstract string GetCanonicalName();
-
-    public string CanonicalName()
-    {
-        return _canonicalName ??= GetCanonicalName();
-    }
+    // private Canonical? _canonicalName;
+    // protected abstract string GetCanonicalName();
+    //
+    // public string CanonicalName()
+    // {
+    //     return _canonicalName ??= GetCanonicalName();
+    // }
 };
 
-public record NominalTypeNode(string Name, string[] ModulePath, SourceSpan Span) : TypeNode(Span)
+public record NominalTypeNode(string Name, string[] ModulePath, SourceSpan Span) : TypeNode(CanonicalName.From(ModulePath, Name), Span)
 {
-    protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
+    // protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
 }
 
-public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(Span)
+public record ReferenceTypeNode(TypeNode Target, bool IsMutable, SourceSpan Span) : TypeNode(new ReferenceCanonicalName(Target, IsMutable), Span)
 {
-    protected override string GetCanonicalName() => $"&{(IsMutable ? "var " : "")}{Target.CanonicalName()}";
+    // protected override string GetCanonicalName() => $"&{(IsMutable ? "var " : "")}{Target.CanonicalName}";
 };
 
-public abstract record BuiltInTypeNode(string Name, List<string> ModulePath, SourceSpan Span) : TypeNode(Span)
+public abstract record BuiltInTypeNode(string Name, string[] ModulePath, SourceSpan Span) : TypeNode(CanonicalName.From(ModulePath, Name), Span)
 {
-    protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
+    // protected  override string GetCanonicalName() => CanonicalNames.InModule(ModulePath, Name);
 };
 public abstract record PrimitiveTypeNode(string Name, SourceSpan Span): BuiltInTypeNode(Name, [], Span);
 

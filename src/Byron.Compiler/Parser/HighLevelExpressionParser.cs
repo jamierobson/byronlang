@@ -151,7 +151,7 @@ public partial class ByronHighLevelAstParser
 
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
-                if (identifier is { Kind: TokenKind.SelfReceiver or TokenKind.Identifier})
+                if (identifier is { Kind: TokenKind.Identifier})
                 {
                     expression = ParseCallExpression(context, identifier, expression);
                     continue;
@@ -253,13 +253,7 @@ public partial class ByronHighLevelAstParser
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
         var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-
-        return identifier.Kind switch
-        {
-            TokenKind.Identifier => new FreeFunctionCallExpressionNode(callee, arguments, ExpandSpan(callee, endToken)),
-            TokenKind.SelfReceiver => new MethodCallExpression(callee, arguments, ExpandSpan(callee, endToken)),
-            _ => throw new ByronNotImplementedException(identifier.Kind, this, identifier.Span)
-        };
+        return new FreeFunctionCallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
     }
 
     private List<StructFieldInitializerNode> ParseStructFieldInitializers(ScopeContext context)

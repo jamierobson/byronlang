@@ -202,7 +202,7 @@ public abstract record TypeNode(High.TypeNode SourceNode) : AstNode(SourceNode)
 public record NominalTypeNode(High.NominalTypeNode SourceNode) : TypeNode(SourceNode)
 {
     public new High.NominalTypeNode SourceNode => (High.NominalTypeNode)base.SourceNode;
-    public string CanonicalName => SourceNode.CanonicalName();
+    public string CanonicalName => SourceNode.CanonicalName.ToString(); // todo: Should this also be a CanonicalName type
 }
 
 public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
