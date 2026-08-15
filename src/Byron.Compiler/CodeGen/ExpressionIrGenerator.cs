@@ -60,6 +60,17 @@ public partial class LlvmIrGenerator
         return (fieldPtrRegister, new LlvmType.Pointer(fieldType));
     }
     
+    private (string ReturnValue, LlvmType ReturnType) AddressOf(DereferenceExpressionNode dereference)
+    {
+        var (valueRegister, valueType) = GenerateExpression(dereference.Target);
+        if (valueType is LlvmType.Pointer ptrType)
+        {
+            return (valueRegister, ptrType);
+        }
+
+        throw new ByronCodeGenerationException($"Cannot dereference non-pointer type '{valueType}'.");
+    }
+    
     private (string ReturnValue, LlvmType ReturnType) GenerateAddressOf(AddressOfExpressionNode addressOf)
     {
         var target = addressOf.Target;
@@ -68,7 +79,7 @@ public partial class LlvmIrGenerator
         {
             VariableExpressionNode variable => AddressOf(variable),
             MemberAccessExpressionNode memberAccess => AddressOf(memberAccess),
-            DereferenceExpressionNode dereference => GenerateExpression(dereference.Target),
+            DereferenceExpressionNode dereference => AddressOf(dereference),
             _ => throw new ByronCodeGenerationException($"Cannot take address of expression of type '{target.GetType().Name}'.")
         };
     }
@@ -100,7 +111,9 @@ public partial class LlvmIrGenerator
         _context.EmitLine($"    {resultRegister} = {instruction} {operandType} {operandValue} to {targetLlvmType}");
     
         return (resultRegister, targetLlvmType);
-    }private (string ReturnValue, LlvmType ReturnType) GenerateCastIntToFloat(CastIntToFloatNode intToFloat)
+    }
+    
+    private (string ReturnValue, LlvmType ReturnType) GenerateCastIntToFloat(CastIntToFloatNode intToFloat)
     {
         var (operandValue, operandType) = GenerateExpression(intToFloat.Operand);
         var targetLlvmType = new LlvmType.Float(intToFloat.TargetType.BitWidth);

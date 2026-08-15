@@ -84,21 +84,35 @@ public partial class LlvmIrGenerator
         {
             (targetPointerRegister, targetType) = GenerateMemberAccessPointer(nested);
         }
+        else if (node.Target is DereferenceExpressionNode dereference)
+        {
+            var (valueRegister, valueType) = GenerateExpression(dereference.Target);
+
+            if (valueType is LlvmType.Pointer ptrType)
+            {
+                targetPointerRegister = valueRegister;
+                targetType = ptrType.ElementType;
+            }
+            else
+            {
+                throw new ByronCodeGenerationException($"Cannot dereference non-pointer type '{valueType}'.");
+            }
+        }
         else
         {
-            var (valReg, valType) = GenerateExpression(node.Target);
+            var (valueRegister, valueType) = GenerateExpression(node.Target);
 
-            if (valType is LlvmType.Pointer ptrType)
+            if (valueType is LlvmType.Pointer ptrType)
             {
-                targetPointerRegister = valReg;
+                targetPointerRegister = valueRegister;
                 targetType = ptrType.ElementType;
             }
             else
             {
                 targetPointerRegister = _context.AllocateRegister();
-                _context.EmitLine($"    {targetPointerRegister} = alloca {valType}");
-                _context.EmitLine($"    store {valType} {valReg}, {valType}* {targetPointerRegister}");
-                targetType = valType;
+                _context.EmitLine($"    {targetPointerRegister} = alloca {valueType}");
+                _context.EmitLine($"    store {valueType} {valueRegister}, {valueType}* {targetPointerRegister}");
+                targetType = valueType;
             }
         }
 
