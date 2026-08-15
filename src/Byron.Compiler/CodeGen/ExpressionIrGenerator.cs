@@ -41,34 +41,36 @@ public partial class LlvmIrGenerator
         };
     }
 
+    private (string ReturnValue, LlvmType ReturnType) AddressOf(VariableExpressionNode variable)
+    {
+        var symbolAddress = _context.LookupVariable(variable.Name);
+        if (symbolAddress.LlvmType is LlvmType.Pointer pointerType)
+        {
+            var ptrReg = _context.AllocateRegister();
+            _context.EmitLine($"    {ptrReg} = load {pointerType}, {pointerType}* {symbolAddress.Pointer}");
+            return (ptrReg, pointerType);
+        }
+
+        return (symbolAddress.Pointer.ToString(), new LlvmType.Pointer(symbolAddress.LlvmType));
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) AddressOf(MemberAccessExpressionNode memberAccess)
+    {
+        var (fieldPtrRegister, fieldType) = GenerateMemberAccessPointer(memberAccess);
+        return (fieldPtrRegister, new LlvmType.Pointer(fieldType));
+    }
+    
     private (string ReturnValue, LlvmType ReturnType) GenerateAddressOf(AddressOfExpressionNode addressOf)
     {
-        var operand = addressOf.Target;
+        var target = addressOf.Target;
 
-        string pointerRegister;
-        LlvmType pointeeType;
-
-        if (operand is VariableExpressionNode variable)
+        return addressOf.Target switch
         {
-            var symbolAddress = _context.LookupVariable(variable.Name);
-            pointerRegister = symbolAddress.Pointer.ToString();
-            pointeeType = symbolAddress.LlvmType;
-        }
-        else if (operand is MemberAccessExpressionNode memberAccess)
-        {
-            (pointerRegister, pointeeType) = GenerateMemberAccessPointer(memberAccess);
-        }
-        else if (operand is DereferenceExpressionNode dereference)
-        {
-            return GenerateExpression(dereference.Target);
-        }
-        else
-        {
-            throw new ByronCodeGenerationException($"Cannot take address of non-lvalue expression of type '{operand.GetType().Name}'.");
-        }
-
-        var pointerType = new LlvmType.Pointer(pointeeType);
-        return (pointerRegister, pointerType);
+            VariableExpressionNode variable => AddressOf(variable),
+            MemberAccessExpressionNode memberAccess => AddressOf(memberAccess),
+            DereferenceExpressionNode dereference => GenerateExpression(dereference.Target),
+            _ => throw new ByronCodeGenerationException($"Cannot take address of expression of type '{target.GetType().Name}'.")
+        };
     }
 
     private (string ReturnValue, LlvmType ReturnType) GenerateDereference(DereferenceExpressionNode dereference)

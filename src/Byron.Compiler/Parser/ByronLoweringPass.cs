@@ -201,7 +201,8 @@ public class ByronLoweringPass
     }
 
     private Low.IfStatementNode IfElse(High.IfElseStatement ifElse)
-    {var condition = Expression(ifElse.Condition);
+    {
+        var condition = Expression(ifElse.Condition);
         var thenBranch = BlockStatement(ifElse.ThenBranch);
 
         if (ifElse.ElseBranch != null)

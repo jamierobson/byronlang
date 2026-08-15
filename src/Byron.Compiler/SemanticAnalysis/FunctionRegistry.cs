@@ -16,7 +16,7 @@ public class FunctionRegistry
             declaration.CanonicalName,
             declaration.ModulePath,
             declaration.Name,
-            declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type)).ToList(),
+            declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type, p.Ownership)).ToList(),
             declaration.ReturnType,
             declaration
         );
@@ -34,7 +34,6 @@ public class FunctionRegistry
         string shortName, 
         [NotNullWhen(true)] out FunctionSymbol? function)
     {
-        // todo: When this is 
         var canonicalNameString = CanonicalName.CanonicalNameString(modulePath, shortName);
         return _declarations.TryGetValue(canonicalNameString, out function) 
                || _declarations.TryGetValue(shortName, out function);

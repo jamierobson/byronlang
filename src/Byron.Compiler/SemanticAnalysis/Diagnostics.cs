@@ -44,6 +44,8 @@ public class Diagnostics
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
     public void InvalidUnaryOperation(UnaryExpressionNode unary, TypeNode operandType) => Add($"Cannot apply {unary.Operator.ToLexeme()} operator to type {operandType.CanonicalName} at {unary.Span}");
     public void InvalidDereference(DereferenceExpressionNode dereference, TypeNode targetType) => Add($"Cannot dereference a non-reference type {targetType.CanonicalName} at {dereference.Span}");
+    public void InvalidSelfArgument(FunctionSymbol function, SourceSpan callSiteSpan) => Add($"The function {function.CanonicalName} does not expose a first argument self at {callSiteSpan}"); 
     public void InvalidSelfArgument(FunctionDeclarationNode function, ParameterNode parameter) => Add($"{parameter.Name} must be the first parameter declared in the function {function.CanonicalName} at {function.Span}"); 
-    public void InvalidSelfArgument(string parameterType, string expectedType, FunctionDeclarationNode function) => Add($"The self parameter of function {function.CanonicalName} should be of type {expectedType}, but was declared as {parameterType} at {function.Span}"); 
+    public void InvalidSelfArgument(string parameterType, string expectedType, FunctionDeclarationNode function) => Add($"The self parameter of function {function.CanonicalName} should be of type {expectedType}, but was declared as {parameterType} at {function.Span}");
+    public void InvalidCast(Symbol symbol, TypeNode targetType, SourceSpan span) => Add($"Cannot coerce variable {symbol.Name} from {symbol.Type} to {targetType.CanonicalName} at {span}");
 }

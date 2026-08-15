@@ -118,7 +118,6 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var returnType = ParseTypeSignature(context, nameToken);
         var body = ParseBlockStatement(context);
 
-         
         return new FunctionDeclarationNode(nameToken.Lexeme, context.RelativeModulePath(), parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 

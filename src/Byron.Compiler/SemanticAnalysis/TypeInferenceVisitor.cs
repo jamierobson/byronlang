@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
@@ -34,7 +35,7 @@ public class TypeInferenceVisitor
         for (var i = 0; i < function.Parameters.Count; i++)
         {
             var parameter = function.Parameters[i];
-            if (parameter.Name == "self")
+            if (parameter.Name == ParameterSymbol.SelfArgumentName)
             {
                 if (i != 0)
                 {
@@ -478,6 +479,7 @@ public class TypeInferenceVisitor
             callExpression.Arguments[i] = VisitExpression(callExpression.Arguments[i]);
         }
 
+
         string[] modulePath;
         string functionName;
 
@@ -497,9 +499,10 @@ public class TypeInferenceVisitor
                 else if (_symbolTable.TryGet(targetVariableExpression.Name, out var symbol))
                 {
                     memberAccess.Target = VisitExpression(targetVariableExpression);
+                    var memberAccessTargetType = _typeMap.GetType(memberAccess.Target); 
+                    modulePath = [.. memberAccessTargetType.CanonicalName.ModulePath, memberAccessTargetType.CanonicalName.ShortName];
+                    
                     functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
-                    var targetType = _typeMap.GetType(memberAccess.Target); 
-                    modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
                 }
                 else
                 {
@@ -543,6 +546,11 @@ public class TypeInferenceVisitor
 
     private CallExpressionNode TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function)
     {
+        if (!function.SupportsMethodInvocation())
+        {
+            _diagnostics.InvalidSelfArgument(function, methodCall.Span);
+        }
+        
         if (methodCall.Arguments.Count + 1 != function.Parameters.Count)
         {
             _diagnostics.InvalidArgumentCount(methodCall, function);
@@ -555,22 +563,34 @@ public class TypeInferenceVisitor
         {
             var argument = arguments[i];
             var argumentType = _typeMap.GetType(argument);
-            var parameterType = function.Parameters[i].Type;
-
-            if (!TryCoerce(argument, parameterType, out var coercedExpression))
-            {
-                _diagnostics.InvalidArgument(argumentType.CanonicalName, parameterType.CanonicalName,
-                    function.CanonicalName, methodCall.Span);
-                return methodCall;
-            }
 
             if (i == 0)
             {
-                methodCall.Receiver = coercedExpression;
+                var self = function.Self();
+                var targetType = self.OwnershipBinding.IsReference()
+                    ? new ReferenceTypeNode(self.Type, self.OwnershipBinding.IsMutable(), self.Type.Span)
+                    : self.Type;
+                
+                
+                if (!TryCoerce(argument, targetType, out var coercedReceiver))
+                {
+                    _diagnostics.InvalidArgument(argumentType.CanonicalName, targetType.CanonicalName, function.CanonicalName, methodCall.Span);
+                    return methodCall;
+                }
+                
+                methodCall.Receiver = coercedReceiver;
             }
             else
             {
-                methodCall.Arguments[i - 1] = coercedExpression;
+                
+                var targetType = function.Parameters[i].Type;
+                
+                if (!TryCoerce(argument, targetType, out var coercedArgument))
+                {
+                    _diagnostics.InvalidArgument(argumentType.CanonicalName, targetType.CanonicalName, function.CanonicalName, methodCall.Span);
+                    return methodCall;
+                }
+                methodCall.Arguments[i - 1] = coercedArgument;
             }
         }
 
@@ -636,6 +656,12 @@ public class TypeInferenceVisitor
     private bool TryCoerce(ExpressionNode expression, TypeNode targetType,
         [NotNullWhen(true)] out ExpressionNode? result)
     {
+        if (expression is AddressOfExpressionNode addressOf)
+        {
+            result = addressOf;
+            return true;
+        }
+        
         var sourceType = _typeMap.GetType(expression);
 
         if (sourceType.CanonicalName == targetType.CanonicalName)
