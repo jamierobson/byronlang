@@ -222,8 +222,9 @@ public class ByronLoweringPass
     
     private Low.CallExpressionNode MethodSyntaxCallExpression(High.MethodCallExpression call)
     {
+        var receiver = Expression(call.Receiver);
         var callee = Expression(call.Callee);
-        List<Low.ExpressionNode> args = [callee, ..call.Arguments.Select(Expression)];
+        List<Low.ExpressionNode> args = [receiver, ..call.Arguments.Select(Expression)];
         return new Low.CallExpressionNode(call, callee, args);
     }
 

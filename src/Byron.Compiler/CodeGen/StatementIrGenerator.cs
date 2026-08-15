@@ -57,7 +57,7 @@ public partial class LlvmIrGenerator
         var (value, llvmType) = GenerateExpression(node.Value);
         _context.EmitLine($"    store {llvmType} {value}, {expectedLlvmType}* {targetPointer}");
     }
-    
+
     private (string FieldPointerRegister, LlvmType FieldType) GenerateMemberAccessPointer(MemberAccessExpressionNode node)
     {
         string targetPointerRegister;
@@ -65,29 +65,47 @@ public partial class LlvmIrGenerator
 
         if (node.Target is VariableExpressionNode variable)
         {
-            // Get pointer directly from symbol table, DO NOT load value!
             var symbolAddress = _context.LookupVariable(variable.Name);
-            targetPointerRegister = symbolAddress.Pointer.ToString();
-            targetType = symbolAddress.LlvmType;
+
+            if (symbolAddress.LlvmType is LlvmType.Pointer pointerType)
+            {
+                var loadedPtr = _context.AllocateRegister();
+                _context.EmitLine($"    {loadedPtr} = load {pointerType}, {pointerType}* {symbolAddress.Pointer}");
+                targetPointerRegister = loadedPtr;
+                targetType = pointerType.ElementType;
+            }
+            else
+            {
+                targetPointerRegister = symbolAddress.Pointer.ToString();
+                targetType = symbolAddress.LlvmType;
+            }
         }
         else if (node.Target is MemberAccessExpressionNode nested)
         {
-            // Chained member access: e.g. foo.bar.baz
             (targetPointerRegister, targetType) = GenerateMemberAccessPointer(nested);
         }
         else
         {
-            // Fallback for expressions that evaluate to values (e.g., getPoint().x)
             var (valReg, valType) = GenerateExpression(node.Target);
-            targetPointerRegister = _context.AllocateRegister();
-            _context.EmitLine($"    {targetPointerRegister} = alloca {valType}");
-            _context.EmitLine($"    store {valType} {valReg}, {valType}* {targetPointerRegister}");
-            targetType = valType;
+
+            if (valType is LlvmType.Pointer ptrType)
+            {
+                targetPointerRegister = valReg;
+                targetType = ptrType.ElementType;
+            }
+            else
+            {
+                targetPointerRegister = _context.AllocateRegister();
+                _context.EmitLine($"    {targetPointerRegister} = alloca {valType}");
+                _context.EmitLine($"    store {valType} {valReg}, {valType}* {targetPointerRegister}");
+                targetType = valType;
+            }
         }
 
         if (targetType is not LlvmType.Struct structType)
         {
-            throw new ByronCodeGenerationException($"Cannot access member '{node.MemberName}' on non-struct type '{targetType}'.");
+            throw new ByronCodeGenerationException(
+                $"Cannot access member '{node.MemberName}' on non-struct type '{targetType}'.");
         }
 
         var layout = _context.GetStructLayout(structType.Name);
@@ -95,7 +113,8 @@ public partial class LlvmIrGenerator
         var fieldType = LlvmType.From(layout.GetFieldType(node.MemberName));
 
         var fieldPointerRegister = _context.AllocateRegister();
-        _context.EmitLine($"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {targetPointerRegister}, i32 0, i32 {fieldIndex}");
+        _context.EmitLine(
+            $"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {targetPointerRegister}, i32 0, i32 {fieldIndex}");
 
         return (fieldPointerRegister, fieldType);
     }

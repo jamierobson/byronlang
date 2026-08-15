@@ -43,7 +43,32 @@ public partial class LlvmIrGenerator
 
     private (string ReturnValue, LlvmType ReturnType) GenerateAddressOf(AddressOfExpressionNode addressOf)
     {
-        throw new ByronNotImplementedException(typeof(AddressOfExpressionNode), this, addressOf.SourceNode.Span);
+        var operand = addressOf.Target;
+
+        string pointerRegister;
+        LlvmType pointeeType;
+
+        if (operand is VariableExpressionNode variable)
+        {
+            var symbolAddress = _context.LookupVariable(variable.Name);
+            pointerRegister = symbolAddress.Pointer.ToString();
+            pointeeType = symbolAddress.LlvmType;
+        }
+        else if (operand is MemberAccessExpressionNode memberAccess)
+        {
+            (pointerRegister, pointeeType) = GenerateMemberAccessPointer(memberAccess);
+        }
+        else if (operand is DereferenceExpressionNode dereference)
+        {
+            return GenerateExpression(dereference.Target);
+        }
+        else
+        {
+            throw new ByronCodeGenerationException($"Cannot take address of non-lvalue expression of type '{operand.GetType().Name}'.");
+        }
+
+        var pointerType = new LlvmType.Pointer(pointeeType);
+        return (pointerRegister, pointerType);
     }
 
     private (string ReturnValue, LlvmType ReturnType) GenerateDereference(DereferenceExpressionNode dereference)

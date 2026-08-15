@@ -91,8 +91,7 @@ public class MethodCallExpression : CallExpressionNode
 {
     public ExpressionNode Receiver { get; set; }
 
-    public MethodCallExpression(ExpressionNode receiver, List<ExpressionNode> arguments, SourceSpan span)
-        : base(receiver, arguments, span)
+    public MethodCallExpression(ExpressionNode receiver, ExpressionNode callee, List<ExpressionNode> arguments, SourceSpan span) : base(callee, arguments, span)
     {
         Receiver = receiver;
     }

@@ -497,7 +497,7 @@ public class TypeInferenceVisitor
                 else if (_symbolTable.TryGet(targetVariableExpression.Name, out var symbol))
                 {
                     memberAccess.Target = VisitExpression(targetVariableExpression);
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, callExpression.Arguments, callExpression.Span);
+                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
                     var targetType = _typeMap.GetType(memberAccess.Target); 
                     modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
                 }
@@ -513,7 +513,7 @@ public class TypeInferenceVisitor
                 if (_typeMap.TryGetType(memberAccess.Target, out var targetType))
                 {
                     modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, callExpression.Arguments, callExpression.Span);
+                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
                 }
                 else
                 {
