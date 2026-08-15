@@ -30,6 +30,9 @@ public partial class LlvmIrGenerator
             case AssignmentStatementNode assign:
                 GenerateAssignStatement(assign);
                 break;
+            case ExpressionStatementNode expressionStatement:
+                GenerateExpression(expressionStatement.Expression);
+                break;
             default:
                 throw new ByronNotImplementedException(node.GetType(), this, node.SourceNode.Span);
         }

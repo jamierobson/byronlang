@@ -106,6 +106,7 @@ public class ByronLoweringPass
             High.ContinueStatement @continue => new Low.ContinueStatement(@continue),
             High.WhileStatement @while => new Low.WhileStatement(@while, Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
             High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(assignment, Expression(assignment.Target), Expression(assignment.Value)),
+            High.ExpressionStatementNode expressionStatement => new Low.ExpressionStatementNode(expressionStatement, Expression(expressionStatement.Expression)),
             _ => throw new ByronNotImplementedException(statement.GetType(), this, statement.Span)
         };
     }
