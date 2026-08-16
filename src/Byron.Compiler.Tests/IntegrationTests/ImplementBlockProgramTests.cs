@@ -4,35 +4,83 @@ namespace Byron.Compiler.Tests.IntegrationTests;
 
 public class DefinedImplementBlockProgramTests: ProgramSnapshotTestBase
 {
-    protected override string Program() => """
-                                           struct Point1d { x: i32 }
-                                           implement Point1d {
-                                             fn getValue(self: &Self): i32 {
-                                               return self.*.x;
-                                             }
-                                           }
+  protected override string Program() =>
+    """
+    struct Point1d { x: i32 }
+    implement Point1d {
+      fn getValue(self: &Self): i32 {
+        return self.*.x;
+      }
+    }
 
-                                           fn main(): i32 {
-                                               return 0;
-                                           }
-                                           """;
+    fn main(): i32 {
+        return 0;
+    }
+    """;
 }
 
 public class InvokeImplementBlockProgramTests : ProgramSnapshotTestBase
 {
-    protected override string Program() => """
-                                           struct Point1d { x: i32 }
-                                           implement Point1d {
-                                             fn getValue(self: &Self): i32 {
-                                               return self.*.x;
-                                             }
-                                           }
+  protected override string Program() =>
+    """
+    struct Point1d { x: i32 }
+    implement Point1d {
+      fn getValue(self: &Self): i32 {
+        return self.*.x;
+      }
+    }
 
-                                           fn main(): i32 {
-                                               let point = Point1d {x: 5};
-                                               var a = Point1d.getValue(&point);
-                                               var b = point.getValue();
-                                               return a;
-                                           }
-                                           """;
+    fn main(): i32 {
+        let point = Point1d {x: 5};
+        var a = Point1d.getValue(&point);
+        var b = point.getValue();
+        return a;
+    }
+    """;
+}
+
+public class GetAndSetThroughInvocations : ProgramSnapshotTestBase
+{
+  protected override string Program() =>
+    """
+    struct Point1d { x: i32 }
+    implement Point1d {
+
+      fn newSelf(): Self {
+        return Self {
+          x: -2,
+        };
+      }
+
+      fn getValue(self: &Self): i32 {
+        return self.*.x;
+      }
+      
+      fn setValue(self: &var Self): void {
+        self.*.x = 20 + self.*.x;
+      }
+      
+      fn new(): Self {
+        return Point1d {
+          x: 2,
+        };
+      }
+    }
+
+    fn main(): i32 {
+        var point = Point1d.newSelf();
+        point = Point1d { x: point.x + 9 };
+        let myReference = &point;
+        let asFunctionSyntax = Point1d.getValue(&point); // This is the desugared version of the below invocation
+        let asMethodSyntax = point.getValue(); // point coerces to &Point1d  
+        point.setValue(); // point: Point1d coerces to &var Point1d
+        let myReread = point.getValue();
+        
+        if(asMethodSyntax == asFunctionSyntax && myReread == myReference.*.x) {
+            return myReference.*.x; // Expect 27
+        } 
+        
+        return 255;
+    }
+    """;
 }

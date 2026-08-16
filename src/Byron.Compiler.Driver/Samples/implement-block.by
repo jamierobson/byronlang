@@ -29,9 +29,10 @@ fn main(): i32 {
     let asFunctionSyntax = Point1d.getValue(&point); // This is the desugared version of the below invocation
     let asMethodSyntax = point.getValue(); // point coerces to &Point1d  
     point.setValue(); // point: Point1d coerces to &var Point1d
+    let myReread = point.getValue();
     
-    if(asMethodSyntax == asFunctionSyntax && asMethodSyntax == myReference.*.x) {
-        return asMethodSyntax; // Expect 27
+    if(asMethodSyntax == asFunctionSyntax && myReread == myReference.*.x) {
+        return myReference.*.x; // Expect 27
     } 
     
     return 255;

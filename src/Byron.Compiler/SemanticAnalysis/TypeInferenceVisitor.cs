@@ -86,7 +86,7 @@ public class TypeInferenceVisitor
                 VisitVariableDeclaration(variable);
                 break;
             case ExpressionStatementNode expressionStatement:
-                _ = VisitExpression(expressionStatement.Expression);
+                expressionStatement.Expression = VisitExpression(expressionStatement.Expression);
                 break;
             case AssignmentStatementNode assignment:
                 VisitAssignmentStatement(assignment);
@@ -544,7 +544,7 @@ public class TypeInferenceVisitor
         };
     }
 
-    private CallExpressionNode TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function)
+    private MethodCallExpression TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function)
     {
         if (!function.SupportsMethodInvocation())
         {

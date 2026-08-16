@@ -259,6 +259,21 @@ public partial class LlvmIrGenerator
                 var booleanInstruction = BooleanOperationInstruction(node.Operator, isFloat, isUnsigned);
                 _context.EmitLine($"    {resultRegister} = {typeComparisonInstruction} {booleanInstruction} {leftLlvmType} {leftValue}, {rightValue}");
                 break;
+            case BinaryOperator.BitwiseAnd:
+            case BinaryOperator.LogicalAnd:
+            case BinaryOperator.BitwiseOr:
+            case BinaryOperator.LogicalOr:
+            case BinaryOperator.BitwiseXor:
+                var  instruction = LogicalOperationInstruction(node.Operator, isUnsigned);
+                _context.EmitLine($"    {resultRegister} = {instruction} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            case BinaryOperator.ShiftLeft:
+                _context.EmitLine($"    {resultRegister} = shl {leftLlvmType} {leftValue}, {rightValue}");
+                break;
+            case BinaryOperator.ShiftRight:
+                var shiftInstruction = isUnsigned ? "lshr" : "ashr";
+                _context.EmitLine($"    {resultRegister} = {shiftInstruction} {leftLlvmType} {leftValue}, {rightValue}");
+                break;
             default:
                 throw new ByronNotImplementedException($"LLVM IR mapping for operator {node.Operator}", this, node.SourceNode.Span);
         }
@@ -266,6 +281,18 @@ public partial class LlvmIrGenerator
         return (resultRegister, returnType);
     }
 
+    private string LogicalOperationInstruction(BinaryOperator nodeOperator, bool isUnsigned)
+    {
+        return nodeOperator switch
+        {
+            BinaryOperator.BitwiseAnd or BinaryOperator.LogicalAnd => "and",
+            BinaryOperator.BitwiseOr or BinaryOperator.LogicalOr => "or",
+            BinaryOperator.BitwiseXor => "xor",
+
+            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a logical operation")
+        };
+    }
+    
     private string ArithmeticOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
     {
         return nodeOperator switch
@@ -277,7 +304,7 @@ public partial class LlvmIrGenerator
             _ => throw new InvalidOperationException($"Operation {nodeOperator} is not an arithmetic operation")
         };
     }
-
+    
     private string BooleanOperationInstruction(BinaryOperator nodeOperator, bool isFloat, bool isUnsigned)
     {
         return nodeOperator switch
