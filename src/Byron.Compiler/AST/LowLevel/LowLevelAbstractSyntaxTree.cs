@@ -1,6 +1,5 @@
 using High = Byron.Compiler.AST.HighLevel;
 
-// ReSharper disable once CheckNamespace
 namespace Byron.Compiler.AST.LowLevel;
 
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
@@ -46,7 +45,6 @@ public record StructFieldInitializerNode(High.StructFieldInitializerNode SourceN
     
     public string FieldName => SourceNode.FieldName;
 }
-
 
 // Statements
 public abstract record StatementNode(High.StatementNode SourceNode) : AstNode(SourceNode)
@@ -132,9 +130,9 @@ public record FloatLiteralNode(High.FloatLiteralNode SourceNode) : ExpressionNod
     public double Value => SourceNode.Value;
 }
 
-public record BoolLiteralNode(High.BoolLiteralNode SourceNode) : ExpressionNode(SourceNode)
+public record BoolLiteralNode(High.BooleanLiteralNode SourceNode) : ExpressionNode(SourceNode)
 {
-    public new High.BoolLiteralNode SourceNode => (High.BoolLiteralNode)base.SourceNode;
+    public new High.BooleanLiteralNode SourceNode => (High.BooleanLiteralNode)base.SourceNode;
     public bool Value => SourceNode.Value;
 }
 
@@ -164,6 +162,16 @@ public record StructFieldInitializationExpressionNode(High.StructFieldInitializa
 public record MemberAccessExpressionNode(High.MemberAccessExpressionNode SourceNode, ExpressionNode Target, string MemberName) : ExpressionNode(SourceNode)
 {
     public new High.MemberAccessExpressionNode SourceNode => (High.MemberAccessExpressionNode)base.SourceNode;
+}
+
+public record DereferenceExpressionNode(High.DereferenceExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
+{
+    public new High.DereferenceExpressionNode SourceNode => (High.DereferenceExpressionNode)base.SourceNode;
+}
+
+public record AddressOfExpressionNode(High.AddressOfExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
+{
+    public new High.AddressOfExpressionNode SourceNode => (High.AddressOfExpressionNode)base.SourceNode;
 }
 
 public record ExtendIntegerNode(High.ExtendIntegerNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType) : ExpressionNode(SourceNode)
@@ -199,14 +207,10 @@ public abstract record TypeNode(High.TypeNode SourceNode) : AstNode(SourceNode)
 public record NominalTypeNode(High.NominalTypeNode SourceNode) : TypeNode(SourceNode)
 {
     public new High.NominalTypeNode SourceNode => (High.NominalTypeNode)base.SourceNode;
-    public string CanonicalName => SourceNode.CanonicalName();
+    public string CanonicalName => SourceNode.CanonicalName.ToString(); // todo: Should this also be a CanonicalName type
 }
 
-public record ReferenceTypeNode(High.ReferenceTypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode)
-{
-    public new High.ReferenceTypeNode SourceNode => (High.ReferenceTypeNode)base.SourceNode;
-    public bool IsMutable => SourceNode.IsMutable;
-}
+public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode);
 
 public abstract record BuiltInTypeNode(High.BuiltInTypeNode SourceNode) : TypeNode(SourceNode)
 {

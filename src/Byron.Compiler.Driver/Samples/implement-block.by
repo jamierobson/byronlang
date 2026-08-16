@@ -12,7 +12,7 @@ implement Point1d {
   }
   
   fn setValue(self: &var Self): void {
-    self.*.x = 20;
+    self.*.x = 20 + self.*.x;
   }
   
   fn new(): Self {
@@ -23,14 +23,16 @@ implement Point1d {
 }
 
 fn main(): i32 {
-    var point = Point1d { x: 5 };
-    point = Point1d { x: 7 };
+    var point = Point1d.newSelf();
+    point = Point1d { x: point.x + 9 };
+    let myReference = &point;
     let asFunctionSyntax = Point1d.getValue(&point); // This is the desugared version of the below invocation
     let asMethodSyntax = point.getValue(); // point coerces to &Point1d  
     point.setValue(); // point: Point1d coerces to &var Point1d
+    let myReread = point.getValue();
     
-    if(asMethodSyntax == asFunctionSyntax && asMethodSyntax == point.*.x) {
-        return asMethodSyntax; // Expect 20
+    if(asMethodSyntax == asFunctionSyntax && myReread == myReference.*.x) {
+        return myReference.*.x; // Expect 27
     } 
     
     return 255;

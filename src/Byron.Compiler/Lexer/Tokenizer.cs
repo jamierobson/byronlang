@@ -335,7 +335,8 @@ public class Tokenizer
             '.' => ConsumingMatch('.') 
                 ? ConsumingMatch('=') 
                     ? Token.Create(TokenKind.DotDotEquals, "..=", PunctuationSpan())
-                    : Token.Create(TokenKind.DotDot, "..", PunctuationSpan())
+                    : ConsumingMatch('<') ? Token.Create(TokenKind.DotDotLAngle, "..<", PunctuationSpan()) 
+                        : Token.Error(character.ToString(), $"Unexpected token '{character}'", CreateSourceSpan(start, _position))
                     : Token.Create(TokenKind.Dot, ".", PunctuationSpan()),
             '=' => ConsumingMatch('=') 
                 ? Token.Create(TokenKind.EqualsEquals, "==", PunctuationSpan())
@@ -372,7 +373,7 @@ public class Tokenizer
             '\\' => Token.Create(TokenKind.Backslash, "\\", PunctuationSpan()),
             '_' => Token.Create(TokenKind.Underscore, "_", PunctuationSpan()),
             '`' => Token.Create(TokenKind.Backtick, "`", PunctuationSpan()),
-            _ => Token.Error(character.ToString(), $"Unexpected character '{character}'", CreateSourceSpan(start, _position))
+            _ => Token.Error(character.ToString(), $"Unexpected token '{character}'", CreateSourceSpan(start, _position))
         };
     }
 

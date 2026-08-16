@@ -1,3 +1,4 @@
+using Byron.Compiler.AST;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.SemanticAnalysis;
 using High = Byron.Compiler.AST.HighLevel;
@@ -7,11 +8,11 @@ namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass
 {
-    
     private readonly High.ProgramNode _ast;
-    private readonly TypeRegistry _typeRegistry;
-    private readonly TypeMap _typeMap;
-    private readonly FunctionRegistry _functionRegistry;
+    // private readonly TypeRegistry _typeRegistry;
+    private readonly TypeMap _highLevelExpressionTypeMap;
+    // private readonly FunctionRegistry _functionRegistry;
+    private readonly Dictionary<High.TypeNode, Low.TypeNode> _highToLowLevelTypeMap = new();
     
     public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
     {
@@ -20,17 +21,17 @@ public class ByronLoweringPass
             throw new ByronLowLevelParserException("Unable to lower an invalid AST");
         }
         
-        (_ast, _typeRegistry, _typeMap, _functionRegistry) = semanticAnalysisResult;
+        (_ast, _, _highLevelExpressionTypeMap, _) = semanticAnalysisResult;
+        // (_ast, _typeRegistry, _highLevelExpressionTypeMap, _functionRegistry) = semanticAnalysisResult;
     }
     
-    public Low.ProgramNode Lower()
+    public LoweredProgram Lower()
     {
-        
         var declarations = _ast.Declarations
         .Select(TopLevelDeclaration)
         .ToList();
 
-        return new Low.ProgramNode(declarations);
+        return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
     }
 
     private Low.TopLevelDeclarationNode TopLevelDeclaration(High.TopLevelDeclarationNode declaration)
@@ -61,12 +62,18 @@ public class ByronLoweringPass
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
     {
         var type = Type(parameter.Type);
+
+        if (parameter.Ownership is ReceiverBindingOwnership.MutableBorrow or ReceiverBindingOwnership.ImmutableBorrow && type is not Low.ReferenceTypeNode)
+        {
+            type = new Low.ReferenceTypeNode(parameter.Type, type);
+        }
+        
         return new Low.ParameterNode(parameter, type);
     }
 
     private Low.TypeNode Type(High.TypeNode type)
     {
-        return type switch
+        Low.TypeNode loweredType = type switch
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
             High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
@@ -79,6 +86,10 @@ public class ByronLoweringPass
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
+
+        _highToLowLevelTypeMap[type] = loweredType;
+
+        return loweredType;
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)
@@ -95,6 +106,7 @@ public class ByronLoweringPass
             High.ContinueStatement @continue => new Low.ContinueStatement(@continue),
             High.WhileStatement @while => new Low.WhileStatement(@while, Expression(@while.ContinuationCondition), BlockStatement(@while.Body)),
             High.AssignmentStatementNode assignment => new Low.AssignmentStatementNode(assignment, Expression(assignment.Target), Expression(assignment.Value)),
+            High.ExpressionStatementNode expressionStatement => new Low.ExpressionStatementNode(expressionStatement, Expression(expressionStatement.Expression)),
             _ => throw new ByronNotImplementedException(statement.GetType(), this, statement.Span)
         };
     }
@@ -105,36 +117,38 @@ public class ByronLoweringPass
         {
             High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral),
             High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
-            High.BoolLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
+            High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
             High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
-            High.CallExpressionNode call => CallExpression(call),
+            High.MethodCallExpression call => MethodSyntaxCallExpression(call),
+            High.FreeFunctionCallExpressionNode call => FreeFunctionCallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
             High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(memberAccess, Expression(memberAccess.Target), memberAccess.MemberName),
+            High.DereferenceExpressionNode dereference => new Low.DereferenceExpressionNode(dereference, Expression(dereference.Target)),
+            High.AddressOfExpressionNode address => new Low.AddressOfExpressionNode(address, Expression(address.Target)),
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
             High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(floatToInt,Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
             High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(intToFloat,Expression(intToFloat.Operand), Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
             High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(extendInt,Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
             High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(extendFloat,Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
-            
-            // Lowerable expressions here
 
+            // Lowerable expressions here
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
     }
 
     private Low.BinaryExpressionNode CoercedBinaryExpression(High.BinaryExpressionNode binary)
     {
-        var leftType = _typeMap.GetType(binary.Left);
-        var rightType = _typeMap.GetType(binary.Left);
+        var leftType = _highLevelExpressionTypeMap.GetType(binary.Left);
+        var rightType = _highLevelExpressionTypeMap.GetType(binary.Right);
 
         var coercedLeft = binary.Left;
         var coercedRight = binary.Right;
 
-        if (leftType.CanonicalName() != rightType.CanonicalName())
+        if (leftType.CanonicalName != rightType.CanonicalName) // todo: Is this a potential bug? Check in failing tests
         {
-            var targetType = _typeMap.GetType(binary);
+            var targetType = _highLevelExpressionTypeMap.GetType(binary);
 
             coercedLeft = Coerce(binary.Left, leftType, targetType);
             coercedRight = Coerce(binary.Right, rightType, targetType);
@@ -188,7 +202,8 @@ public class ByronLoweringPass
     }
 
     private Low.IfStatementNode IfElse(High.IfElseStatement ifElse)
-    {var condition = Expression(ifElse.Condition);
+    {
+        var condition = Expression(ifElse.Condition);
         var thenBranch = BlockStatement(ifElse.ThenBranch);
 
         if (ifElse.ElseBranch != null)
@@ -200,10 +215,18 @@ public class ByronLoweringPass
         return new Low.IfStatementNode(ifElse, condition, thenBranch);
     }
     
-    private Low.CallExpressionNode CallExpression(High.CallExpressionNode call)
+    private Low.CallExpressionNode FreeFunctionCallExpression(High.FreeFunctionCallExpressionNode call)
     {
         var callee = Expression(call.Callee);
         var args = call.Arguments.Select(Expression).ToList();
+        return new Low.CallExpressionNode(call, callee, args);
+    }
+    
+    private Low.CallExpressionNode MethodSyntaxCallExpression(High.MethodCallExpression call)
+    {
+        var receiver = Expression(call.Receiver);
+        var callee = Expression(call.Callee);
+        List<Low.ExpressionNode> args = [receiver, ..call.Arguments.Select(Expression)];
         return new Low.CallExpressionNode(call, callee, args);
     }
 

@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Lexer;
 
@@ -10,11 +12,35 @@ public enum ResolutionState
     Resolved
 }
 
+public class ResolutionLookups
+{
+    private readonly Dictionary<string, StructDeclarationNode> _declarations = new();
+    private readonly Dictionary<string, ResolutionState> _resolutionStates = new();
+
+    public void Add(StructDeclarationNode structDeclaration)
+    {
+        var canonicalName = structDeclaration.CanonicalName.ToString();
+        _declarations.Add(canonicalName, structDeclaration);
+        _resolutionStates[canonicalName] = ResolutionState.Unresolved;
+    }
+    
+    public IReadOnlyDictionary<string, StructDeclarationNode> Declarations => _declarations;
+    public StructDeclarationNode GetDeclaration(CanonicalName canonicalName) => _declarations[canonicalName.ToString()];
+    public StructDeclarationNode GetDeclaration(string canonicalName) => _declarations[canonicalName];
+    public bool TryGetDeclaration(CanonicalName canonicalName, [NotNullWhen(true)] out StructDeclarationNode? declaration) => _declarations.TryGetValue(canonicalName.ToString(), out declaration);
+    public ResolutionState GetState(CanonicalName canonicalName) => _resolutionStates[canonicalName.ToString()];
+    public void SetState(CanonicalName canonicalName, ResolutionState state) => _resolutionStates[canonicalName.ToString()] = state;
+    public bool TryGetResolutionState(string canonicalName, out ResolutionState resolutionState) => _resolutionStates.TryGetValue(canonicalName, out resolutionState); 
+    public bool TryGetResolutionState(CanonicalName canonicalName, out ResolutionState resolutionState) => _resolutionStates.TryGetValue(canonicalName.ToString(), out resolutionState); 
+}
+
 public class TypeResolver
 {
     private readonly TypeRegistry _typeRegistry;
-    private readonly Dictionary<string, StructDeclarationNode> _declarations = new();
-    private readonly Dictionary<string, ResolutionState> _resolutionStates = new();
+
+    private readonly ResolutionLookups _resolutionLookups = new();
+    // private readonly Dictionary<string, StructDeclarationNode> _declarations = new();
+    // private readonly Dictionary<string, ResolutionState> _resolutionStates = new();
     private readonly Diagnostics _diagnostics;
 
     public TypeResolver(
@@ -27,15 +53,16 @@ public class TypeResolver
 
         foreach (var structDeclarationNode in structDeclarations)
         {
-            var canonicalName = structDeclarationNode.CanonicalName();
-            _declarations.Add(canonicalName, structDeclarationNode);
-            _resolutionStates[canonicalName] = ResolutionState.Unresolved;
+            _resolutionLookups.Add(structDeclarationNode);
+            // var canonicalName = structDeclarationNode.CanonicalName.ToString();
+            // _declarations.Add(canonicalName, structDeclarationNode);
+            // _resolutionStates[canonicalName] = ResolutionState.Unresolved;
         }
     }
 
     public void Resolve()
     {
-        foreach (var declaration in _declarations)
+        foreach (var declaration in _resolutionLookups.Declarations)
         {
             _ = EnsureResolved(declaration);
         }
@@ -43,7 +70,7 @@ public class TypeResolver
 
     private bool EnsureResolved(KeyValuePair<string, StructDeclarationNode> declaration)
     {
-        if (_resolutionStates.TryGetValue(declaration.Key, out var state) && state == ResolutionState.Resolved)
+        if (_resolutionLookups.TryGetResolutionState(declaration.Key, out var state) && state == ResolutionState.Resolved)
         {
             return true;
         }
@@ -58,7 +85,8 @@ public class TypeResolver
 
         if (_typeRegistry.IsValidStructName(declaration.Value.Name) && _typeRegistry.IsValidStructName(declaration.Key))
         {
-            _resolutionStates[declaration.Key] = ResolutionState.Resolved;
+            _resolutionLookups.SetState(declaration.Value.CanonicalName, ResolutionState.Resolving);
+            // _resolutionStates[declaration.Key] = ResolutionState.Resolved;
             if (_typeRegistry.TryRegister(declaration.Value))
             {
                 return true;
@@ -73,9 +101,9 @@ public class TypeResolver
         return false;
     }
 
-    public bool EnsureResolved(TypeNode typeNode) => EnsureResolved(typeNode, typeNode.Span);
+    private bool EnsureResolved(TypeNode typeNode) => EnsureResolved(typeNode, typeNode.Span);
     
-    public bool EnsureResolved(TypeNode typeNode, SourceSpan sourceSpan)
+    private bool EnsureResolved(TypeNode typeNode, SourceSpan sourceSpan)
     {
         if (_typeRegistry.IsValidType(typeNode))
         {
@@ -87,15 +115,16 @@ public class TypeResolver
             return EnsureResolved(referenceTypeNode.Target, sourceSpan);
         }
 
-        var canonicalName =  typeNode.CanonicalName();
-        if (!_declarations.TryGetValue(canonicalName, out var structDeclaration))
+        var canonicalName =  typeNode.CanonicalName;
+        if (!_resolutionLookups.TryGetDeclaration(canonicalName, out var structDeclaration))
         {
-            
             _diagnostics.UndeclaredType(typeNode);
             return false;
         }
 
-        var state = _resolutionStates.GetValueOrDefault(canonicalName, ResolutionState.Unresolved);
+        _ = _resolutionLookups.TryGetResolutionState(canonicalName, out var state);
+        
+        // todo: We should use the return value here
 
         if (state == ResolutionState.Resolved)
         {
@@ -108,7 +137,7 @@ public class TypeResolver
             return false;
         }
 
-        _resolutionStates[canonicalName] = ResolutionState.Resolving;
+        _resolutionLookups.SetState(canonicalName, ResolutionState.Resolving);
 
         var hasErrors = false;
         foreach (var field in structDeclaration.Fields)
@@ -126,7 +155,7 @@ public class TypeResolver
 
         if (_typeRegistry.IsValidStructName(structDeclaration.Name) && _typeRegistry.IsValidStructName(canonicalName))
         {
-            _resolutionStates[canonicalName] = ResolutionState.Resolved;
+            _resolutionLookups.SetState(canonicalName, ResolutionState.Resolved);
 
             if (_typeRegistry.TryRegister(structDeclaration))
             {
@@ -140,7 +169,7 @@ public class TypeResolver
 
         }
         
-        _diagnostics.InvalidStructName(structDeclaration, canonicalName);
+        _diagnostics.InvalidStructName(structDeclaration, canonicalName.ToString());
         return false;
     }
 }

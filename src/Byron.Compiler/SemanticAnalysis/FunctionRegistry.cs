@@ -4,17 +4,6 @@ using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public record ParameterSymbol(string Name, TypeNode Type);
-
-public record FunctionSymbol(
-    string CanonicalName,
-    List<string> ModulePath,
-    string Name,
-    List<ParameterSymbol> Parameters,
-    TypeNode ReturnType,
-    FunctionDeclarationNode Declaration
-);
-
 public class FunctionRegistry
 {
     private readonly Dictionary<string, FunctionSymbol> _declarations = [];
@@ -22,12 +11,12 @@ public class FunctionRegistry
     
     public bool TryRegister(FunctionDeclarationNode declaration)
     {
-        var canonicalName = declaration.CanonicalName();
+        var canonicalName = declaration.CanonicalName.ToString();
         var symbol = new FunctionSymbol(
-            canonicalName,
+            declaration.CanonicalName,
             declaration.ModulePath,
             declaration.Name,
-            declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type)).ToList(),
+            declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type, p.Ownership)).ToList(),
             declaration.ReturnType,
             declaration
         );
@@ -41,12 +30,12 @@ public class FunctionRegistry
     }
     
     public bool TryGetFunctionInScope(
-        List<string> modulePath, 
+        string[] modulePath, 
         string shortName, 
         [NotNullWhen(true)] out FunctionSymbol? function)
     {
-        var canonicalName = CanonicalNames.InModule(modulePath, shortName);
-        return _declarations.TryGetValue(canonicalName, out function) 
+        var canonicalNameString = CanonicalName.CanonicalNameString(modulePath, shortName);
+        return _declarations.TryGetValue(canonicalNameString, out function) 
                || _declarations.TryGetValue(shortName, out function);
     }
 }

@@ -106,9 +106,9 @@ public partial class ByronHighLevelAstParser
         {
             var operand = ParseUnary(context);
 
-            if (operand is BoolLiteralNode booleanLiteral)
+            if (operand is BooleanLiteralNode booleanLiteral)
             {
-                return new BoolLiteralNode(!booleanLiteral.Value, ExpandSpan(Previous(), booleanLiteral));
+                return new BooleanLiteralNode(!booleanLiteral.Value, ExpandSpan(Previous(), booleanLiteral));
             }
 
             return new UnaryExpressionNode(UnaryOperator.Not, operand, ExpandSpan(Previous(), operand));
@@ -151,12 +151,12 @@ public partial class ByronHighLevelAstParser
 
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
-                if (identifier is not { Kind: TokenKind.Identifier })
+                if (identifier is { Kind: TokenKind.Identifier})
                 {
-                    throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
+                    expression = ParseCallExpression(context, identifier, expression);
+                    continue;
                 }
-                expression = ParseCallExpression(context, expression);
-                continue;
+                throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
             }
             break;
         }
@@ -184,11 +184,11 @@ public partial class ByronHighLevelAstParser
         }
         if (ConsumingActiveTokenMatch(TokenKind.True))
         {
-            return new BoolLiteralNode(true, Previous().Span);
+            return new BooleanLiteralNode(true, Previous().Span);
         }
         if (ConsumingActiveTokenMatch(TokenKind.False))
         {
-            return new BoolLiteralNode(false, Previous().Span);
+            return new BooleanLiteralNode(false, Previous().Span);
         }
 
         if (ConsumingActiveTokenMatch(TokenKind.SelfType))
@@ -242,7 +242,7 @@ public partial class ByronHighLevelAstParser
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
     }
 
-    private CallExpressionNode ParseCallExpression(ScopeContext context, ExpressionNode callee)
+    private CallExpressionNode ParseCallExpression(ScopeContext context, Token identifier, ExpressionNode callee)
     {
         var arguments = new List<ExpressionNode>();
         if (!ActiveTokenMatch(TokenKind.RParen))
@@ -253,7 +253,7 @@ public partial class ByronHighLevelAstParser
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
         var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-        return new CallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
+        return new FreeFunctionCallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
     }
 
     private List<StructFieldInitializerNode> ParseStructFieldInitializers(ScopeContext context)

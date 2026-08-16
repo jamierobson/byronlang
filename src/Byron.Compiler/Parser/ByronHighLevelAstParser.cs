@@ -48,12 +48,12 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         
         var maybeFullyQualifiedNameSegments = identifierToken.Lexeme.Split('.');
         var name =  maybeFullyQualifiedNameSegments[^1];
-        var modulePath = maybeFullyQualifiedNameSegments[0..^1].ToList(); // todo: Make sure that module scope gets in here, when implemented.
+        var modulePath = maybeFullyQualifiedNameSegments[0..^1]; // todo: Make sure that module scope gets in here, when implemented.
 
         var declaredType = new NominalTypeNode(name, modulePath, identifierToken.Span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, ExpandSpan(startDeclarationNode, identifierToken));
 
-        var context = new ScopeContext(implementBlockDeclarationNode);
+        var context = new ScopeContext([], implementBlockDeclarationNode);
         
         while (!IsAtEnd())
         {
@@ -118,10 +118,10 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var returnType = ParseTypeSignature(context, nameToken);
         var body = ParseBlockStatement(context);
 
-        return new FunctionDeclarationNode(nameToken.Lexeme, [], parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
+        return new FunctionDeclarationNode(nameToken.Lexeme, context.RelativeModulePath(), parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 
-    private Token ParamaterIdentifier(ScopeContext context)
+    private Token ParameterIdentifier(ScopeContext context)
     {
         if (context.ImplementBlock != null && ActiveTokenMatch(TokenKind.SelfReceiver))
         {
@@ -139,7 +139,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         {
             do
             {
-                var parameterToken = ParamaterIdentifier(context);
+                var parameterToken = ParameterIdentifier(context);
                 _ = Consume(TokenKind.Colon, "Expected ':'.");
 
                 ReceiverBindingOwnership receiverBindingOwnership;
@@ -242,18 +242,18 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     
     private NominalTypeNode ParseNominalTypeNode(Token firstIdentifier)
     {
-        var path = new List<string> { firstIdentifier.Lexeme };
+        var modulePathSegments = new List<string>();
         var endToken = firstIdentifier;
 
         while (ConsumingActiveTokenMatch(TokenKind.Dot))
         {
             var segment = Consume(TokenKind.Identifier, "Expected identifier after '.' in type path.");
-            path.Add(segment.Lexeme);
+            modulePathSegments.Add(segment.Lexeme);
             endToken = segment;
         }
 
-        var name = path[^1];
-        path.RemoveAt(path.Count - 1);
+        var name = firstIdentifier.Lexeme;
+        var path = modulePathSegments.Count == 0 ? [] : modulePathSegments[0..^1].ToArray();
 
         return new NominalTypeNode(name, path, ExpandSpan(firstIdentifier, endToken));
     }
@@ -282,7 +282,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     private Token Peek() => tokens[_activeTokenIndex];
     private Token Previous() => tokens[_activeTokenIndex - 1];
     private bool IsAtEnd() => _activeTokenIndex >= tokens.Count || Peek().Kind == TokenKind.Eof;
-    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, Previous().Span);
+    private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, _activeTokenIndex > 0 ? Previous().Span : Peek().Span);
     private SourceSpan ExpandSpan(Token firstToken, Token endToken) => ExpandSpan(firstToken.Span, endToken.Span);
     private SourceSpan ExpandSpan(AstNode node, Token endToken) => ExpandSpan(node.Span, endToken.Span);
     private SourceSpan ExpandSpan(Token firstToken, AstNode endNode) => ExpandSpan(firstToken.Span, endNode.Span);

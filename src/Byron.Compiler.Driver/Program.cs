@@ -39,9 +39,9 @@ async Task TryParseFile(string filePath)
             return;
         }
 
-        var lowLevelAst = new ByronLoweringPass(semanticAnalysisResult).Lower();
+        var lowered = new ByronLoweringPass(semanticAnalysisResult).Lower();
         Console.WriteLine("Parsed successfully to AST");
-        var generatedCode = new LlvmIrGenerator(lowLevelAst).Generate();
+        var generatedCode = new LlvmIrGenerator(lowered).Generate();
         Console.WriteLine("Generated the following LLVM IR");
         Console.WriteLine(generatedCode);
 

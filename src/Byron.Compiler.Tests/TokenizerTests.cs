@@ -155,7 +155,7 @@ public class TokenizerTests
     [InlineData("/=", TokenKind.SlashEquals)]
     [InlineData("->", TokenKind.Arrow)]
     [InlineData("=>", TokenKind.FatArrow)]
-    [InlineData("..", TokenKind.DotDot)]
+    [InlineData("..<", TokenKind.DotDotLAngle)]
     [InlineData("..=",TokenKind.DotDotEquals)]
     [InlineData("::", TokenKind.ColonColon)]
     [InlineData(">>", TokenKind.RAngleRAngle)]
@@ -214,6 +214,13 @@ public class TokenizerTests
         Assert.Contains(tokens, t => t.Kind == TokenKind.LexError);
         Assert.Contains(tokens, t => t.Kind == TokenKind.Fn);
         Assert.Contains(tokens, t => t is { Kind: TokenKind.Identifier, Lexeme: "foo" });
+    }
+
+    [Fact]
+    public void DotDot_ProducesErrorToken()
+    {
+        var tokens = Lex("..");
+        Assert.Contains(tokens, t => t.Kind == TokenKind.LexError);
     }
 
     [Fact]

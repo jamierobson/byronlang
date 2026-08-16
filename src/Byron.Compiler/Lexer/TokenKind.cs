@@ -89,7 +89,7 @@ public enum TokenKind
     Semicolon,      // ;
     Pipe,           // |
 
-    DotDot,         // ..
+    DotDotLAngle,   // ..<
     DotDotEquals,   // ..=
 
     Equals,         // =
