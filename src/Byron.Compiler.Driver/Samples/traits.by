@@ -1,0 +1,66 @@
+trait Point2d {
+    x: i32,
+    y: i32,
+    fn getY(self: &Self): i32,
+    fn getSum(self: &Self): i32,
+}
+
+trait Point3d {
+    x: i32,
+    y: i32,
+    z: i32,
+    fn getZ(self: &Self): i32,
+    fn getSum(self: &Self): i32,
+}
+
+struct Point {
+  x: i32,
+  y: i32,
+  z: i32,
+}
+
+implement Point {
+    fn getSum(self: &Self): i32 {
+        return 1000;
+    }
+}
+
+implement Point2d for Point {
+    fn getY(self: &Self): i32 {
+        return self.*.y;
+    }
+    
+    fn getSum(self: &Self): i32 {
+        return self.*.x + self.*.y;
+    }
+}
+
+implement Point3d for Point {
+    fn getZ(self: &Self): i32 {
+        return self.*.z;
+    }
+    
+    fn getSum(self: &Self): i32 {
+        return self.*.x + self.*.y + self.*.z;
+    }
+}
+
+
+fn main(): i32 {
+    let point = Point {x: 1, y: 10, z: 100,};
+    let fromImplementBlock = point.getSum(); // expect 1000
+    let fromPoint2d = Point.Point2d.getSum(&point);
+    let fromPoint3d = Point.Point3d.getSum(&point);
+    
+    var sumOfSums = fromImplementBlock + fromPoint2d + fromPoint3d;
+    
+    if(sumOfSums != 1122)
+    {
+        return 255; 
+    }
+    
+    let fieldAccess = point.x + Point.Point2d.getY(&point) + Point.Point3d.getZ(&point); 
+    sumOfSums = sumOfSums - fieldAccess;
+    
+    return sumOfSums;
+}

@@ -108,7 +108,7 @@ You cannot resolve the `free` obligation on an instance upon which you do not ho
 
 Assume, in the following examples, the existance of
 ```
-interface TransferringAllocator {
+trait TransferringAllocator {
     @obligates([.fill, .release])
     fn alloc<T>(self: &var Self): Result<Uninitialized<Owned<T>>, OutOfMemoryError>,
 }
@@ -376,7 +376,7 @@ let (a, b, c) = take (x, y, x)      // z was not taken, x was taken twice
 
 ## Allocators
 
-Byron has two allocator interfaces, that either give, or retain, memory ownership, depending on your needs.
+Byron has two allocator traits, that either give, or retain, memory ownership, depending on your needs.
 
 Each presents an `alloc` function, that returns a type-safe block of uninitialized memory, which you are obligated to `fill` with a value. 
 
@@ -385,7 +385,7 @@ Each presents an `alloc` function, that returns a type-safe block of uninitializ
 The `alloc` function returns `Uninitialized<T>` which represents an empty block of memory, that the caller is responsible for, large enough to place an `Owned<T>` A value is placed by calling the `fill` function, returning the `Owned<T>`. Calling `.fill` is an obligation. The caller takes ownership of the `Owned<T>` instance, including the `free` obligation and is responsible for eventually freeing the memory. A General Purpose Allocator would be an example.
 
 ```
-interface TransferringAllocator {
+trait TransferringAllocator {
     @obligates([.fill, .release])
     fn alloc<T>(self: &var Self): Result<Uninitialized<T>>,
 }
@@ -415,7 +415,7 @@ gpa.deinit();
 The `alloc` function returns `MemoryLease<T>` which represents an empty block of memory, that the allocator retains responsibility for, large enough to place a `T` A value is placed by calling the `fill` function, returning `&var T`. Calling `.fill` is an obligation. The allocator retainns ownership of the `Owned<T>` instance, including the `free` obligation and is responsible for eventually freeing the memory. An Arena Allocator would be an example.
 
 ```
-interface RetainingAllocator {
+trait RetainingAllocator {
     @obligates([.fill, .release])
     fn alloc<T>(self: &var Self): Result<MemoryLease<T>>,
 }
@@ -500,7 +500,7 @@ If we can do that, we're making enough progress to be worth pushing all the way 
 0. ~~Add struct support, while we stack allocate~~
 0. ~~Add simple type inference with a top down walk of the AST~~
 0. ~~Add `implement` blocks to add functions to structs~~
-0. Add `interface`s (__NOT__ for dynamic dispatch)
+0. Add `trait`s (__NOT__ for dynamic dispatch)
 0. Implement enough generics to describe `Owned<T, A: TransferringAllocator>`, `Uninitialized<T, A: TransferringAllocator>` and `Unsafe<T, A: TransferringAllocator>` types. Update the readme to note the updated realizations regarding Owned being generic over both T and the allocator in order to avoid dynamic dispatch. Note also that we are willing to consider Owned<T, dynamic TransferringAllocator> which _could_ potentially be erased.
 0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
 0. Link libc. Add `external` C declarations, and `unsafe` function modifiers and blocks
