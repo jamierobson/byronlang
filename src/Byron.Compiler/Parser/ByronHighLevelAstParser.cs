@@ -340,7 +340,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
             : context.TraitDeclaration!;
         
         
-        return new  SelfTypeNode(selfType, identifierToken.Span);
+        return new SelfTypeNode(selfType, identifierToken.Span);
     }
     
     private NominalTypeNode ParseNominalTypeNode(Token firstIdentifier)

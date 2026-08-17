@@ -12,10 +12,15 @@ public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode Sour
     public new High.TopLevelDeclarationNode SourceNode => (High.TopLevelDeclarationNode)base.SourceNode;
 }
 
+public record Discarded(High.TopLevelDeclarationNode SourceNode) : TopLevelDeclarationNode(SourceNode)
+{
+}
+
 // Functions
 public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, FunctionSignatureNode Signature, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode)
 {
     public new High.FunctionDeclarationNode SourceNode => (High.FunctionDeclarationNode)base.SourceNode;
+    // public string Name => SourceNode.CanonicalName.ToString(); //todo: We need to get to resolving this name, somehow.
     public string Name => SourceNode.Name;
 }
 
@@ -29,13 +34,6 @@ public record ParameterNode(High.ParameterNode SourceNode, TypeNode Type) : AstN
     public new High.ParameterNode SourceNode => (High.ParameterNode)base.SourceNode;
     public string Name => SourceNode.Name;
     public ReceiverBindingOwnership Ownership => SourceNode.Ownership;
-}
-
-// Traits
-public record TraitDeclarationNode(High.TraitDeclarationNode SourceNode, List<StructFieldNode> RequiredFields, List<FunctionSignatureNode> RequiredFunctions) : TopLevelDeclarationNode(SourceNode)
-{
-    public new High.TraitDeclarationNode SourceNode => (High.TraitDeclarationNode)base.SourceNode;
-    public string Name => SourceNode.Name;
 }
 
 // Structs

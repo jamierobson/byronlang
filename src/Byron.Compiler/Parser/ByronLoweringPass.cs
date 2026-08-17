@@ -45,17 +45,9 @@ public class ByronLoweringPass
         };
     }
 
-    private Low.TraitDeclarationNode TraitDeclaration(High.TraitDeclarationNode trait)
+    private Low.Discarded TraitDeclaration(High.TraitDeclarationNode trait)
     {
-        var fields = trait.RequiredFields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
-        var functions = trait.RequiredFunctions.Select(x => new Low.FunctionSignatureNode(
-                x,
-                x.Parameters.Select(Parameter).ToList(),
-                Type(x.ReturnType))
-            )
-            .ToList();
-
-        return new Low.TraitDeclarationNode(trait, fields, functions);
+        return new Low.Discarded(trait);
     }
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
@@ -99,6 +91,7 @@ public class ByronLoweringPass
             High.FloatTypeNode @float => new Low.FloatTypeNode(@float),
             High.BoolTypeNode @bool => new Low.BoolTypeNode(@bool),
             High.RuneTypeNode rune => new Low.RuneTypeNode(rune),
+            // High.TraitTypeNode  =>
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
