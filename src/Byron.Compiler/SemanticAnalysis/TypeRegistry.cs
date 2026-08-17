@@ -93,6 +93,7 @@ public class TypeRegistry
             PrimitiveTypeNode => true,
             ReferenceTypeNode reference => IsValidType(reference.Target),
             NominalTypeNode nominal => _structRegistry.ContainsKey(nominal.CanonicalName.ToString()),
+            SelfTypeNode selfType => _structRegistry.ContainsKey(selfType.ScopedType.CanonicalName.ToString()),
             _ => false
         };
     }

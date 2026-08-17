@@ -319,19 +319,23 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return type is not null;
     }
 
-    private NominalTypeNode ParseSelfTypeNode(ScopeContext context, Token? identifierToken = null)
+    private SelfTypeNode ParseSelfTypeNode(ScopeContext context, Token? identifierToken = null)
     {
-        if (context.ImplementBlock is null)
+        if (context.ImplementBlock is null && context.TraitDeclaration is null)
         {
             throw new ByronHighLevelParserException("The 'Self' type is only valid in implementation block function signatures", Peek().Span);
         }
         
         if (identifierToken is null)
         {
-            throw new ByronHighLevelParserException("The self parameter name must be bound to a valid 'Self' type", context.ImplementBlock.Span);
+            throw new ByronHighLevelParserException("The self parameter name must be bound to a valid 'Self' type", context.ImplementBlock?.Span ?? context.TraitDeclaration!.Span);
         }
+
+        TypeNode selfType = (context.ImplementBlock is not null)
+            ? context.ImplementBlock.TypeNode
+            : context.TraitDeclaration!;
         
-        return new NominalTypeNode(context.ImplementBlock.Name, context.ImplementBlock.ModulePath, context.ImplementBlock.Span);
+        return new  SelfTypeNode(selfType, identifierToken.Span);
     }
     
     private NominalTypeNode ParseNominalTypeNode(Token firstIdentifier)

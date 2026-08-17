@@ -77,6 +77,7 @@ public class ByronLoweringPass
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
             High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
+            High.SelfTypeNode self => Type(self.ScopedType),
             High.VoidTypeNode @void => new Low.VoidTypeNode(@void),
             High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed),
             High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned),
