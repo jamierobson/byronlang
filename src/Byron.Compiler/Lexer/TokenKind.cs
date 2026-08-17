@@ -48,6 +48,7 @@ public enum TokenKind
     Import,
     Use,
     Using,
+    Alias,
     As,
 
     Unsafe,

@@ -1,0 +1,55 @@
+alias DupeA = Module_A.Dupe;
+alias Module_A = My.ModuleA;
+alias Module_B = My.ModuleB;
+alias AliasedTrait = My.ModuleB.MyTrait;
+
+fn main():i32 {
+    let a = DupeA {
+        x: 5,
+    };
+    
+    let b = Module_B.Dupe {
+        y: 1,
+    };
+    
+    let fromMethod = a.get(); // 10;
+    let fromFullyQualifiedInterface = My.ModuleA.Dupe.My.ModuleB.MyTrait.get(&a); //10
+    let fromInScope = DupeA.AliasedTrait.get(&a); //10
+    let fromB = Module_B.Dupe.Module_B.MyTrait.get(&b); // 1
+    
+    return fromMethod + fromFullyQualifiedInterface + fromInScope + fromB; //31
+}
+
+module My.ModuleA {
+    struct Dupe {
+        x: i32,
+    }
+    
+    implement Dupe {
+        fn get(self: &Self): i32 {
+            return 2 * self.*.x;
+        }
+    }
+    
+    implement My.ModuleB.MyTrait for Dupe {
+        fn get(self: &Self): i32 {
+            return Dupe.get(self);
+        }
+    }
+}
+
+module My.ModuleB {
+    trait MyTrait {
+        fn get(self: &Self): i32
+    }
+    
+    implement MyTrait for Dupe {
+        fn get(self: &Self): i32 {
+            return self.*.y;
+        }
+    }
+
+    struct Dupe {
+        y: i32,
+    }
+}
