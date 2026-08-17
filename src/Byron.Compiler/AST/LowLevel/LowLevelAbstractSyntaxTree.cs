@@ -13,10 +13,15 @@ public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode Sour
 }
 
 // Functions
-public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, List<ParameterNode> Parameters, TypeNode ReturnType, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode)
+public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, FunctionSignatureNode Signature, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode)
 {
     public new High.FunctionDeclarationNode SourceNode => (High.FunctionDeclarationNode)base.SourceNode;
     public string Name => SourceNode.Name;
+}
+
+public record FunctionSignatureNode(High.FunctionSignatureNode SourceNode, List<ParameterNode> Parameters, TypeNode ReturnType) : AstNode(SourceNode)
+{
+    public new High.FunctionSignatureNode SourceNode => (High.FunctionSignatureNode)base.SourceNode;
 }
 
 public record ParameterNode(High.ParameterNode SourceNode, TypeNode Type) : AstNode(SourceNode)
@@ -24,6 +29,13 @@ public record ParameterNode(High.ParameterNode SourceNode, TypeNode Type) : AstN
     public new High.ParameterNode SourceNode => (High.ParameterNode)base.SourceNode;
     public string Name => SourceNode.Name;
     public ReceiverBindingOwnership Ownership => SourceNode.Ownership;
+}
+
+// Traits
+public record TraitDeclarationNode(High.TraitDeclarationNode SourceNode, List<StructFieldNode> RequiredFields, List<FunctionSignatureNode> RequiredFunctions) : TopLevelDeclarationNode(SourceNode)
+{
+    public new High.TraitDeclarationNode SourceNode => (High.TraitDeclarationNode)base.SourceNode;
+    public string Name => SourceNode.Name;
 }
 
 // Structs

@@ -339,6 +339,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
             ? context.ImplementBlock.TypeNode
             : context.TraitDeclaration!;
         
+        
         return new  SelfTypeNode(selfType, identifierToken.Span);
     }
     

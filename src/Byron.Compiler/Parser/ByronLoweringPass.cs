@@ -40,8 +40,22 @@ public class ByronLoweringPass
         {
             High.FunctionDeclarationNode function => FunctionDeclaration(function),
             High.StructDeclarationNode @struct => StructDeclaration(@struct),
+            High.TraitDeclarationNode trait => TraitDeclaration(trait),
             _ => throw new ByronNotImplementedException(declaration.GetType(), this, declaration.Span) 
         };
+    }
+
+    private Low.TraitDeclarationNode TraitDeclaration(High.TraitDeclarationNode trait)
+    {
+        var fields = trait.RequiredFields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
+        var functions = trait.RequiredFunctions.Select(x => new Low.FunctionSignatureNode(
+                x,
+                x.Parameters.Select(Parameter).ToList(),
+                Type(x.ReturnType))
+            )
+            .ToList();
+
+        return new Low.TraitDeclarationNode(trait, fields, functions);
     }
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
@@ -55,8 +69,9 @@ public class ByronLoweringPass
         var parameters = declaration.Signature.Parameters.Select(Parameter).ToList();
         var returnType = Type(declaration.Signature.ReturnType);
         var body = BlockStatement(declaration.Body);
-
-        return new Low.FunctionDeclarationNode(declaration, parameters, returnType, body);
+        var signature = new Low.FunctionSignatureNode(declaration.Signature, parameters, returnType);
+        
+        return new Low.FunctionDeclarationNode(declaration, signature, body);
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
