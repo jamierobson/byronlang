@@ -13,46 +13,64 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
     public ProgramNode Parse()
     {
-        var functions = new List<FunctionDeclarationNode>();
-        var structs = new List<StructDeclarationNode>();
         var traits = new List<TraitDeclarationNode>();
+        var structs = new List<StructDeclarationNode>();
+        var functions = new List<FunctionDeclarationNode>();
+        // var aliases = new List<AliasDeclarationNode>();
         
+        ParseAll(ScopeContext.Global, traits, structs, functions);
+        
+        return new ProgramNode([..functions, ..structs, ..traits]);
+    }
+
+    private void ParseAll(
+        ScopeContext encapsulatingScope,
+        List<TraitDeclarationNode> traits,
+        List<StructDeclarationNode> structs,
+        List<FunctionDeclarationNode> functions)
+    {
         while (!IsAtEnd())
         {
             var token = Peek();
             // ReSharper disable once SwitchStatementHandlesSomeKnownEnumValuesWithDefault
             switch (token.Kind)
             {
+                case TokenKind.RBrace:
+                    // Ending this context
+                    Advance();
+                    return;
                 case TokenKind.Fn:
-                    functions.Add(ParseFunctionDeclaration(ScopeContext.Global));
+                    functions.Add(ParseFunctionDeclaration(encapsulatingScope));
                     break;
                 case TokenKind.Implement:
-                    functions.AddRange(ParseFunctionDeclarationsFromImplementBlock());
+                    var implementBlockContext = SynthesizeImplementBlockContext(encapsulatingScope);
+                    ParseAll(implementBlockContext, traits, structs, functions);
                     break;
                 case TokenKind.Struct:
-                    structs.Add(ParseStructDeclaration(ScopeContext.Global));
+                    structs.Add(ParseStructDeclaration(encapsulatingScope));
                     break;
                 case TokenKind.Trait:
-                    traits.Add(ParseTraitDeclaration());
+                    traits.Add(ParseTraitDeclaration(encapsulatingScope));
+                    break;
+                case TokenKind.Module:
+                    var moduleContext = SynthesizeModuleContext(encapsulatingScope);
+                    ParseAll(moduleContext, traits, structs, functions);
                     break;
                 default:
                     throw new ByronNotImplementedException(token.Kind, this, token.Span);
-            }   
+            }
         }
-
-        return new ProgramNode([..functions, ..structs, ..traits]);
     }
 
-    private TraitDeclarationNode ParseTraitDeclaration()
+    private TraitDeclarationNode ParseTraitDeclaration(ScopeContext encapsulatingContext)
     {
         var startNode = Consume(TokenKind.Trait, "Expected 'trait' block.");
         var identifier = Consume(TokenKind.Identifier, "Expected trait name");
 
         var (name, module) = NameAndModulePath(identifier);
         var traitTypeNode = new TraitTypeNode(name, module, identifier.Span);
-        var scopeContext = new ScopeContext([], null, traitTypeNode);
-        
-        var (fields, functions) = ParseTraitMembers(scopeContext);
+
+        var (fields, functions) = ParseTraitMembers(encapsulatingContext);
         return new TraitDeclarationNode(traitTypeNode, fields, functions, startNode.Span);
     }
 
@@ -103,9 +121,18 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return (name, modulePath);
     }
 
-    private List<FunctionDeclarationNode> ParseFunctionDeclarationsFromImplementBlock()
+    private ScopeContext SynthesizeModuleContext(ScopeContext encapsulatingScope)
     {
-        var implementFunctionDeclarations = new List<FunctionDeclarationNode>();
+        _ = Consume(TokenKind.Module, "Expected 'module' block");
+        var moduleIdentifier = Consume(TokenKind.Identifier, "Expected identifier");
+        _ = Consume(TokenKind.LBrace, "Expected '}'.");
+
+        var modulePath = moduleIdentifier.Lexeme.Split('.');
+        return encapsulatingScope with { ModulePath = modulePath };
+    }
+    
+    private ScopeContext SynthesizeImplementBlockContext(ScopeContext encapsulatingScope)
+    {
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
         var activeIdentifier = Consume(TokenKind.Identifier, "Expected identifier");
 
@@ -124,8 +151,12 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var declaredType = new NominalTypeNode(structName, structModule, activeIdentifier.Span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
 
-        var context = new ScopeContext([], implementBlockDeclarationNode, null);
-        
+        return encapsulatingScope with { ImplementBlock = implementBlockDeclarationNode };
+    }
+
+    private List<FunctionDeclarationNode> ParseFunctionDeclarationsFromImplementBlock(ScopeContext context)
+    {
+        var implementFunctionDeclarations = new List<FunctionDeclarationNode>();
         while (!IsAtEnd())
         {
             if(ConsumingActiveTokenMatch(TokenKind.RBrace))

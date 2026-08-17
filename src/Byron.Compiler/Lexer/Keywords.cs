@@ -53,6 +53,7 @@ public static class Keywords
         ["import"]      = TokenKind.Import,
         ["use"]         = TokenKind.Use,
         ["using"]       = TokenKind.Using,
+        ["module"]       = TokenKind.Module,
         ["alias"]       = TokenKind.Alias,
         ["as"]          = TokenKind.As,
 
