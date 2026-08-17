@@ -16,8 +16,8 @@ public class FunctionRegistry
             declaration.CanonicalName,
             declaration.ModulePath,
             declaration.Name,
-            declaration.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type, p.Ownership)).ToList(),
-            declaration.ReturnType,
+            declaration.Signature.Parameters.Select(p => new ParameterSymbol(p.Name, p.Type, p.Ownership)).ToList(),
+            declaration.Signature.ReturnType,
             declaration
         );
 

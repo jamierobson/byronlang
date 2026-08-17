@@ -14,7 +14,8 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     public ProgramNode Parse()
     {
         var functions = new List<FunctionDeclarationNode>();
-        var structs = new List<StructDeclarationNode>(); 
+        var structs = new List<StructDeclarationNode>();
+        var traits = new List<TraitDeclarationNode>();
         
         while (!IsAtEnd())
         {
@@ -31,27 +32,93 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                 case TokenKind.Struct:
                     structs.Add(ParseStructDeclaration(ScopeContext.Global));
                     break;
+                case TokenKind.Trait:
+                    traits.Add(ParseTraitDeclaration(ScopeContext.Global));
+                    break;
                 default:
                     throw new ByronNotImplementedException(token.Kind, this, token.Span);
             }   
         }
 
-        return new ProgramNode([..functions, ..structs]);
+        return new ProgramNode([..functions, ..structs, ..traits]);
+    }
+
+    private TraitDeclarationNode ParseTraitDeclaration(ScopeContext context)
+    {
+        var startNode = Consume(TokenKind.Trait, "Expected 'trait' block.");
+        var identifier = Consume(TokenKind.Identifier, "Expected trait name");
+
+        var (fields, functions) = ParseTraitMembers(context);
+        return new TraitDeclarationNode("", [], fields, functions, SourceSpan.Empty);
+    }
+
+    private (List<StructFieldNode> fields, List<FunctionSignatureNode> functions) ParseTraitMembers(ScopeContext context)
+    {
+        var fields = new List<StructFieldNode>();
+        var functions = new List<FunctionSignatureNode>();
+        _ = Consume(TokenKind.LBrace, "Expected '{'.");
+        
+        while (!IsAtEnd())
+        {
+            if (Peek().Kind == TokenKind.Fn)
+            {
+                Advance(); // skips the fn token
+                var function = ParseFunctionSignature(context);
+                functions.Add(function);
+            }
+            else
+            {
+                var field = ParseStructField(context);
+                fields.Add(field);
+            }
+            
+            
+            if (ActiveTokenMatch(TokenKind.RBrace))
+            {
+                break;
+            }
+            _ = Consume(TokenKind.Comma, "Expected ',' separator between member declarations.");
+            if (ActiveTokenMatch(TokenKind.RBrace))
+            {
+                break;
+            }
+        }
+        
+        _ = Consume(TokenKind.RBrace, "Expected '}'.");
+        
+
+        return (fields, functions);
+    }
+
+    private (string Name, string[] ModulePath) NameAndModulePath(Token identifierToken)
+    {
+        var maybeFullyQualifiedNameSegments = identifierToken.Lexeme.Split('.');
+        var name =  maybeFullyQualifiedNameSegments[^1];
+        var modulePath = maybeFullyQualifiedNameSegments[0..^1]; // todo: Make sure that module scope gets in here, when implemented.
+        
+        return (name, modulePath);
     }
 
     private List<FunctionDeclarationNode> ParseFunctionDeclarationsFromImplementBlock()
     {
         var implementFunctionDeclarations = new List<FunctionDeclarationNode>();
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
-        var identifierToken = Consume(TokenKind.Identifier, "Expected identifier");
-        _ = Consume(TokenKind.LBrace, "Expected '{'.");
-        
-        var maybeFullyQualifiedNameSegments = identifierToken.Lexeme.Split('.');
-        var name =  maybeFullyQualifiedNameSegments[^1];
-        var modulePath = maybeFullyQualifiedNameSegments[0..^1]; // todo: Make sure that module scope gets in here, when implemented.
+        var structIdentifierToken = Consume(TokenKind.Identifier, "Expected identifier");
 
-        var declaredType = new NominalTypeNode(name, modulePath, identifierToken.Span);
-        var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, ExpandSpan(startDeclarationNode, identifierToken));
+        TraitTypeNode? trait = null;
+        if (ConsumingActiveTokenMatch(TokenKind.For))
+        {
+            // we're in a trait implementation block
+            var traitIdentifier =  Consume(TokenKind.Identifier, "Expected trait identifier after 'for'");
+            var (traitName, traitModule) = NameAndModulePath(traitIdentifier);
+            trait = new TraitTypeNode(traitName, traitModule, traitIdentifier.Span);
+        }
+        
+        var leftBrace = Consume(TokenKind.LBrace, "Expected '{'.");
+
+        var (structName, structModule) = NameAndModulePath(structIdentifierToken);
+        var declaredType = new NominalTypeNode(structName, structModule, structIdentifierToken.Span);
+        var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
 
         var context = new ScopeContext([], implementBlockDeclarationNode);
         
@@ -81,49 +148,67 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
         var fields = ParseStructFields(context);
         
-        return new StructDeclarationNode(nameToken.Lexeme, [], fields, ExpandSpan(structToken, Peek()));
+        var (name, module) = NameAndModulePath(nameToken);
+        return new StructDeclarationNode(name, module, fields, ExpandSpan(structToken, Peek()));
     }
 
+    private StructFieldNode ParseStructField(ScopeContext context)
+    {
+        var nameToken = Consume(TokenKind.Identifier, "Expected field name");
+        _ = Consume(TokenKind.Colon, "Expected ':'.");
+        var type = ParseTypeSignature(context, nameToken);
+        return new StructFieldNode(nameToken.Lexeme, type, ExpandSpan(nameToken, type));
+    }
+    
     private List<StructFieldNode> ParseStructFields(ScopeContext context)
     {
         var fields = new List<StructFieldNode>();
         _ = Consume(TokenKind.LBrace, "Expected '{'.");
 
-        while (!ActiveTokenMatch(TokenKind.RBrace))
+        while (!IsAtEnd())
         {
-            var nameToken = Consume(TokenKind.Identifier, "Expected field name");
-            _ = Consume(TokenKind.Colon, "Expected ':'.");
-            var type = ParseTypeSignature(context, nameToken);
+            var field = ParseStructField(context); 
 
-            fields.Add(new StructFieldNode(nameToken.Lexeme, type, ExpandSpan(nameToken, type)));
-
+            fields.Add(field);
+            
+            // todo: Make this better : A trailing comma is supported, and optional. 
             if (ActiveTokenMatch(TokenKind.RBrace))
             {
                 break;
             }
             _ = Consume(TokenKind.Comma, "Expected ',' separator between field declarations.");
+            if (ActiveTokenMatch(TokenKind.RBrace))
+            {
+                break;
+            }
         }
         
-        Advance();
+        _ = Consume(TokenKind.RBrace, "Expected '}'.");
         return fields;
     }
 
-    public FunctionDeclarationNode ParseFunctionDeclaration(ScopeContext context)
+    public FunctionSignatureNode ParseFunctionSignature(ScopeContext context)
     {
-        var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
         var nameToken = Consume(TokenKind.Identifier, "Expected function name.");
-
         var parameters = ParseFunctionParameters(context); 
         _ = Consume(TokenKind.Colon, "Expected ':'.");
         var returnType = ParseTypeSignature(context, nameToken);
+        
+        return new FunctionSignatureNode(nameToken.Lexeme, parameters, returnType, ExpandSpan(nameToken, returnType));
+    }
+    
+    public FunctionDeclarationNode ParseFunctionDeclaration(ScopeContext context)
+    {
+        var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
+        var functionSignature = ParseFunctionSignature(context);
         var body = ParseBlockStatement(context);
-
-        return new FunctionDeclarationNode(nameToken.Lexeme, context.RelativeModulePath(), parameters, returnType, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
+        
+        return new FunctionDeclarationNode(context.RelativeModulePath(), functionSignature, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 
-    private Token ParameterIdentifier(ScopeContext context)
+    private Token ParameterIdentifier(bool allowSelf)
     {
-        if (context.ImplementBlock != null && ActiveTokenMatch(TokenKind.SelfReceiver))
+        if (allowSelf && ActiveTokenMatch(TokenKind.SelfReceiver))
         {
             return Advance();
         }
@@ -135,11 +220,12 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     {   
         _ = Consume(TokenKind.LParen, "Expected '('.");
         var parameters = new List<ParameterNode>();
+        var parameterPosition = 0;
         if (!ActiveTokenMatch(TokenKind.RParen))
         {
             do
             {
-                var parameterToken = ParameterIdentifier(context);
+                var parameterToken = ParameterIdentifier(context.ImplementBlock is not null && parameterPosition == 0);
                 _ = Consume(TokenKind.Colon, "Expected ':'.");
 
                 ReceiverBindingOwnership receiverBindingOwnership;
@@ -165,6 +251,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                 
                 var parameterType = ParseTypeSignature(context, parameterToken);
                 parameters.Add(new ParameterNode(receiverBindingOwnership, parameterToken.Lexeme, parameterType, ExpandSpan(parameterToken, parameterType)));
+                parameterPosition++;
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
 

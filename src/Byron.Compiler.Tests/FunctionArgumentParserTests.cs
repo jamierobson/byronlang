@@ -13,9 +13,15 @@ public class FunctionArgumentParserTests
     {
         return Token.Create(kind, lexeme, SourceSpan.Empty);        
     }
+
+    private static ScopeContext ImplementBlock()
+        => new ScopeContext(
+            [],
+            new ImplementBlockDeclarationNode(new NominalTypeNode("name", [], SourceSpan.Empty),
+                null,
+                SourceSpan.Empty));  
     
-    private List<Token> CreateFunctionArgumentTokenStream(
-        params IEnumerable<(TokenKind kind, string lexeme)> definitions)
+    private List<Token> CreateFunctionArgumentTokenStream(params IEnumerable<(TokenKind kind, string lexeme)> definitions)
     {
         var tokens = new List<Token> {ToToken(TokenKind.LParen, "(")};
         tokens.AddRange(definitions.Select(d => ToToken(d.kind, d.lexeme)));
@@ -23,6 +29,57 @@ public class FunctionArgumentParserTests
         tokens.Add(ToToken(TokenKind.Eof, ""));
         
         return tokens;
+    }
+
+    [Fact]
+    public void Parse_WithSelf_WhenSelfDisallowed_Throws()
+    {        
+        // Arrange
+        var tokenStream =  CreateFunctionArgumentTokenStream(       
+            (TokenKind.SelfReceiver, "self"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Ampersand, "&"),
+            (TokenKind.SelfType, "Self")
+        ); // (self: Self)
+        
+        // Act + Assert
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+    }
+
+    [Fact]
+    public void Parse_WithSelfInSecondPosition_WhenSelfAllowed_Throws()
+    {
+        var tokenStream =  CreateFunctionArgumentTokenStream(  
+            (TokenKind.Identifier, "x"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Identifier, "i32"),
+            (TokenKind.Comma, ","),     
+            (TokenKind.SelfReceiver, "self"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Ampersand, "&"),
+            (TokenKind.SelfType, "Self")
+        );
+        
+        // Act + Assert
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+    }
+
+    [Fact]
+    public void Parse_WithSelfInFirstPosition_WhenSelfAllowed_ReturnsExpected()
+    {        
+        var tokenStream =  CreateFunctionArgumentTokenStream(       
+            (TokenKind.SelfReceiver, "self"),
+            (TokenKind.Colon, ":"),
+            (TokenKind.Ampersand, "&"),
+            (TokenKind.SelfType, "Self")
+        ); // (self: &Self)
+        
+        // Act + Assert
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ImplementBlock());
+        
+        Assert.Single(result);
+        var argument = result.Single();
+        Assert.Equal("self", argument.Name);
     }
     
     [Fact]

@@ -21,16 +21,16 @@ public class FunctionResolver
     {
         foreach (var declaration in _declarations)
         {
-            if (!_typeRegistry.IsValidType(declaration.ReturnType))
+            if (!_typeRegistry.IsValidType(declaration.Signature.ReturnType))
             {
-                _diagnostics.UndeclaredType(declaration.ReturnType, "return");
+                _diagnostics.UndeclaredType(declaration.Signature.ReturnType, "return");
             }
 
-            foreach (var param in declaration.Parameters)
+            foreach (var param in declaration.Signature.Parameters)
             {
                 if (!_typeRegistry.IsValidType(param.Type))
                 {
-                    _diagnostics.UndeclaredType(declaration.ReturnType, "parameter");
+                    _diagnostics.UndeclaredType(declaration.Signature.ReturnType, "parameter");
                 }
             }
 

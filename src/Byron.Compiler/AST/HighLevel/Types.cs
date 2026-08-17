@@ -25,6 +25,19 @@ public class NominalTypeNode : TypeNode
     }
 }
 
+public class TraitTypeNode : TypeNode
+{
+    public string Name { get; init; }
+    public string[] ModulePath { get; init; }
+
+    public TraitTypeNode(string name, string[] modulePath, SourceSpan span)
+        : base(CanonicalName.From(modulePath, name), span)
+    {
+        Name = name;
+        ModulePath = modulePath;
+    }
+}
+
 public class ReferenceTypeNode : TypeNode
 {
     public TypeNode Target { get; init; }

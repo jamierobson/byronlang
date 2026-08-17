@@ -17,27 +17,40 @@ public abstract class TopLevelDeclarationNode : AstNode
 
 public class ImplementBlockDeclarationNode : TopLevelDeclarationNode
 {
+    public TraitTypeNode? TraitNode { get; init; }
     public NominalTypeNode TypeNode { get; init; }
 
-    public ImplementBlockDeclarationNode(NominalTypeNode typeNode, SourceSpan span)
+    public ImplementBlockDeclarationNode(NominalTypeNode typeNode, TraitTypeNode? traitNode, SourceSpan span)
         : base(typeNode.Name, typeNode.ModulePath, span)
     {
         TypeNode = typeNode;
+        TraitNode = traitNode;
     }
 }
 
 public class FunctionDeclarationNode : TopLevelDeclarationNode
 {
-    public List<ParameterNode> Parameters { get; init; }
-    public TypeNode ReturnType { get; init; }
+    public FunctionSignatureNode Signature { get; init; }
     public BlockStatementNode Body { get; init; }
 
-    public FunctionDeclarationNode(string name, string[] modulePath, List<ParameterNode> parameters, TypeNode returnType, BlockStatementNode body, SourceSpan span)
-        : base(name, modulePath, span)
+    public FunctionDeclarationNode(string[] modulePath, FunctionSignatureNode signature, BlockStatementNode body, SourceSpan span)
+        : base(signature.Name, modulePath, span)
     {
+        Signature =  signature;
+        Body = body;
+    }
+}
+
+public class FunctionSignatureNode : AstNode
+{
+    public string Name { get; init; }
+    public List<ParameterNode> Parameters { get; init; }
+    public TypeNode ReturnType { get; init; }
+    public FunctionSignatureNode(string name, List<ParameterNode> parameters, TypeNode returnType, SourceSpan span) : base(span)
+    {
+        Name = name;
         Parameters = parameters;
         ReturnType = returnType;
-        Body = body;
     }
 }
 
@@ -53,6 +66,17 @@ public class ParameterNode : AstNode
         Name = name;
         Type = type;
     }
+}
+
+public class TraitDeclarationNode : TopLevelDeclarationNode
+{
+    public TraitDeclarationNode(string name, string[] modulePath, List<StructFieldNode> fields, List<FunctionSignatureNode> functions, SourceSpan span) : base(name , modulePath, span)
+    {
+        RequiredFields = fields;
+        RequiredFunctions = functions;
+    }
+    public List<StructFieldNode> RequiredFields { get; init; }
+    public List<FunctionSignatureNode> RequiredFunctions { get; init; }
 }
 
 public class StructDeclarationNode : TopLevelDeclarationNode

@@ -53,8 +53,8 @@ public class FunctionDeclarationParserTests
 
         // Assert
         Assert.Equal("foo", result.Name);
-        Assert.Empty(result.Parameters);
-        Assert.Equal(typeof(VoidTypeNode), result.ReturnType.GetType());
+        Assert.Empty(result.Signature.Parameters);
+        Assert.Equal(typeof(VoidTypeNode), result.Signature.ReturnType.GetType());
         Assert.Empty(result.Body.Statements);
     }
 
@@ -81,14 +81,14 @@ public class FunctionDeclarationParserTests
 
         // Assert
         Assert.Equal("calculate", result.Name);
-        Assert.Equal(typeof(Int32TypeNode), result.ReturnType.GetType());
+        Assert.Equal(typeof(Int32TypeNode), result.Signature.ReturnType.GetType());
 
-        Assert.Equal(2, result.Parameters.Count);
-        Assert.Equal("value", result.Parameters[0].Name);
-        Assert.Equal(ReceiverBindingOwnership.Owned, result.Parameters[0].Ownership);
+        Assert.Equal(2, result.Signature.Parameters.Count);
+        Assert.Equal("value", result.Signature.Parameters[0].Name);
+        Assert.Equal(ReceiverBindingOwnership.Owned, result.Signature.Parameters[0].Ownership);
         
-        Assert.Equal("scale", result.Parameters[1].Name);
-        Assert.Equal(ReceiverBindingOwnership.ImmutableBorrow, result.Parameters[1].Ownership);
+        Assert.Equal("scale", result.Signature.Parameters[1].Name);
+        Assert.Equal(ReceiverBindingOwnership.ImmutableBorrow, result.Signature.Parameters[1].Ownership);
 
         Assert.Single(result.Body.Statements);
         var returnStmt = Assert.IsType<ReturnStatementNode>(result.Body.Statements.Single());

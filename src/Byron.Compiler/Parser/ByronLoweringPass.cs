@@ -52,8 +52,8 @@ public class ByronLoweringPass
 
     private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
     {
-        var parameters = declaration.Parameters.Select(Parameter).ToList();
-        var returnType = Type(declaration.ReturnType);
+        var parameters = declaration.Signature.Parameters.Select(Parameter).ToList();
+        var returnType = Type(declaration.Signature.ReturnType);
         var body = BlockStatement(declaration.Body);
 
         return new Low.FunctionDeclarationNode(declaration, parameters, returnType, body);

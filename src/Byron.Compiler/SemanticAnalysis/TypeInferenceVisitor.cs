@@ -32,9 +32,9 @@ public class TypeInferenceVisitor
     {
         _symbolTable.EnterScope();
 
-        for (var i = 0; i < function.Parameters.Count; i++)
+        for (var i = 0; i < function.Signature.Parameters.Count; i++)
         {
-            var parameter = function.Parameters[i];
+            var parameter = function.Signature.Parameters[i];
             if (parameter.Name == ParameterSymbol.SelfArgumentName)
             {
                 if (i != 0)

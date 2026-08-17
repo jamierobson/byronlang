@@ -1,0 +1,27 @@
+trait Point2d {
+    x: i32,
+    y: i32,
+    fn getSum(self: &Self): i32,
+}
+
+struct Point {
+  x: i32,
+  y: i32,
+  z: i32,
+}
+
+implement Point {
+    fn getSum(self: &Self): i32 {
+        return 1000;
+    }
+}
+
+implement Point2d for Point {
+    fn getSum(self: &Self): i32 {
+        return self.*.x + self.*.y;
+    }
+}
+
+fn main(): i32 {
+    return 0;
+}
