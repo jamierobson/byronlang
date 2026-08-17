@@ -494,12 +494,19 @@ If we can do that, we're making enough progress to be worth pushing all the way 
 # Feature progress
 
 ## Todo
-
-1. ~~Add a lowering pass, and perform code generation on the low level AST~~
+1. ~~A basic tokenizer~~
+0. ~~A basic parser~~
+0. ~~A basic code generator for LLVM IR~~
+0. ~~A basic driver to start testing output~~
+0. ~~Get the trivial return 0 program out~~
+0. ~~Add basic arithmetic with precedence~~
+0. ~~Add if-else control flow~~
+0. ~~Add a lowering pass, and perform code generation on the low level AST~~
 0. ~~Add loops: `while`~~
 0. ~~Add struct support, while we stack allocate~~
 0. ~~Add simple type inference with a top down walk of the AST~~
 0. ~~Add `implement` blocks to add functions to structs~~
+0. Modules, alias, and mature symbol resolution
 0. Add `trait`s (__NOT__ for dynamic dispatch)
 0. Implement enough generics to describe `Owned<T, A: TransferringAllocator>`, `Uninitialized<T, A: TransferringAllocator>` and `Unsafe<T, A: TransferringAllocator>` types. Update the readme to note the updated realizations regarding Owned being generic over both T and the allocator in order to avoid dynamic dispatch. Note also that we are willing to consider Owned<T, dynamic TransferringAllocator> which _could_ potentially be erased.
 0. Implement zero copy `.fill(...)` expansion rewriting to target pointer writes.
