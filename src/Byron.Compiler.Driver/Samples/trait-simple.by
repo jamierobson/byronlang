@@ -1,7 +1,7 @@
 trait Point2d {
     x: i32,
     y: i32,
-    fn getSum(self: &Self): i32,
+    fn getSum(point: &Self): i32,
 }
 
 struct Point {
@@ -17,8 +17,8 @@ implement Point {
 }
 
 implement Point2d for Point {
-    fn getSum(self: &Self): i32 {
-        return self.*.x + self.*.y;
+    fn getSum(point: &Self): i32 {
+        return point.*.x + point.*.y;
     }
 }
 

@@ -33,7 +33,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
                     structs.Add(ParseStructDeclaration(ScopeContext.Global));
                     break;
                 case TokenKind.Trait:
-                    traits.Add(ParseTraitDeclaration(ScopeContext.Global));
+                    traits.Add(ParseTraitDeclaration());
                     break;
                 default:
                     throw new ByronNotImplementedException(token.Kind, this, token.Span);
@@ -43,13 +43,19 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         return new ProgramNode([..functions, ..structs, ..traits]);
     }
 
-    private TraitDeclarationNode ParseTraitDeclaration(ScopeContext context)
+    private TraitDeclarationNode ParseTraitDeclaration()
     {
+        
         var startNode = Consume(TokenKind.Trait, "Expected 'trait' block.");
         var identifier = Consume(TokenKind.Identifier, "Expected trait name");
 
-        var (fields, functions) = ParseTraitMembers(context);
-        return new TraitDeclarationNode("", [], fields, functions, SourceSpan.Empty);
+
+        var (name, module) = NameAndModulePath(identifier);
+        var traitTypeNode = new TraitTypeNode(name, module, identifier.Span);
+        var scopeContext = new ScopeContext([], null, traitTypeNode);
+        
+        var (fields, functions) = ParseTraitMembers(scopeContext);
+        return new TraitDeclarationNode(traitTypeNode, fields, functions, Previous().Span);
     }
 
     private (List<StructFieldNode> fields, List<FunctionSignatureNode> functions) ParseTraitMembers(ScopeContext context)
@@ -120,7 +126,7 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var declaredType = new NominalTypeNode(structName, structModule, structIdentifierToken.Span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
 
-        var context = new ScopeContext([], implementBlockDeclarationNode);
+        var context = new ScopeContext([], implementBlockDeclarationNode, null);
         
         while (!IsAtEnd())
         {
@@ -149,7 +155,8 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var fields = ParseStructFields(context);
         
         var (name, module) = NameAndModulePath(nameToken);
-        return new StructDeclarationNode(name, module, fields, ExpandSpan(structToken, Peek()));
+        var type = new NominalTypeNode(name, module, nameToken.Span);
+        return new StructDeclarationNode(type, fields, ExpandSpan(structToken, Peek()));
     }
 
     private StructFieldNode ParseStructField(ScopeContext context)

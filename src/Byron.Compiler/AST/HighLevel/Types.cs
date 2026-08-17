@@ -5,10 +5,14 @@ namespace Byron.Compiler.AST.HighLevel;
 public abstract class TypeNode : AstNode
 {
     public CanonicalName CanonicalName { get; init; }
-
+    
     protected TypeNode(CanonicalName canonicalName, SourceSpan span) : base(span)
     {
         CanonicalName = canonicalName;
+    }
+
+    protected TypeNode(string name, string[] modulePath, SourceSpan span) : this(CanonicalName.From(modulePath, name), span)
+    {
     }
 }
 
@@ -18,10 +22,20 @@ public class NominalTypeNode : TypeNode
     public string[] ModulePath { get; init; }
 
     public NominalTypeNode(string name, string[] modulePath, SourceSpan span)
-        : base(CanonicalName.From(modulePath, name), span)
+        : base(name, modulePath , span)
     {
         Name = name;
         ModulePath = modulePath;
+    }
+}
+
+public class SelfTypeNode : TypeNode
+{
+    public TypeNode ScopedType { get; init; }
+
+    public SelfTypeNode(TypeNode scopedType, SourceSpan span) : base(scopedType.CanonicalName, span)
+    {
+        ScopedType = scopedType;
     }
 }
 
@@ -30,8 +44,7 @@ public class TraitTypeNode : TypeNode
     public string Name { get; init; }
     public string[] ModulePath { get; init; }
 
-    public TraitTypeNode(string name, string[] modulePath, SourceSpan span)
-        : base(CanonicalName.From(modulePath, name), span)
+    public TraitTypeNode(string name, string[] modulePath, SourceSpan span) : base(name, modulePath, span)
     {
         Name = name;
         ModulePath = modulePath;
@@ -57,7 +70,7 @@ public abstract class BuiltInTypeNode : TypeNode
     public string[] ModulePath { get; init; }
 
     protected BuiltInTypeNode(string name, string[] modulePath, SourceSpan span)
-        : base(CanonicalName.From(modulePath, name), span)
+        : base(name, modulePath, span)
     {
         Name = name;
         ModulePath = modulePath;

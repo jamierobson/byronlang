@@ -1,5 +1,4 @@
 using Byron.Compiler.AST.HighLevel;
-using Xunit;
 using Byron.Compiler.AST;
 using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
@@ -19,7 +18,8 @@ public class FunctionArgumentParserTests
             [],
             new ImplementBlockDeclarationNode(new NominalTypeNode("name", [], SourceSpan.Empty),
                 null,
-                SourceSpan.Empty));  
+                SourceSpan.Empty),
+            null);  
     
     private List<Token> CreateFunctionArgumentTokenStream(params IEnumerable<(TokenKind kind, string lexeme)> definitions)
     {

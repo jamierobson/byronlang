@@ -4,9 +4,9 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
-public record ScopeContext(string[] ModulePath, ImplementBlockDeclarationNode? ImplementBlock)
+public record ScopeContext(string[] ModulePath, ImplementBlockDeclarationNode? ImplementBlock, TraitTypeNode? TraitDeclaration)
 {
-    public static ScopeContext Global => new([], null);
+    public static ScopeContext Global => new([], null, null);
     public string[] RelativeModulePath() => ImplementBlock is null ? ModulePath : [..ModulePath, ..ImplementBlock.ModulePath, ImplementBlock.Name];
 }
 

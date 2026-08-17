@@ -13,6 +13,13 @@ public abstract class TopLevelDeclarationNode : AstNode
         Name = name;
         ModulePath = modulePath;
     }
+
+    protected TopLevelDeclarationNode(CanonicalName canonicalName, SourceSpan span) : base(span)
+    {
+        CanonicalName =  canonicalName;
+        Name = canonicalName.ShortName;
+        ModulePath = canonicalName.ModulePath;
+    }
 }
 
 public class ImplementBlockDeclarationNode : TopLevelDeclarationNode
@@ -70,22 +77,26 @@ public class ParameterNode : AstNode
 
 public class TraitDeclarationNode : TopLevelDeclarationNode
 {
-    public TraitDeclarationNode(string name, string[] modulePath, List<StructFieldNode> fields, List<FunctionSignatureNode> functions, SourceSpan span) : base(name , modulePath, span)
+    public TraitTypeNode Type { get; init; }
+    public List<StructFieldNode> RequiredFields { get; init; }
+    public List<FunctionSignatureNode> RequiredFunctions { get; init; }
+    public TraitDeclarationNode(TraitTypeNode type, List<StructFieldNode> fields, List<FunctionSignatureNode> functions, SourceSpan span) : base(type.CanonicalName, span)
     {
         RequiredFields = fields;
         RequiredFunctions = functions;
+        Type = type;
     }
-    public List<StructFieldNode> RequiredFields { get; init; }
-    public List<FunctionSignatureNode> RequiredFunctions { get; init; }
 }
 
 public class StructDeclarationNode : TopLevelDeclarationNode
 {
+    public NominalTypeNode Type { get; }
     public List<StructFieldNode> Fields { get; init; }
 
-    public StructDeclarationNode(string name, string[] modulePath, List<StructFieldNode> fields, SourceSpan span)
-        : base(name, modulePath, span)
+    public StructDeclarationNode(NominalTypeNode type, List<StructFieldNode> fields, SourceSpan span)
+        : base(type.Name, type.ModulePath, span)
     {
+        Type = type;
         Fields = fields;
     }
 }
