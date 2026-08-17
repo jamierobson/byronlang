@@ -19,10 +19,18 @@ async Task TryParseFile(string filePath)
 
     try
     {
+        var sourceLines = File.ReadAllLines(filePath);
         var sourceText = await File.ReadAllTextAsync(filePath);
         
         Console.WriteLine("Parsing the following program");
-        Console.WriteLine(sourceText);
+        var totalLines = sourceLines.Length + 1;
+        var maxDigits = totalLines.ToString().Length;
+        var lineNumber = 1;
+        foreach (var line in sourceLines)
+        {
+            Console.WriteLine($"{lineNumber.ToString().PadLeft(maxDigits, '0')}: {line}");
+            lineNumber++;
+        }
         
         var tokens = new Tokenizer(sourceText).Tokenise();
         var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();

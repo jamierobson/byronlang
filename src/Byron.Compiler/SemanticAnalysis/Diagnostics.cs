@@ -15,11 +15,11 @@ public class Diagnostics
     {
         if (string.IsNullOrWhiteSpace(usage))
         {
-            _diagnosticMessages.Add($"The type {type} could not be found at {type.Span}. Are you missing an import?");
+            _diagnosticMessages.Add($"The type {type.CanonicalName} could not be found at {type.Span}. Are you missing an import?");
         }
         else
         {
-            _diagnosticMessages.Add($"The {usage} type {type} could not be found at {type.Span}. Are you missing an import?");
+            _diagnosticMessages.Add($"The {usage} type {type.CanonicalName} could not be found at {type.Span}. Are you missing an import?");
         }
     }
     

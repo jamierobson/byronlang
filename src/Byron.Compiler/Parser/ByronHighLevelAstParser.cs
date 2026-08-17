@@ -45,17 +45,15 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
 
     private TraitDeclarationNode ParseTraitDeclaration()
     {
-        
         var startNode = Consume(TokenKind.Trait, "Expected 'trait' block.");
         var identifier = Consume(TokenKind.Identifier, "Expected trait name");
-
 
         var (name, module) = NameAndModulePath(identifier);
         var traitTypeNode = new TraitTypeNode(name, module, identifier.Span);
         var scopeContext = new ScopeContext([], null, traitTypeNode);
         
         var (fields, functions) = ParseTraitMembers(scopeContext);
-        return new TraitDeclarationNode(traitTypeNode, fields, functions, Previous().Span);
+        return new TraitDeclarationNode(traitTypeNode, fields, functions, startNode.Span);
     }
 
     private (List<StructFieldNode> fields, List<FunctionSignatureNode> functions) ParseTraitMembers(ScopeContext context)
@@ -109,21 +107,21 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
     {
         var implementFunctionDeclarations = new List<FunctionDeclarationNode>();
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
-        var structIdentifierToken = Consume(TokenKind.Identifier, "Expected identifier");
+        var activeIdentifier = Consume(TokenKind.Identifier, "Expected identifier");
 
         TraitTypeNode? trait = null;
+        
         if (ConsumingActiveTokenMatch(TokenKind.For))
         {
-            // we're in a trait implementation block
-            var traitIdentifier =  Consume(TokenKind.Identifier, "Expected trait identifier after 'for'");
-            var (traitName, traitModule) = NameAndModulePath(traitIdentifier);
-            trait = new TraitTypeNode(traitName, traitModule, traitIdentifier.Span);
+            var (traitName, traitModule) = NameAndModulePath(activeIdentifier);
+            trait = new TraitTypeNode(traitName, traitModule, activeIdentifier.Span);
+            activeIdentifier = Consume(TokenKind.Identifier, "Expected struct identifier after 'for' in trait implementation block");
         }
         
         var leftBrace = Consume(TokenKind.LBrace, "Expected '{'.");
 
-        var (structName, structModule) = NameAndModulePath(structIdentifierToken);
-        var declaredType = new NominalTypeNode(structName, structModule, structIdentifierToken.Span);
+        var (structName, structModule) = NameAndModulePath(activeIdentifier);
+        var declaredType = new NominalTypeNode(structName, structModule, activeIdentifier.Span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
 
         var context = new ScopeContext([], implementBlockDeclarationNode, null);
@@ -209,8 +207,14 @@ public partial class ByronHighLevelAstParser(List<Token> tokens)
         var fnToken = Consume(TokenKind.Fn, "Expected 'fn'.");
         var functionSignature = ParseFunctionSignature(context);
         var body = ParseBlockStatement(context);
+
+        var modulePath = context.RelativeModulePath();
+        if (context.ImplementBlock?.TraitNode is not null)
+        {
+            modulePath = [..modulePath, ..context.ImplementBlock.TraitNode.ModulePath, context.ImplementBlock.TraitNode.Name];
+        }
         
-        return new FunctionDeclarationNode(context.RelativeModulePath(), functionSignature, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
+        return new FunctionDeclarationNode(modulePath, functionSignature, body, new SourceSpan(fnToken.Span.Line, fnToken.Span.Column, fnToken.Span.Start, body.Span.End));
     }
 
     private Token ParameterIdentifier(bool allowSelf)

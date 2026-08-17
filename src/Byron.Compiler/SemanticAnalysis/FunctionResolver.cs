@@ -28,7 +28,11 @@ public class FunctionResolver
 
             foreach (var param in declaration.Signature.Parameters)
             {
-                if (!_typeRegistry.IsValidType(param.Type))
+                if (param.Type is SelfTypeNode selfType && !_typeRegistry.IsValidType(selfType.ScopedType))
+                {
+                    _diagnostics.UndeclaredType(selfType.ScopedType, "parameter");
+                }
+                else if (!_typeRegistry.IsValidType(param.Type))
                 {
                     _diagnostics.UndeclaredType(declaration.Signature.ReturnType, "parameter");
                 }
