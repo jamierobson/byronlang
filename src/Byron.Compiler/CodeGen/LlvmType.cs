@@ -44,7 +44,7 @@ public abstract record LlvmType
         FloatTypeNode @float => new Int(@float.BitWidth),
         BoolTypeNode => new Boolean(),
         VoidTypeNode => new Void(),
-        NominalTypeNode user => new Struct(user.CanonicalName),
+        NominalTypeNode nominalType => new Struct(nominalType.CanonicalName),
         ReferenceTypeNode refType => new Pointer(From(refType.Target)),
         _ => throw new ByronNotImplementedException(node.GetType(), typeof(LlvmType), node.SourceNode.Span)
     };

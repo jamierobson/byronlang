@@ -16,7 +16,7 @@ public partial class LlvmIrGenerator(LoweredProgram program)
 
         foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
         {
-            _context.RegisterFunction(functionDeclaration.Name, LlvmType.From(functionDeclaration.Signature.ReturnType));
+            _context.RegisterFunction(functionDeclaration.Signature.CanonicalName, LlvmType.From(functionDeclaration.Signature.ReturnType));
         }
         
         foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
@@ -30,11 +30,11 @@ public partial class LlvmIrGenerator(LoweredProgram program)
     private void RegisterStructLayout(StructDeclarationNode structDeclaration)
     {
         var fields = structDeclaration.Fields.Select(x => (x.Name, x.Type)).ToList();
-        var layout = StructLayout.CalculateLayout(structDeclaration.Name, fields);
+        var layout = StructLayout.CalculateLayout(structDeclaration.CanonicalName, fields);
         _context.RegisterStructLayout(layout);
         var llvmFieldTypes = string.Join(", ", structDeclaration.Fields.Select(f => LlvmType.From(f.Type)));
         
-        _context.EmitLine($"%{structDeclaration.Name} = type {{ {llvmFieldTypes} }}");
+        _context.EmitLine($"%{structDeclaration.CanonicalName} = type {{ {llvmFieldTypes} }}");
         _context.EmitLine(string.Empty);
     }
 
@@ -44,7 +44,7 @@ public partial class LlvmIrGenerator(LoweredProgram program)
         
         var functionParameterIr = string.Join(", ", node.Signature.Parameters.Select((parameterNode, i) => $"{LlvmType.From(parameterNode.Type)} %arg_{i}"));
 
-        _context.EmitLine($"define {LlvmType.From(node.Signature.ReturnType)} @{node.Name}({functionParameterIr}) {{");
+        _context.EmitLine($"define {LlvmType.From(node.Signature.ReturnType)} @{node.CanonicalName}({functionParameterIr}) {{");
 
         MoveArgumentsOnToStackFrame(node);
         

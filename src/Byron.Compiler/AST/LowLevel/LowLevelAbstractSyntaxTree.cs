@@ -2,29 +2,43 @@ using High = Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.AST.LowLevel;
 
-public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
-
 public abstract record AstNode(High.AstNode SourceNode);
 
+public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
+
+// public record ModuleNode: AstNode
+// {
+//     public ModuleNode(
+//         High.FileModuleNode SourceNode, 
+//         IEnumerable<FunctionDeclarationNode> functions,
+//         IEnumerable<StructDeclarationNode> structs
+//         // IEnumerable<ModuleNode> childModules
+//         ) : base(SourceNode)
+//     {
+//         Functions = [..functions];
+//         Structs = [..structs];
+//         // ChildModules = [..childModules];
+//     }
+//     
+//     public IReadOnlyList<FunctionDeclarationNode> Functions { get; }
+//     public IReadOnlyList<StructDeclarationNode> Structs { get; }
+//     // public IReadOnlyList<ModuleNode> ChildModules { get; }
+// }
+
+
 // Top level declarations
-public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode SourceNode) : AstNode(SourceNode)
+public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode SourceNode, string CanonicalName) : AstNode(SourceNode)
 {
     public new High.TopLevelDeclarationNode SourceNode => (High.TopLevelDeclarationNode)base.SourceNode;
 }
 
-public record Discarded(High.TopLevelDeclarationNode SourceNode) : TopLevelDeclarationNode(SourceNode)
-{
-}
-
 // Functions
-public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, FunctionSignatureNode Signature, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode)
+public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, FunctionSignatureNode Signature, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode, Signature.CanonicalName)
 {
     public new High.FunctionDeclarationNode SourceNode => (High.FunctionDeclarationNode)base.SourceNode;
-    // public string Name => SourceNode.CanonicalName.ToString(); //todo: We need to get to resolving this name, somehow.
-    public string Name => SourceNode.Name;
 }
 
-public record FunctionSignatureNode(High.FunctionSignatureNode SourceNode, List<ParameterNode> Parameters, TypeNode ReturnType) : AstNode(SourceNode)
+public record FunctionSignatureNode(High.FunctionSignatureNode SourceNode, string CanonicalName, List<ParameterNode> Parameters, TypeNode ReturnType) : AstNode(SourceNode)
 {
     public new High.FunctionSignatureNode SourceNode => (High.FunctionSignatureNode)base.SourceNode;
 }
@@ -37,10 +51,10 @@ public record ParameterNode(High.ParameterNode SourceNode, TypeNode Type) : AstN
 }
 
 // Structs
-public record StructDeclarationNode(High.StructDeclarationNode SourceNode, List<StructFieldNode> Fields) : TopLevelDeclarationNode(SourceNode)
+public record StructDeclarationNode(High.StructDeclarationNode SourceNode, string CanonicalName, List<StructFieldNode> Fields) : TopLevelDeclarationNode(SourceNode, CanonicalName)
 {
     public new High.StructDeclarationNode SourceNode => (High.StructDeclarationNode)base.SourceNode;
-    public string Name => SourceNode.Name;
+    // public string Name => SourceNode.Symbol.MemberName;
 }
 
 public record StructFieldNode(High.StructFieldNode SourceNode, TypeNode Type) : AstNode(SourceNode)
@@ -163,10 +177,10 @@ public record BinaryExpressionNode(High.BinaryExpressionNode SourceNode, Express
     public BinaryOperator Operator =>  SourceNode.Operator; 
 }
 
-public record StructFieldInitializationExpressionNode(High.StructFieldInitializationExpressionNode SourceNode, List<StructFieldInitializerNode> FieldInitializers) : ExpressionNode(SourceNode)
+public record StructFieldInitializationExpressionNode(High.StructFieldInitializationExpressionNode SourceNode, NominalTypeNode Type, List<StructFieldInitializerNode> FieldInitializers) : ExpressionNode(SourceNode)
 {
     public new High.StructFieldInitializationExpressionNode SourceNode => (High.StructFieldInitializationExpressionNode)base.SourceNode;
-    public string StructName => SourceNode.NominalType.Name;
+    // public string StructName => SourceNode.NominalType.Symbol.MemberName;
 }
 
 public record MemberAccessExpressionNode(High.MemberAccessExpressionNode SourceNode, ExpressionNode Target, string MemberName) : ExpressionNode(SourceNode)
@@ -214,10 +228,9 @@ public abstract record TypeNode(High.TypeNode SourceNode) : AstNode(SourceNode)
     public new High.TypeNode SourceNode => (High.TypeNode)base.SourceNode;
 }
 
-public record NominalTypeNode(High.NominalTypeNode SourceNode) : TypeNode(SourceNode)
+public record NominalTypeNode(High.NominalTypeNode SourceNode, string CanonicalName) : TypeNode(SourceNode)
 {
     public new High.NominalTypeNode SourceNode => (High.NominalTypeNode)base.SourceNode;
-    public string CanonicalName => SourceNode.CanonicalName.ToString(); // todo: Should this also be a CanonicalName type
 }
 
 public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode);

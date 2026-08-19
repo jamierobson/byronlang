@@ -4,15 +4,27 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
-public record ScopeContext(string[] ModulePath, ImplementBlockDeclarationNode? ImplementBlock, TraitTypeNode? TraitDeclaration)
+public record SelfTypeContext(ImplementBlockDeclarationNode? ImplementBlock, TraitTypeNode? TraitDeclaration)
 {
-    public static ScopeContext Global => new([], null, null);
-    public string[] RelativeModulePath() => ImplementBlock is null ? ModulePath : [..ModulePath, ..ImplementBlock.ModulePath, ImplementBlock.Name];
+    public static SelfTypeContext None = new(null, null);
+    public static SelfTypeContext From(ImplementBlockDeclarationNode block) => new(block, null);
+    public static SelfTypeContext From(TraitTypeNode trait) => new(null, trait);
+    public TypeNode GetSelfType(SourceSpan sourceSpan)
+    {
+        if (ImplementBlock is null && TraitDeclaration is null)
+        {
+            throw new ByronHighLevelParserException("The 'Self' type is only valid in an implementation block or in a trait function declaration", sourceSpan);
+        }
+        
+        return (ImplementBlock is not null)
+            ? ImplementBlock.TypeNode
+            : TraitDeclaration!;
+    }
 }
 
 public partial class ByronHighLevelAstParser
 {
-    private BlockStatementNode ParseBlockStatement(ScopeContext context)
+    private BlockStatementNode ParseBlockStatement(SelfTypeContext? self)
     {
         var open = Consume(TokenKind.LBrace, "Expected '{'.");
         var statements = new List<StatementNode>();
@@ -23,18 +35,18 @@ public partial class ByronHighLevelAstParser
             {
                 continue;
             }
-            statements.Add(ParseStatement(context));
+            statements.Add(ParseStatement(self));
         }
 
         var close = Consume(TokenKind.RBrace, "Expected '}'.");
         return new BlockStatementNode(statements, new SourceSpan(open.Span.Line, open.Span.Column, open.Span.Start, close.Span.End));
     }
 
-    private StatementNode ParseStatement(ScopeContext context)
+    private StatementNode ParseStatement(SelfTypeContext? self)
     {
         if (ConsumingActiveTokenMatch(TokenKind.If))
         {
-            return ParseIfStatement(context);
+            return ParseIfStatement(self);
         }
         
         if (ConsumingActiveTokenMatch(TokenKind.Return))
@@ -44,7 +56,7 @@ public partial class ByronHighLevelAstParser
             
             if (!ActiveTokenMatch(TokenKind.Semicolon))
             {
-                expr = ParseExpression(context);
+                expr = ParseExpression(self);
             }
 
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
@@ -64,7 +76,7 @@ public partial class ByronHighLevelAstParser
         }
         if (ConsumingActiveTokenMatch(TokenKind.While))
         {
-            return ParseWhileLoopStatement(context);
+            return ParseWhileLoopStatement(self);
         }
         
         if (ConsumingActiveTokenMatch(TokenKind.Let) || ConsumingActiveTokenMatch(TokenKind.Var))
@@ -75,20 +87,20 @@ public partial class ByronHighLevelAstParser
             TypeNode? type = null;
             if (ConsumingActiveTokenMatch(TokenKind.Colon))
             {
-                type = ParseTypeSignature(context, nameToken); 
+                type = ParseTypeSignature(self, nameToken); 
             }
             Consume(TokenKind.Equals, "Expected '='.");
             
-            var initializer = ParseExpression(context);
+            var initializer = ParseExpression(self);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
             return new VariableDeclarationNode(isMutable, nameToken.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
         }
 
-        var freeExpression = ParseExpression(context);
+        var freeExpression = ParseExpression(self);
 
         if (ConsumingActiveTokenMatch(TokenKind.Equals))
         {
-            var value = ParseExpression(context);
+            var value = ParseExpression(self);
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after assignment.");
             return new AssignmentStatementNode(freeExpression, value, ExpandSpan(value, semiColon));
         }
@@ -101,35 +113,35 @@ public partial class ByronHighLevelAstParser
         throw new ByronNotImplementedException("Fallback basic statements", this, Previous().Span);
     }
     
-    private IfElseStatement ParseIfStatement(ScopeContext context)
+    private IfElseStatement ParseIfStatement(SelfTypeContext? self)
     {
         var ifToken = Previous();
         Consume(TokenKind.LParen, "Expected '(' after 'if'.");
-        var condition = ParseExpression(context);
+        var condition = ParseExpression(self);
         Consume(TokenKind.RParen, "Expected ')' after condition.");
 
-        var thenBranch = ParseBlockStatement(context);
+        var thenBranch = ParseBlockStatement(self);
         var span = ifToken.Span;
         
         BlockStatementNode? elseBranch = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.Else))
         {
-            elseBranch = ParseBlockStatement(context);
+            elseBranch = ParseBlockStatement(self);
             span = ExpandSpan(ifToken, elseBranch);   
         }
         
         return new IfElseStatement(condition, thenBranch, elseBranch, span);
     }
 
-    private WhileStatement ParseWhileLoopStatement(ScopeContext context)
+    private WhileStatement ParseWhileLoopStatement(SelfTypeContext? self)
     {
         var whileToken = Previous();
         Consume(TokenKind.LParen, "Expected '(' after 'while'.");
-        var condition = ParseExpression(context);
+        var condition = ParseExpression(self);
         Consume(TokenKind.RParen, "Expected ')' after condition.");
         
-        var body = ParseBlockStatement(context);
+        var body = ParseBlockStatement(self);
             
         return new WhileStatement(condition, body, ExpandSpan(whileToken, body));
     } 

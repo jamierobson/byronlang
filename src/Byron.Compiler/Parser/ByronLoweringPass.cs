@@ -8,6 +8,7 @@ namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass
 {
+    private readonly GlobalSymbolTable _globalSymbolTable;
     private readonly High.ProgramNode _ast;
     // private readonly TypeRegistry _typeRegistry;
     private readonly TypeMap _highLevelExpressionTypeMap;
@@ -21,39 +22,39 @@ public class ByronLoweringPass
             throw new ByronLowLevelParserException("Unable to lower an invalid AST");
         }
         
-        (_ast, _, _highLevelExpressionTypeMap, _) = semanticAnalysisResult;
         // (_ast, _typeRegistry, _highLevelExpressionTypeMap, _functionRegistry) = semanticAnalysisResult;
+        (_ast, _globalSymbolTable, _highLevelExpressionTypeMap) = semanticAnalysisResult;
     }
     
     public LoweredProgram Lower()
     {
-        var declarations = _ast.Declarations
-        .Select(TopLevelDeclaration)
+        var declarations = _ast.RootModules
+        .SelectMany(Module)
         .ToList();
 
         return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
     }
 
-    private Low.TopLevelDeclarationNode TopLevelDeclaration(High.TopLevelDeclarationNode declaration)
+    private List<Low.TopLevelDeclarationNode> Module(High.FileModuleNode fileModule)
     {
-        return declaration switch
-        {
-            High.FunctionDeclarationNode function => FunctionDeclaration(function),
-            High.StructDeclarationNode @struct => StructDeclaration(@struct),
-            High.TraitDeclarationNode trait => TraitDeclaration(trait),
-            _ => throw new ByronNotImplementedException(declaration.GetType(), this, declaration.Span) 
-        };
-    }
-
-    private Low.Discarded TraitDeclaration(High.TraitDeclarationNode trait)
-    {
-        return new Low.Discarded(trait);
+        var structs = fileModule.Declarations.Structs.Select(StructDeclaration).ToList();
+        var functions = fileModule
+            .Declarations.ImplementBlocks.SelectMany(x => x.FunctionDeclarations)
+            .Union(fileModule.Declarations.Functions)
+            .Select(FunctionDeclaration).ToList();
+        
+        return [..structs, ..functions];
     }
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
         var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
-        return new Low.StructDeclarationNode(@struct, fields);
+        if (_globalSymbolTable.Structs.CanonicalNames.TryGetValue(@struct, out var canonicalName))
+        {
+            return new Low.StructDeclarationNode(@struct, canonicalName, fields);
+        }
+        
+        throw new ByronLowLevelParserException($"Struct {@struct.Symbol} is not defined");
     } 
 
     private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
@@ -61,9 +62,15 @@ public class ByronLoweringPass
         var parameters = declaration.Signature.Parameters.Select(Parameter).ToList();
         var returnType = Type(declaration.Signature.ReturnType);
         var body = BlockStatement(declaration.Body);
-        var signature = new Low.FunctionSignatureNode(declaration.Signature, parameters, returnType);
+
+        // var canonicalName = _functionRegistry.GetCanonicalName(declaration);
+        if (_globalSymbolTable.Functions.CanonicalNames.TryGetValue(declaration.Signature, out var canonicalName))
+        {
+            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName, parameters, returnType);
+            return new Low.FunctionDeclarationNode(declaration, signature, body);
+        }
         
-        return new Low.FunctionDeclarationNode(declaration, signature, body);
+        throw new ByronLowLevelParserException($"{declaration.Symbol} is not defined");
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
@@ -83,7 +90,7 @@ public class ByronLoweringPass
         Low.TypeNode loweredType = type switch
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
-            High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
+            High.NominalTypeNode userDeclaredType => NominalTypeNode(userDeclaredType),
             High.SelfTypeNode self => Type(self.ScopedType),
             High.VoidTypeNode @void => new Low.VoidTypeNode(@void),
             High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed),
@@ -91,7 +98,6 @@ public class ByronLoweringPass
             High.FloatTypeNode @float => new Low.FloatTypeNode(@float),
             High.BoolTypeNode @bool => new Low.BoolTypeNode(@bool),
             High.RuneTypeNode rune => new Low.RuneTypeNode(rune),
-            // High.TraitTypeNode  =>
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
@@ -99,6 +105,12 @@ public class ByronLoweringPass
         _highToLowLevelTypeMap[type] = loweredType;
 
         return loweredType;
+    }
+
+    private Low.TypeNode NominalTypeNode(High.NominalTypeNode userDeclaredType)
+    {
+        var canonicalName = _globalSymbolTable.NominalTypes.CanonicalNames[userDeclaredType];
+        return new Low.NominalTypeNode(userDeclaredType, canonicalName);
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)
@@ -155,7 +167,7 @@ public class ByronLoweringPass
         var coercedLeft = binary.Left;
         var coercedRight = binary.Right;
 
-        if (leftType.CanonicalName != rightType.CanonicalName) // todo: Is this a potential bug? Check in failing tests
+        if (leftType.Symbol != rightType.Symbol)
         {
             var targetType = _highLevelExpressionTypeMap.GetType(binary);
 
@@ -197,6 +209,7 @@ public class ByronLoweringPass
     {
         return new Low.StructFieldInitializationExpressionNode(
             structFieldInitialization,
+            (Low.NominalTypeNode)Type(structFieldInitialization.NominalType), //This cast is expected to always be true, since Type maps high to low nominal type  
             structFieldInitialization.FieldInitializers.Select(
                 x => new Low.StructFieldInitializerNode(x, Expression(x.Value))).ToList()
             );

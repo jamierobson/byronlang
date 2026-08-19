@@ -9,69 +9,92 @@ public class SemanticAnalysisDriver(ProgramNode program)
     
     public SemanticAnalysisResult Analyze()
     {
-        var typeRegistry = new TypeRegistry();
-        var functionRegistry = new  FunctionRegistry();
+        // var typeRegistry = new TypeRegistry();
+        // var functionRegistry = new  FunctionRegistry();
         var typeMap = new TypeMap();
-        var symbolTable = new SymbolTable();
+        var scopedSymbolTable = new ScopedSymbolTable();
+        var globalSymbolTable = new GlobalSymbolTable();
         
-        var typeResolver = new TypeResolver(typeRegistry, program.Declarations.OfType<StructDeclarationNode>(), _diagnostics);
-        typeResolver.Resolve();
-        
-        var functionDeclarations = program.Declarations.OfType<FunctionDeclarationNode>().ToList();
-        var functionResolver = new FunctionResolver(functionRegistry, typeRegistry, functionDeclarations, _diagnostics);
-        functionResolver.Resolve();
+        foreach (var fileModule in program.RootModules)
+        {
+            globalSymbolTable.RegisterModuleSymbols(fileModule, [], _diagnostics);
+        }
         
         if (_diagnostics.HasErrors)
         {
             return SemanticAnalysisResult.Error(program, _diagnostics);
         }
         
-        var visitor = new TypeInferenceVisitor(typeRegistry, functionRegistry, typeMap, symbolTable, _diagnostics);
+        var visitor = new TypeInferenceVisitor(globalSymbolTable, typeMap, scopedSymbolTable, _diagnostics);
+        foreach (var module in program.RootModules)
+        {
+            VisitFunctions(module, visitor);
+        }
 
-        foreach (var function in functionDeclarations)
+        if (_diagnostics.HasErrors)
+        {
+            return SemanticAnalysisResult.Error(program, _diagnostics);
+        }
+
+        return SemanticAnalysisResult.Ok(program, globalSymbolTable, typeMap);
+    }
+
+    private void VisitFunctions(ModuleDeclarationNode module, TypeInferenceVisitor visitor)
+    {
+        foreach (var function in module.Declarations.Functions)
         {
             visitor.VisitFunction(function);
         }
 
-        if (_diagnostics.HasErrors)
+        foreach (var function in module.Declarations.ImplementBlocks.SelectMany(x => x.FunctionDeclarations))
         {
-            return SemanticAnalysisResult.Error(program, _diagnostics);
+            visitor.VisitFunction(function);
         }
 
-        return SemanticAnalysisResult.Ok(program, typeRegistry, functionRegistry, typeMap);
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            VisitFunctions(childModule, visitor);
+        }
     }
 }
 
 public record SemanticAnalysisResult
 {
-    [MemberNotNullWhen(true, [nameof(TypeMap), nameof(TypeRegistry), nameof(FunctionRegistry)])]
+    // [MemberNotNullWhen(true, [nameof(TypeMap), nameof(TypeRegistry), nameof(FunctionRegistry)])]
+    [MemberNotNullWhen(true, [nameof(GlobalSymbolTable), nameof(TypeMap)])]
     [MemberNotNullWhen(false, nameof(Diagnostics))]
     public bool Success { get; }
 
     public ProgramNode Ast { get; }
-    public TypeRegistry? TypeRegistry { get; }
+    // public TypeRegistry? TypeRegistry { get; }
     public TypeMap? TypeMap { get; }
-    public FunctionRegistry? FunctionRegistry { get; }
+    // public FunctionRegistry? FunctionRegistry { get; }
     public Diagnostics? Diagnostics { get; }
+    private GlobalSymbolTable? GlobalSymbolTable { get; }
     
-    private SemanticAnalysisResult(bool success, ProgramNode ast, TypeRegistry? typeRegistry = null, FunctionRegistry? functionRegistry = null, TypeMap? typeMap = null, Diagnostics? diagnostics = null)
+    // private SemanticAnalysisResult(bool success, ProgramNode ast, TypeRegistry? typeRegistry = null, FunctionRegistry? functionRegistry = null, TypeMap? typeMap = null, Diagnostics? diagnostics = null)
+    private SemanticAnalysisResult(bool success, ProgramNode ast, GlobalSymbolTable? globalSymbolTable = null, TypeMap? typeMap = null, Diagnostics? diagnostics = null)
     {
         Success = success;
         Ast = ast;
-        TypeRegistry = typeRegistry;
+        GlobalSymbolTable = globalSymbolTable;
+        // TypeRegistry = typeRegistry;
         TypeMap = typeMap;
-        FunctionRegistry = functionRegistry;
+        // FunctionRegistry = functionRegistry;
         Diagnostics = diagnostics;
     }
 
-    public static SemanticAnalysisResult Ok(ProgramNode ast, TypeRegistry typeRegistry, FunctionRegistry functionRegistry, TypeMap typeMap)
+    // public static SemanticAnalysisResult Ok(ProgramNode ast, TypeRegistry typeRegistry, FunctionRegistry functionRegistry, TypeMap typeMap)
+    public static SemanticAnalysisResult Ok(ProgramNode ast, GlobalSymbolTable globalSymbolTable, TypeMap typeMap)
     {
         return new SemanticAnalysisResult(
             true, 
-            ast, 
-            typeRegistry: typeRegistry,
-            typeMap: typeMap,
-            functionRegistry: functionRegistry);
+            ast,
+            globalSymbolTable,
+            // typeRegistry: typeRegistry,
+            typeMap: typeMap
+            // functionRegistry: functionRegistry
+            );
     }
 
     public static SemanticAnalysisResult Error(ProgramNode ast, Diagnostics diagnostics)
@@ -84,22 +107,23 @@ public record SemanticAnalysisResult
     
     public void Deconstruct(
         out ProgramNode ast,
-        out TypeRegistry typeRegistry,
-        out TypeMap typeMap,
-        out FunctionRegistry functionRegistry)
+        out GlobalSymbolTable globalSymbolTable,
+        // out TypeRegistry typeRegistry,
+        out TypeMap typeMap
+        // out FunctionRegistry functionRegistry
+        )
     {
         if (!Success)
         {
             throw new InvalidOperationException($"Cannot deconstruct the program contents of the {nameof(SemanticAnalysisResult)} when semantic analysis rejected the program");
         }
         ast = Ast;
-        typeRegistry = TypeRegistry;
+        globalSymbolTable = GlobalSymbolTable;
+        // typeRegistry = TypeRegistry;
         typeMap = TypeMap;
-        functionRegistry = FunctionRegistry;
+        // functionRegistry = FunctionRegistry;
     }
 }
-
-
 
 public class TypeMap
 {
@@ -126,13 +150,13 @@ public class TypeMap
     }
 }
 
-public record Symbol(string Name, TypeNode Type, bool IsMutable);
+public record LookupSymbol(string Name, TypeNode Type, bool IsMutable);
 
-public class SymbolTable
+public class ScopedSymbolTable
 {
-    private readonly Stack<Dictionary<string, Symbol>> _scopes = new();
+    private readonly Stack<Dictionary<string, LookupSymbol>> _scopes = new();
 
-    public SymbolTable()
+    public ScopedSymbolTable()
     {
         EnterScope();
     }
@@ -142,10 +166,10 @@ public class SymbolTable
 
     public bool Declare(string name, TypeNode type, bool isMutable)
     {
-        return _scopes.Peek().TryAdd(name, new Symbol(name, type, isMutable));
+        return _scopes.Peek().TryAdd(name, new LookupSymbol(name, type, isMutable));
     }
 
-    public bool TryGet(string name, [NotNullWhen(true)] out Symbol? symbol)
+    public bool TryGet(string name, [NotNullWhen(true)] out LookupSymbol? symbol)
     {
         symbol = null;
         foreach (var scope in _scopes)

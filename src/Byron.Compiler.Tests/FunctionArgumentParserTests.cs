@@ -13,13 +13,7 @@ public class FunctionArgumentParserTests
         return Token.Create(kind, lexeme, SourceSpan.Empty);        
     }
 
-    private static ScopeContext ImplementBlock()
-        => new ScopeContext(
-            [],
-            new ImplementBlockDeclarationNode(new NominalTypeNode("name", [], SourceSpan.Empty),
-                null,
-                SourceSpan.Empty),
-            null);  
+    private static SelfTypeContext ImplementBlock() => SelfTypeContext.From(new ImplementBlockDeclarationNode(new("name", SourceSpan.Empty), null, SourceSpan.Empty));
     
     private List<Token> CreateFunctionArgumentTokenStream(params IEnumerable<(TokenKind kind, string lexeme)> definitions)
     {
@@ -43,7 +37,7 @@ public class FunctionArgumentParserTests
         ); // (self: Self)
         
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
 
     [Fact]
@@ -61,7 +55,7 @@ public class FunctionArgumentParserTests
         );
         
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
 
     [Fact]
@@ -89,7 +83,7 @@ public class FunctionArgumentParserTests
         var tokenStream = CreateFunctionArgumentTokenStream(); //()
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
 
         // Assert
         Assert.Empty(result);
@@ -102,7 +96,7 @@ public class FunctionArgumentParserTests
         List<Token> tokenStream = [ ToToken(TokenKind.LParen, "(") ]; // (
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -116,7 +110,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32)
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -139,7 +133,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32,)
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -156,7 +150,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, : i32)
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -173,7 +167,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, y:)
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -190,7 +184,7 @@ public class FunctionArgumentParserTests
         ); // (x: i32, y i32)
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -208,7 +202,7 @@ public class FunctionArgumentParserTests
         );
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Equal(2, result.Count);
@@ -236,7 +230,7 @@ public class FunctionArgumentParserTests
         );
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -259,7 +253,7 @@ public class FunctionArgumentParserTests
         );
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -283,7 +277,7 @@ public class FunctionArgumentParserTests
         );
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);

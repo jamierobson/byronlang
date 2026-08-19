@@ -2,10 +2,38 @@ using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.AST.HighLevel;
 
-public class ProgramNode(List<TopLevelDeclarationNode> declarations)
+public class ProgramNode(List<FileModuleNode> modules)
 {
-    public readonly IReadOnlyList<TopLevelDeclarationNode> Declarations = declarations;
+    public readonly IReadOnlyList<FileModuleNode> RootModules = modules;
 };
+
+public abstract class ModuleDeclarationNode(string name, SourceSpan span) : TopLevelDeclarationNode(name, span)
+{
+    public ModuleDeclarationCollection Declarations { get; } = new();
+}
+
+public class FileModuleNode : ModuleDeclarationNode
+{
+
+    public FileModuleNode(string fileName, SourceSpan span) : base(fileName, span)
+    {
+        ;
+    }
+}
+
+public class BlockModuleNode(string name, SourceSpan span) : ModuleDeclarationNode(name, span)
+{
+    
+}
+
+public class ModuleDeclarationCollection
+{
+    public List<FunctionDeclarationNode> Functions { get; } = new();
+    public List<StructDeclarationNode> Structs { get; } = new();
+    public List<TraitDeclarationNode> Traits { get; } = new();
+    public List<BlockModuleNode> ChildModules { get; } = new();
+    public List<ImplementBlockDeclarationNode> ImplementBlocks { get; } = new();
+}
 
 public readonly record struct NodeId(int Value) : IComparable<NodeId>
 {
