@@ -5,7 +5,7 @@ namespace Byron.Compiler.AST.HighLevel;
 
 public abstract class TopLevelDeclarationNode : AstNode
 {
-    public Symbol Symbol { get; init; }
+    public Symbol Symbol { get; set; }
 
     protected TopLevelDeclarationNode(string name, SourceSpan span) : base(span)
     {
@@ -63,7 +63,7 @@ public class FunctionSignatureNode : AstNode
 {
     public string Name { get; init; }
     public List<ParameterNode> Parameters { get; init; }
-    public TypeNode ReturnType { get; init; }
+    public TypeNode ReturnType { get; set; }
     public FunctionSignatureNode(string name, List<ParameterNode> parameters, TypeNode returnType, SourceSpan span) : base(span)
     {
         Name = name;
@@ -74,9 +74,10 @@ public class FunctionSignatureNode : AstNode
 
 public class ParameterNode : AstNode
 {
+    public const string SelfArgumentName = "self";
     public ReceiverBindingOwnership Ownership { get; init; }
     public string Name { get; init; }
-    public TypeNode Type { get; init; }
+    public TypeNode Type { get; set; }
 
     public ParameterNode(ReceiverBindingOwnership ownership, string name, TypeNode type, SourceSpan span) : base(span)
     {

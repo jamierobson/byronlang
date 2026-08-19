@@ -7,35 +7,17 @@ public abstract class ExpressionNode : AstNode
     protected ExpressionNode(SourceSpan span) : base(span) { }
 }
 
-public class IntegerLiteralNode : ExpressionNode
+public class LiteralExpressionNode<T>(T value, SourceSpan span) : ExpressionNode(span)
+    where T : struct
 {
-    public long Value { get; init; }
-
-    public IntegerLiteralNode(long value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
+    public T Value { get; init; } = value;
 }
 
-public class FloatLiteralNode : ExpressionNode
-{
-    public double Value { get; init; }
+public class IntegerLiteralNode(long value, SourceSpan span) : LiteralExpressionNode<long>(value, span);
 
-    public FloatLiteralNode(double value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
-}
+public class FloatLiteralNode(double value, SourceSpan span) : LiteralExpressionNode<double>(value, span);
 
-public class BooleanLiteralNode : ExpressionNode
-{
-    public bool Value { get; init; }
-
-    public BooleanLiteralNode(bool value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
-}
+public class BooleanLiteralNode(bool value, SourceSpan span) : LiteralExpressionNode<bool>(value, span);
 
 public class VariableExpressionNode : ExpressionNode
 {

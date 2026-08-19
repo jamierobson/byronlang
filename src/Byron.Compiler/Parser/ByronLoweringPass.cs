@@ -49,9 +49,9 @@ public class ByronLoweringPass
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
         var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
-        if (_globalSymbolTable.Structs.CanonicalNames.TryGetValue(@struct, out var canonicalName))
+        if (_globalSymbolTable.NominalTypes.CanonicalNames.TryGetValue(@struct.Type, out var canonicalName))
         {
-            return new Low.StructDeclarationNode(@struct, canonicalName, fields);
+            return new Low.StructDeclarationNode(@struct, canonicalName.ToString(), fields);
         }
         
         throw new ByronLowLevelParserException($"Struct {@struct.Symbol} is not defined");
@@ -63,10 +63,9 @@ public class ByronLoweringPass
         var returnType = Type(declaration.Signature.ReturnType);
         var body = BlockStatement(declaration.Body);
 
-        // var canonicalName = _functionRegistry.GetCanonicalName(declaration);
-        if (_globalSymbolTable.Functions.CanonicalNames.TryGetValue(declaration.Signature, out var canonicalName))
+        if (_globalSymbolTable.Functions.CanonicalNames.TryGetValue(declaration, out var canonicalName))
         {
-            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName, parameters, returnType);
+            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName.ToString(), parameters, returnType);
             return new Low.FunctionDeclarationNode(declaration, signature, body);
         }
         
@@ -110,7 +109,7 @@ public class ByronLoweringPass
     private Low.TypeNode NominalTypeNode(High.NominalTypeNode userDeclaredType)
     {
         var canonicalName = _globalSymbolTable.NominalTypes.CanonicalNames[userDeclaredType];
-        return new Low.NominalTypeNode(userDeclaredType, canonicalName);
+        return new Low.NominalTypeNode(userDeclaredType, canonicalName.ToString());
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)

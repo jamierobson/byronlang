@@ -30,7 +30,7 @@ public class ReferenceTypeNode : TypeNode
     public TypeNode Target { get; init; }
     public bool IsMutable { get; init; }
 
-    public ReferenceTypeNode(TypeNode target, bool isMutable, SourceSpan span) : base(target.Symbol, span) //todo: This might be a flaw. 
+    public ReferenceTypeNode(TypeNode target, bool isMutable, SourceSpan span) : base(target.Symbol, span) //todo: This might be a flaw - it's unclear what the symbol should be for a reference type. 
     {
         Target = target;
         IsMutable = isMutable;

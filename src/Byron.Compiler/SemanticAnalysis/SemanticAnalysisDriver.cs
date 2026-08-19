@@ -9,15 +9,18 @@ public class SemanticAnalysisDriver(ProgramNode program)
     
     public SemanticAnalysisResult Analyze()
     {
-        // var typeRegistry = new TypeRegistry();
-        // var functionRegistry = new  FunctionRegistry();
         var typeMap = new TypeMap();
         var scopedSymbolTable = new ScopedSymbolTable();
         var globalSymbolTable = new GlobalSymbolTable();
         
         foreach (var fileModule in program.RootModules)
         {
-            globalSymbolTable.RegisterModuleSymbols(fileModule, [], _diagnostics);
+            globalSymbolTable.RegisterTypeSymbols(fileModule, [], _diagnostics);
+        }
+
+        foreach (var fileModule in program.RootModules)
+        {
+            globalSymbolTable.RegisterFunctionSymbols(fileModule, [], _diagnostics);
         }
         
         if (_diagnostics.HasErrors)
@@ -25,7 +28,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
             return SemanticAnalysisResult.Error(program, _diagnostics);
         }
         
-        var visitor = new TypeInferenceVisitor(globalSymbolTable, typeMap, scopedSymbolTable, _diagnostics);
+        var visitor = new TypeInferenceVisitor(new GlobalSymbolTableLookup(globalSymbolTable), typeMap, scopedSymbolTable, _diagnostics);
         foreach (var module in program.RootModules)
         {
             VisitFunctions(module, visitor);
@@ -41,14 +44,22 @@ public class SemanticAnalysisDriver(ProgramNode program)
 
     private void VisitFunctions(ModuleDeclarationNode module, TypeInferenceVisitor visitor)
     {
+        var moduleScopedFreeFunctionContext = new FunctionDeclarationContext(module, null);
         foreach (var function in module.Declarations.Functions)
         {
-            visitor.VisitFunction(function);
+            visitor.VisitFunction(function, moduleScopedFreeFunctionContext);
         }
 
-        foreach (var function in module.Declarations.ImplementBlocks.SelectMany(x => x.FunctionDeclarations))
+
+        foreach (var implementBlock in module.Declarations.ImplementBlocks)
         {
-            visitor.VisitFunction(function);
+            var associatedFunctionContext = new FunctionDeclarationContext(module, implementBlock);
+            foreach (var function in implementBlock.FunctionDeclarations)
+            {
+            
+                visitor.VisitFunction(function, associatedFunctionContext);
+            }
+            
         }
 
         foreach (var childModule in module.Declarations.ChildModules)
@@ -57,6 +68,8 @@ public class SemanticAnalysisDriver(ProgramNode program)
         }
     }
 }
+
+public record FunctionDeclarationContext(ModuleDeclarationNode Module, ImplementBlockDeclarationNode? ImplementBlock);
 
 public record SemanticAnalysisResult
 {
@@ -122,31 +135,6 @@ public record SemanticAnalysisResult
         // typeRegistry = TypeRegistry;
         typeMap = TypeMap;
         // functionRegistry = FunctionRegistry;
-    }
-}
-
-public class TypeMap
-{
-    private readonly Dictionary<NodeId, TypeNode> _nodeTypes = new();
-
-    public void SetType(ExpressionNode node, TypeNode type)
-    {
-        _nodeTypes[node.Id] = type;
-    }
-
-    public TypeNode GetType(ExpressionNode node)
-    {
-        if (_nodeTypes.TryGetValue(node.Id, out var type))
-        {
-            return type;
-        }
-
-        throw new InvalidOperationException($"Node {node.GetType().Name} (Id: {node}) has not been assigned a type at {node.Span}.");
-    }
-
-    public bool TryGetType(ExpressionNode node, [NotNullWhen(true)] out TypeNode? type)
-    {
-        return _nodeTypes.TryGetValue(node.Id, out type);
     }
 }
 
