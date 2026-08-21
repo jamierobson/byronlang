@@ -54,6 +54,7 @@ public class Diagnostics
     public void InvalidSelfArgumentPosition(FunctionDeclarationNode function, ParameterNode parameter) => Add($"{parameter.Name} must be the first parameter declared in the function {function.Symbol} at {function.Span}"); 
     public void InvalidSelfArgumentType(string parameterType, string expectedType, FunctionDeclarationNode function) => Add($"The self parameter of function {function.Symbol} should be of type {expectedType}, but was declared as {parameterType} at {function.Span}");
     public void InvalidCast(LookupSymbol lookupSymbol, TypeNode targetType, SourceSpan span) => Add($"Cannot coerce variable {lookupSymbol.Name} from {lookupSymbol.Type} to {targetType.Symbol} at {span}");
+    public void AmbiguousEntryPoint(FunctionDeclarationNode function, SourceSpan functionSpan) => Add($"Ambiguous application entry point: duplicate definition of {FunctionSignatureNode.EntryFunctionName} at  {function.Span}.");
 
-
+    public void InvalidStructInitializationType(NominalTypeNode initializationNominalType, SourceSpan initializationSpan) => Add($"Invalid struct initialization: {initializationNominalType} is not a valid struct type at {initializationSpan}");
 }

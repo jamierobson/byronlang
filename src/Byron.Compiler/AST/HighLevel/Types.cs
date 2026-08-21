@@ -4,7 +4,7 @@ namespace Byron.Compiler.AST.HighLevel;
 
 public abstract class TypeNode(Symbol symbol, SourceSpan span) : AstNode(span)
 {
-    public Symbol Symbol { get; init; } = symbol;
+    public Symbol Symbol { get; set; } = symbol;
 
     protected TypeNode(string name, SourceSpan span) : this(Symbol.From(name), span)
     {
@@ -27,7 +27,7 @@ public class TraitTypeNode(string name, SourceSpan span) : TypeNode(name, span);
 
 public class ReferenceTypeNode : TypeNode
 {
-    public TypeNode Target { get; init; }
+    public TypeNode Target { get; set; }
     public bool IsMutable { get; init; }
 
     public ReferenceTypeNode(TypeNode target, bool isMutable, SourceSpan span) : base(target.Symbol, span) //todo: This might be a flaw - it's unclear what the symbol should be for a reference type. 

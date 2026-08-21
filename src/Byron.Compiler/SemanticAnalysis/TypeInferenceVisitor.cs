@@ -11,16 +11,16 @@ public class TypeInferenceVisitor
     private readonly ScopedSymbolTable _scopedSymbolTable;
     private readonly Diagnostics _diagnostics;
     // private readonly GlobalSymbolTable _globalSymbolTable;
-    private readonly GlobalSymbolTableLookup _globalSymbolTable;
+    private readonly GlobalSymbolTableLookup _globalSymbolTableLookup;
     
     public TypeInferenceVisitor(
         // GlobalSymbolTable globalSymbolTable,
-        GlobalSymbolTableLookup globalSymbolTable,
+        GlobalSymbolTableLookup globalSymbolTableLookup,
         TypeMap typeMap,
         ScopedSymbolTable scopedSymbolTable,
         Diagnostics diagnostics)
     {
-        _globalSymbolTable = globalSymbolTable;
+        _globalSymbolTableLookup = globalSymbolTableLookup;
         _typeMap = typeMap;
         _scopedSymbolTable = scopedSymbolTable;
         _diagnostics = diagnostics;
@@ -28,7 +28,6 @@ public class TypeInferenceVisitor
 
     private void TryCanonize(ParameterNode parameter, FunctionDeclarationContext context)
     {
-        
         parameter.Type = CanonizedOrProvidedValue(parameter.Type, context);
     }
 
@@ -39,7 +38,7 @@ public class TypeInferenceVisitor
 
     private TypeNode CanonizedOrProvidedValue(TypeNode type, FunctionDeclarationContext context)
     {
-        if (_globalSymbolTable.TryResolveCanonicalType(type, context.ImplementBlock?.Symbol.Segments ??  context.Module.Symbol.Segments, context.Module, out var lookup))
+        if (_globalSymbolTableLookup.TryResolveCanonicalType(type, context.ImplementBlock?.Symbol.Segments ??  context.Module.Symbol.Segments, context.Module, out var lookup))
         {
             return lookup;
         }
@@ -73,7 +72,7 @@ public class TypeInferenceVisitor
                     var expectedParameterType = declarationContext.ImplementBlock.TypeNode;
                     var actualParameterType = parameter.Type;
 
-                    if (!_globalSymbolTable.TryResolveCanonicalType(actualParameterType, declarationContext.ImplementBlock.Symbol.Segments, declarationContext.Module, out var canonicalType))
+                    if (!_globalSymbolTableLookup.TryResolveCanonicalType(actualParameterType, declarationContext.ImplementBlock.Symbol.Segments, declarationContext.Module, out var canonicalType))
                     {
                         _diagnostics.UndeclaredType(actualParameterType);
                     }
@@ -269,6 +268,9 @@ public class TypeInferenceVisitor
 
         var referenceType = new ReferenceTypeNode(targetType, addressOf.IsMutable, addressOf.Span);
         SetType(module, addressOf, referenceType);
+        targetType = _typeMap.GetType(addressOf.Target);
+        referenceType.Target = targetType;
+        
         return addressOf;
     }
 
@@ -309,17 +311,18 @@ public class TypeInferenceVisitor
         StructFieldInitializationExpressionNode initialization)
     {
         SetType(module, initialization, initialization.NominalType);
+        var structType = _typeMap.GetType(initialization);
+        initialization.NominalType = (NominalTypeNode)structType;
+        
         var structName = initialization.NominalType.Symbol;
         
-        if (!_globalSymbolTable.TryResolveCanonicalType(initialization.NominalType, module.Symbol.Segments, module, out var typeCanonicalName))
+        if (!_globalSymbolTableLookup.TryResolveCanonicalType(initialization.NominalType, module.Symbol.Segments, module, out var typeCanonicalName))
         {
             _diagnostics.UndeclaredType(initialization.NominalType);
             return initialization;
         }
         
-        
-        // todo: Is this lookup always safe? Since types are registered from structs, I think so
-        var structDeclaration = _globalSymbolTable.Structs[typeCanonicalName.Symbol];
+        var structDeclaration = _globalSymbolTableLookup.Structs[typeCanonicalName.Symbol];
 
         foreach (var fieldInitializer in initialization.FieldInitializers)
         {
@@ -328,7 +331,7 @@ public class TypeInferenceVisitor
             var matchingField = structDeclaration.Fields.FirstOrDefault(f => f.Name == fieldInitializer.FieldName);
             if (matchingField is null)
             {
-                _diagnostics.MissingMember(structName, fieldInitializer);
+                _diagnostics.MissingMember(structType.Symbol.MemberName, fieldInitializer);
                 continue;
             }
 
@@ -481,7 +484,7 @@ public class TypeInferenceVisitor
 
         if (variableDeclaration.TypeAnnotation is not null)
         {
-            if (!_globalSymbolTable.TypeExists(variableDeclaration.TypeAnnotation))
+            if (!_globalSymbolTableLookup.TypeExists(module, variableDeclaration.TypeAnnotation))
             {
                 _diagnostics.UndeclaredType(variableDeclaration.TypeAnnotation);
                 return;
@@ -494,7 +497,7 @@ public class TypeInferenceVisitor
             }
 
             variableDeclaration.Initializer = coercedInitializer;
-            finalType = variableDeclaration.TypeAnnotation;
+            variableDeclaration.TypeAnnotation = finalType;
         }
 
         _scopedSymbolTable.Declare(variableDeclaration.Name, finalType, variableDeclaration.IsMutable);
@@ -513,17 +516,7 @@ public class TypeInferenceVisitor
 
         return variableExpression;
     }
-
     
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////// Danger Zone
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
     private ExpressionNode VisitCallExpressionNode(ModuleDeclarationNode module, CallExpressionNode callExpression)
     {
         CallExpressionNode functionInvocation = callExpression;
@@ -538,14 +531,23 @@ public class TypeInferenceVisitor
 
         if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
-            functionName = variableExpression.Name;
-            namespaceSegments = [];
+            // todo: Work out what this lookup should _actually_ be
+            if (_globalSymbolTableLookup.TryGetFunction(module, [], variableExpression.Name, module.Symbol.Segments, out var resolvedFunction))
+            {
+                functionName = resolvedFunction.Symbol.ToString();
+                namespaceSegments = [];
+            }
+            else
+            {
+                functionName = variableExpression.Name;
+                namespaceSegments = [];    
+            }
         }
         else if (callExpression.Callee is MemberAccessExpressionNode memberAccess)
         {
             if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
             {
-                if(_globalSymbolTable.TryGetStruct(targetVariableExpression.Name, module.Symbol.Segments, out var structDeclaration))
+                if(_globalSymbolTableLookup.TryGetStruct(module, targetVariableExpression.Name, module.Symbol.Segments, out var structDeclaration))
                 {
                     namespaceSegments = structDeclaration.Symbol.Segments;
                 }
@@ -584,12 +586,12 @@ public class TypeInferenceVisitor
             throw new ByronNotImplementedException(callExpression.Callee.GetType(), this, callExpression.Span);
         }
 
-        if (!_globalSymbolTable.TryGetFunction(namespaceSegments, functionName, out var function))
+        if (!_globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, functionName, module.Symbol.Segments, out var function))
         {
             _diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);
             return functionInvocation;
         }
-
+        
         return functionInvocation switch
         {
             MethodCallExpression methodCall => TryCoerceAllArguments(module, methodCall, function),
@@ -681,23 +683,13 @@ public class TypeInferenceVisitor
         SetType(module, callExpression, function.Signature.ReturnType);
         return callExpression;
     }
-
     
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////// Danger Zone
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////
     private ExpressionNode VisitMemberExpressionNode(ModuleDeclarationNode module, MemberAccessExpressionNode memberAccess)
     {
         memberAccess.Target = VisitExpression(module, memberAccess.Target);
         var targetType = _typeMap.GetType(memberAccess.Target);
         
-        if (_globalSymbolTable.TryGetStruct(targetType, module.Symbol.Segments, out var structDeclaration))
+        if (_globalSymbolTableLookup.TryGetStruct(targetType, out var structDeclaration))
         {
             var field = structDeclaration.Fields.FirstOrDefault(f => f.Name == memberAccess.MemberName);
             if (field is not null)
@@ -725,19 +717,36 @@ public class TypeInferenceVisitor
             result = addressOf;
             return true;
         }
-        
-        var sourceType = _typeMap.GetType(expression);
 
-        if (sourceType.Symbol == targetType.Symbol)
+        var sourceType = _typeMap.GetType(expression);
+        if (targetType is PrimitiveTypeNode p && sourceType.Symbol == p.Symbol)
         {
             result = expression;
             return true;
         }
+        
+        if (_globalSymbolTableLookup.TryResolveCanonicalType(targetType, sourceType.Symbol.Segments, module, out var canonicalType))
+        {
+            if (canonicalType.Symbol == sourceType.Symbol)
+            {
+                SetType(module, expression, canonicalType);
+                result = expression;
+                return true;
+            }
+        }
+
         if (sourceType.Symbol.ToString() == targetType.Symbol.ToString())
         {
             result = expression;
             return true;
         }
+
+        // if (targetType is NominalTypeNode)
+        // {
+        //     result = expression;
+        //     SetType(module, expression, sourceType);
+        //     return true;
+        // }
 
         if (targetType is ReferenceTypeNode targetRef && sourceType.Symbol == targetRef.Target.Symbol)
         {
@@ -779,9 +788,24 @@ public class TypeInferenceVisitor
             return false;
         }
 
+        if (expression is StructFieldInitializationExpressionNode initialization)
+        {
+            if (sourceType is not NominalTypeNode nominalType)
+            {
+                _diagnostics.InvalidStructInitializationType(initialization.NominalType, initialization.Span);
+                result = expression;
+                return false;
+            }
+
+            // initialization.NominalType = nominalType;
+            SetType(initialization, nominalType);
+            result = initialization;
+            return true;
+        }
+
         if (sourceType is IntegerTypeNode sourceInt && targetType is FloatTypeNode targetFloat)
         {
-            var intToFloat = new CastIntToFloatNode(expression, targetFloat, sourceInt.Signed, expression.Span); 
+            var intToFloat = new CastIntToFloatNode(expression, targetFloat, sourceInt.Signed, expression.Span);
             result = intToFloat;
             SetType(intToFloat, targetType);
             return true;
@@ -823,6 +847,11 @@ public class TypeInferenceVisitor
         return false;
     }
 
+    private void SetType(StructFieldInitializationExpressionNode expression, TypeNode targetType)
+    {
+        _typeMap.SetType(expression, targetType);
+    }
+
     private void SetType(CastExpressionNode expression, TypeNode targetType)
     {
         _typeMap.SetType(expression, targetType);
@@ -835,11 +864,12 @@ public class TypeInferenceVisitor
 
     private void SetType(ModuleDeclarationNode module, ExpressionNode expression, TypeNode possiblyUnresolvedType)
     {
-        if (!_globalSymbolTable.TryResolveCanonicalType(possiblyUnresolvedType, module.Symbol.Segments, module, out var resolvedType))
+        if (!_globalSymbolTableLookup.TryResolveCanonicalType(possiblyUnresolvedType, module.Symbol.Segments, module, out var resolvedType))
         {
             _diagnostics.UndeclaredType(possiblyUnresolvedType);
             return;
         }
+
         _typeMap.SetType(expression, resolvedType);
     }
     

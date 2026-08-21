@@ -36,8 +36,10 @@ public class FunctionArgumentParserTests
             (TokenKind.SelfType, "Self")
         ); // (self: Self)
         
+        var file = new TokenizedFile("test", tokenStream);
+        
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
 
     [Fact]
@@ -53,9 +55,10 @@ public class FunctionArgumentParserTests
             (TokenKind.Ampersand, "&"),
             (TokenKind.SelfType, "Self")
         );
-        
+
+        var file = new TokenizedFile("test", tokenStream);
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
 
     [Fact]
@@ -68,8 +71,10 @@ public class FunctionArgumentParserTests
             (TokenKind.SelfType, "Self")
         ); // (self: &Self)
         
+        var file = new TokenizedFile("test", tokenStream);
+        
         // Act + Assert
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(ImplementBlock());
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(ImplementBlock());
         
         Assert.Single(result);
         var argument = result.Single();
@@ -81,9 +86,10 @@ public class FunctionArgumentParserTests
     {
         // Arrange
         var tokenStream = CreateFunctionArgumentTokenStream(); //()
-
+        var file = new TokenizedFile("test", tokenStream);
+        
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
 
         // Assert
         Assert.Empty(result);
@@ -94,9 +100,10 @@ public class FunctionArgumentParserTests
     {
         // Arrange
         List<Token> tokenStream = [ ToToken(TokenKind.LParen, "(") ]; // (
-    
+        var file = new TokenizedFile("test", tokenStream);
+        
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -108,9 +115,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Colon, ":"),
             (TokenKind.Identifier, "i32")
         ); // (x: i32)
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -131,9 +140,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Identifier, "i32"),
             (TokenKind.Comma, ",")
         ); // (x: i32,)
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -148,9 +159,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Colon, ":"),
             (TokenKind.Identifier, "i32")
         ); // (x: i32, : i32)
-    
+        
+        var file = new TokenizedFile("test", tokenStream);
+        
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -165,9 +178,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Identifier, "y"),
             (TokenKind.Colon, ":")
         ); // (x: i32, y:)
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -182,9 +197,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Identifier, "y"),
             (TokenKind.Identifier, "i32")
         ); // (x: i32, y i32)
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None));
     }
     
     [Fact]
@@ -200,9 +217,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Colon, ":"),
             (TokenKind.Identifier, "i32")
         );
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Equal(2, result.Count);
@@ -228,9 +247,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Take, "take"),
             (TokenKind.Identifier, "i32")
         );
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -251,9 +272,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Ampersand, "&"),
             (TokenKind.Identifier, "i32")
         );
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);
@@ -275,9 +298,11 @@ public class FunctionArgumentParserTests
             (TokenKind.Var, "var"),
             (TokenKind.Identifier, "i32")
         );
+        
+        var file = new TokenizedFile("test", tokenStream);
     
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionParameters(SelfTypeContext.None);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionParameters(SelfTypeContext.None);
     
         // Assert
         Assert.Single(result);

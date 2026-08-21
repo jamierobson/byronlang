@@ -51,7 +51,7 @@ public class VariableDeclarationNode : StatementNode
 {
     public bool IsMutable { get; init; }
     public string Name { get; init; }
-    public TypeNode? TypeAnnotation { get; init; }
+    public TypeNode? TypeAnnotation { get; set; }
     public ExpressionNode Initializer { get; set; }
 
     public VariableDeclarationNode(bool isMutable, string name, TypeNode? typeAnnotation, ExpressionNode initializer, SourceSpan span) : base(span)

@@ -28,7 +28,13 @@ public class SemanticAnalysisDriver(ProgramNode program)
             return SemanticAnalysisResult.Error(program, _diagnostics);
         }
         
-        var visitor = new TypeInferenceVisitor(new GlobalSymbolTableLookup(globalSymbolTable), typeMap, scopedSymbolTable, _diagnostics);
+        var globalSymbolTableLookup = new GlobalSymbolTableLookup(globalSymbolTable);
+        foreach (var fileModule in program.RootModules)
+        {
+            CanonizeStructDeclarationFields(globalSymbolTableLookup, fileModule, _diagnostics);
+        }
+        
+        var visitor = new TypeInferenceVisitor(globalSymbolTableLookup, typeMap, scopedSymbolTable, _diagnostics);
         foreach (var module in program.RootModules)
         {
             VisitFunctions(module, visitor);
@@ -67,46 +73,61 @@ public class SemanticAnalysisDriver(ProgramNode program)
             VisitFunctions(childModule, visitor);
         }
     }
+
+    public void CanonizeStructDeclarationFields(
+        GlobalSymbolTableLookup globalSymbolTableLookup,
+        ModuleDeclarationNode module, 
+        Diagnostics diagnostics)
+    {
+        foreach (var field in module.Declarations.Structs.SelectMany(x => x.Fields))
+        {
+            if (globalSymbolTableLookup.TryResolveCanonicalType(field.Type, module.Symbol.Segments, module,
+                    out var resolvedFieldType))
+            {
+                field.Type = resolvedFieldType;
+            }
+            else
+            {
+                diagnostics.UndeclaredType(field.Type, "struct field");
+            }
+        }
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            CanonizeStructDeclarationFields(globalSymbolTableLookup, childModule, diagnostics);
+        }
+    }
 }
 
 public record FunctionDeclarationContext(ModuleDeclarationNode Module, ImplementBlockDeclarationNode? ImplementBlock);
 
 public record SemanticAnalysisResult
 {
-    // [MemberNotNullWhen(true, [nameof(TypeMap), nameof(TypeRegistry), nameof(FunctionRegistry)])]
     [MemberNotNullWhen(true, [nameof(GlobalSymbolTable), nameof(TypeMap)])]
     [MemberNotNullWhen(false, nameof(Diagnostics))]
     public bool Success { get; }
 
     public ProgramNode Ast { get; }
-    // public TypeRegistry? TypeRegistry { get; }
     public TypeMap? TypeMap { get; }
-    // public FunctionRegistry? FunctionRegistry { get; }
     public Diagnostics? Diagnostics { get; }
     private GlobalSymbolTable? GlobalSymbolTable { get; }
     
-    // private SemanticAnalysisResult(bool success, ProgramNode ast, TypeRegistry? typeRegistry = null, FunctionRegistry? functionRegistry = null, TypeMap? typeMap = null, Diagnostics? diagnostics = null)
     private SemanticAnalysisResult(bool success, ProgramNode ast, GlobalSymbolTable? globalSymbolTable = null, TypeMap? typeMap = null, Diagnostics? diagnostics = null)
     {
         Success = success;
         Ast = ast;
         GlobalSymbolTable = globalSymbolTable;
-        // TypeRegistry = typeRegistry;
         TypeMap = typeMap;
-        // FunctionRegistry = functionRegistry;
         Diagnostics = diagnostics;
     }
 
-    // public static SemanticAnalysisResult Ok(ProgramNode ast, TypeRegistry typeRegistry, FunctionRegistry functionRegistry, TypeMap typeMap)
     public static SemanticAnalysisResult Ok(ProgramNode ast, GlobalSymbolTable globalSymbolTable, TypeMap typeMap)
     {
         return new SemanticAnalysisResult(
             true, 
             ast,
             globalSymbolTable,
-            // typeRegistry: typeRegistry,
             typeMap: typeMap
-            // functionRegistry: functionRegistry
             );
     }
 
@@ -121,9 +142,7 @@ public record SemanticAnalysisResult
     public void Deconstruct(
         out ProgramNode ast,
         out GlobalSymbolTable globalSymbolTable,
-        // out TypeRegistry typeRegistry,
         out TypeMap typeMap
-        // out FunctionRegistry functionRegistry
         )
     {
         if (!Success)
@@ -132,9 +151,7 @@ public record SemanticAnalysisResult
         }
         ast = Ast;
         globalSymbolTable = GlobalSymbolTable;
-        // typeRegistry = TypeRegistry;
         typeMap = TypeMap;
-        // functionRegistry = FunctionRegistry;
     }
 }
 

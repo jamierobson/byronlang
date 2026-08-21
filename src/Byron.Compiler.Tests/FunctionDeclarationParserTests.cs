@@ -47,12 +47,14 @@ public class FunctionDeclarationParserTests
             returnTypeLexeme: "void",
             bodyTokens: []
         ); // fn foo(): void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null);
 
         // Assert
-        Assert.Equal("foo", result.Name);
+        Assert.Equal("foo", result.Signature.Name);
         Assert.Empty(result.Signature.Parameters);
         Assert.Equal(typeof(VoidTypeNode), result.Signature.ReturnType.GetType());
         Assert.Empty(result.Body.Statements);
@@ -75,12 +77,14 @@ public class FunctionDeclarationParserTests
         };
 
         var tokenStream = CreateFunctionTokenStream("calculate", parameters, "i32", body);
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null);
 
         // Assert
-        Assert.Equal("calculate", result.Name);
+        Assert.Equal("calculate", result.Signature.Name);
         Assert.Equal(typeof(Int32TypeNode), result.Signature.ReturnType.GetType());
 
         Assert.Equal(2, result.Signature.Parameters.Count);
@@ -112,9 +116,11 @@ public class FunctionDeclarationParserTests
         }
         .Select(x => ToToken(x.kind, x.lexeme))
         .ToList(); // fn badFunc() void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null));
     }
 
     [Fact]
@@ -132,8 +138,10 @@ public class FunctionDeclarationParserTests
         }
         .Select(x => ToToken(x.kind, x.lexeme))
         .ToList(); // badFunc(): void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global) );
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null));
     }
 }

@@ -61,6 +61,8 @@ public class FunctionDeclarationNode : TopLevelDeclarationNode
 
 public class FunctionSignatureNode : AstNode
 {
+    public static string EntryFunctionName = "main";
+    
     public string Name { get; init; }
     public List<ParameterNode> Parameters { get; init; }
     public TypeNode ReturnType { get; set; }
@@ -102,6 +104,11 @@ public class TraitDeclarationNode : TopLevelDeclarationNode
 
 public class StructDeclarationNode : TopLevelDeclarationNode
 {
+    public void UpdateSymbol(Symbol symbol)
+    {
+        Symbol = symbol;
+        Type.Symbol = symbol;
+    }
     public NominalTypeNode Type { get; }
     public List<StructFieldNode> Fields { get; init; }
 
@@ -116,7 +123,7 @@ public class StructDeclarationNode : TopLevelDeclarationNode
 public class StructFieldNode : AstNode
 {
     public string Name { get; init; }
-    public TypeNode Type { get; init; }
+    public TypeNode Type { get; set; }
 
     public StructFieldNode(string name, TypeNode type, SourceSpan span) : base(span)
     {

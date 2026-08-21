@@ -6,6 +6,8 @@ namespace Byron.Compiler.SemanticAnalysis;
 
 public class GlobalSymbolTable
 {
+    private bool _entryFunctionEncountered = false;
+    
     public readonly IReadOnlyDictionary<string, PrimitiveTypeSymbol> Primitives =
         new Dictionary<string, PrimitiveTypeSymbol>
         {
@@ -40,7 +42,23 @@ public class GlobalSymbolTable
         var thisNamespaceSegments = CreateCanonicalSymbolSegments(parentNamespaceSegments, module.Symbol.Segments);
         foreach (var function in module.Declarations.Functions)
         {
-            RegisterFunction(function, thisNamespaceSegments, diagnostics);
+            if (function.Symbol.MemberName == FunctionSignatureNode.EntryFunctionName)
+            {
+                if (_entryFunctionEncountered)
+                {
+                    diagnostics.AmbiguousEntryPoint(function, function.Span);
+                }
+                else
+                {
+                    _entryFunctionEncountered = true;
+                    RegisterFunction(function, [], diagnostics);                    
+                }
+            }
+            else
+            {
+                RegisterFunction(function, thisNamespaceSegments, diagnostics);
+            }
+            
         }
 
         foreach (var block in module.Declarations.ImplementBlocks)
@@ -100,7 +118,7 @@ public class GlobalSymbolTable
         {
             var canonicalSymbolSegments = CreateCanonicalSymbolSegments(thisNamespaceSegments, structDeclaration.Symbol.Segments);
             var canonicalSymbol = new Symbol(canonicalSymbolSegments);
-            structDeclaration.Symbol = canonicalSymbol;
+            structDeclaration.UpdateSymbol(canonicalSymbol);
             if (NominalTypes.TryGet(canonicalSymbol, out var otherDeclaration))
             {
                 diagnostics.Duplicate(structDeclaration, otherDeclaration.Span);

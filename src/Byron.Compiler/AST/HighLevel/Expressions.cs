@@ -96,7 +96,7 @@ public class BinaryExpressionNode : ExpressionNode
 
 public class StructFieldInitializationExpressionNode : ExpressionNode
 {
-    public NominalTypeNode NominalType { get; init; }
+    public NominalTypeNode NominalType { get; set; }
     public List<StructFieldInitializerNode> FieldInitializers { get; init; }
 
     public StructFieldInitializationExpressionNode(NominalTypeNode nominalType, List<StructFieldInitializerNode> fieldInitializers, SourceSpan span)
