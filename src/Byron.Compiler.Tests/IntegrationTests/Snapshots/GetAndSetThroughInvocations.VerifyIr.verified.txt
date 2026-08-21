@@ -1,81 +1,81 @@
-﻿%Point1d = type { i32 }
+﻿%test$$Point1d = type { i32 }
 
-define %Point1d @newSelf() {
-    %1 = alloca %Point1d
-    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
+define %test$$Point1d @test$$Point1d$$newSelf() {
+    %1 = alloca %test$$Point1d
+    %2 = getelementptr %test$$Point1d, %test$$Point1d* %1, i32 0, i32 0
     store i32 -2, i32* %2
-    %3 = load %Point1d, %Point1d* %1
-    ret %Point1d %3
+    %3 = load %test$$Point1d, %test$$Point1d* %1
+    ret %test$$Point1d %3
 }
 
-define i32 @getValue(%Point1d* %arg_0) {
-    %self.addr = alloca %Point1d*
-    store %Point1d* %arg_0, %Point1d** %self.addr
-    %1 = load %Point1d*, %Point1d** %self.addr
-    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
+define i32 @test$$Point1d$$getValue(%test$$Point1d* %arg_0) {
+    %self.addr = alloca %test$$Point1d*
+    store %test$$Point1d* %arg_0, %test$$Point1d** %self.addr
+    %1 = load %test$$Point1d*, %test$$Point1d** %self.addr
+    %2 = getelementptr %test$$Point1d, %test$$Point1d* %1, i32 0, i32 0
     %3 = load i32, i32* %2
     ret i32 %3
 }
 
-define void @setValue(%Point1d* %arg_0) {
-    %self.addr = alloca %Point1d*
-    store %Point1d* %arg_0, %Point1d** %self.addr
-    %1 = load %Point1d*, %Point1d** %self.addr
-    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
-    %3 = load %Point1d*, %Point1d** %self.addr
-    %4 = getelementptr %Point1d, %Point1d* %3, i32 0, i32 0
+define void @test$$Point1d$$setValue(%test$$Point1d* %arg_0) {
+    %self.addr = alloca %test$$Point1d*
+    store %test$$Point1d* %arg_0, %test$$Point1d** %self.addr
+    %1 = load %test$$Point1d*, %test$$Point1d** %self.addr
+    %2 = getelementptr %test$$Point1d, %test$$Point1d* %1, i32 0, i32 0
+    %3 = load %test$$Point1d*, %test$$Point1d** %self.addr
+    %4 = getelementptr %test$$Point1d, %test$$Point1d* %3, i32 0, i32 0
     %5 = load i32, i32* %4
     %6 = add i32 20, %5
     store i32 %6, i32* %2
     ret void
 }
 
-define %Point1d @new() {
-    %1 = alloca %Point1d
-    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
+define %test$$Point1d @test$$Point1d$$new() {
+    %1 = alloca %test$$Point1d
+    %2 = getelementptr %test$$Point1d, %test$$Point1d* %1, i32 0, i32 0
     store i32 2, i32* %2
-    %3 = load %Point1d, %Point1d* %1
-    ret %Point1d %3
+    %3 = load %test$$Point1d, %test$$Point1d* %1
+    ret %test$$Point1d %3
 }
 
 define i32 @main() {
-    %1 = call %Point1d @newSelf()
-    %point.addr = alloca %Point1d
-    store %Point1d %1, %Point1d* %point.addr
-    %2 = alloca %Point1d
-    %3 = getelementptr %Point1d, %Point1d* %point.addr, i32 0, i32 0
+    %1 = call %test$$Point1d @test$$Point1d$$newSelf()
+    %point.addr = alloca %test$$Point1d
+    store %test$$Point1d %1, %test$$Point1d* %point.addr
+    %2 = alloca %test$$Point1d
+    %3 = getelementptr %test$$Point1d, %test$$Point1d* %point.addr, i32 0, i32 0
     %4 = load i32, i32* %3
     %5 = add i32 %4, 9
-    %6 = getelementptr %Point1d, %Point1d* %2, i32 0, i32 0
+    %6 = getelementptr %test$$Point1d, %test$$Point1d* %2, i32 0, i32 0
     store i32 %5, i32* %6
-    %7 = load %Point1d, %Point1d* %2
-    store %Point1d %7, %Point1d* %point.addr
-    %myReference.addr = alloca %Point1d*
-    store %Point1d* %point.addr, %Point1d** %myReference.addr
-    %8 = call i32 @getValue(%Point1d* %point.addr)
+    %7 = load %test$$Point1d, %test$$Point1d* %2
+    store %test$$Point1d %7, %test$$Point1d* %point.addr
+    %myReference.addr = alloca %test$$Point1d*
+    store %test$$Point1d* %point.addr, %test$$Point1d** %myReference.addr
+    %8 = call i32 @test$$Point1d$$getValue(%test$$Point1d* %point.addr)
     %asFunctionSyntax.addr = alloca i32
     store i32 %8, i32* %asFunctionSyntax.addr
-    %9 = call i32 @getValue(%Point1d* %point.addr)
+    %9 = call i32 @test$$Point1d$$getValue(%test$$Point1d* %point.addr)
     %asMethodSyntax.addr = alloca i32
     store i32 %9, i32* %asMethodSyntax.addr
-    call void @setValue(%Point1d* %point.addr)
-    %10 = call i32 @getValue(%Point1d* %point.addr)
+    call void @test$$Point1d$$setValue(%test$$Point1d* %point.addr)
+    %10 = call i32 @test$$Point1d$$getValue(%test$$Point1d* %point.addr)
     %myReread.addr = alloca i32
     store i32 %10, i32* %myReread.addr
     %11 = load i32, i32* %asMethodSyntax.addr
     %12 = load i32, i32* %asFunctionSyntax.addr
     %13 = icmp eq i32 %11, %12
     %14 = load i32, i32* %myReread.addr
-    %15 = load %Point1d*, %Point1d** %myReference.addr
-    %16 = getelementptr %Point1d, %Point1d* %15, i32 0, i32 0
+    %15 = load %test$$Point1d*, %test$$Point1d** %myReference.addr
+    %16 = getelementptr %test$$Point1d, %test$$Point1d* %15, i32 0, i32 0
     %17 = load i32, i32* %16
     %18 = icmp eq i32 %14, %17
     %19 = and i1 %13, %18
     br i1 %19, label %if_then_0, label %if_merge_0
 
 if_then_0:
-    %20 = load %Point1d*, %Point1d** %myReference.addr
-    %21 = getelementptr %Point1d, %Point1d* %20, i32 0, i32 0
+    %20 = load %test$$Point1d*, %test$$Point1d** %myReference.addr
+    %21 = getelementptr %test$$Point1d, %test$$Point1d* %20, i32 0, i32 0
     %22 = load i32, i32* %21
     ret i32 %22
 

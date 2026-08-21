@@ -29,7 +29,7 @@ public class GeneratorContext
     
     public string GetGeneratedIr() => _irOutputBuilder.ToString();
     
-    public SymbolAddress LookupVariable(string name) => _symbolTable.TryGetValue(name, out var address) // todo: Here
+    public SymbolAddress LookupVariable(string name) => _symbolTable.TryGetValue(name, out var address)
         ? address
         : throw new KeyNotFoundException($"Compiler error: Undefined variable '{name}' requested.");
     

@@ -623,7 +623,6 @@ public class TypeInferenceVisitor
         };
     }
 
-    // private MethodCallExpression TryCoerceAllArguments(ModuleDeclarationNode module, MethodCallExpression methodCall, FunctionDescriptor function)
     private MethodCallExpression TryCoerceAllArguments(ModuleDeclarationNode module, MethodCallExpression methodCall, FunctionDeclarationNode function)
     {
         if (!SupportsMethodInvocation(function.Signature))
@@ -650,10 +649,16 @@ public class TypeInferenceVisitor
             if (i == 0)
             {
                 var self = SelfParameter(function.Signature);
-                var targetType = self.Ownership.IsReference()
-                    ? new ReferenceTypeNode(self.Type, self.Ownership.IsMutable(), self.Type.Span)
-                    : self.Type;
+                var targetType = self.Type;
                 
+                if (!_globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
+                {
+                    _diagnostics.UndeclaredType(self.Type, "self type argument");
+                }
+                else if(self.Ownership.IsReference())
+                {
+                    targetType = new ReferenceTypeNode(resolvedSelfType, self.Ownership.IsMutable(), self.Type.Span);
+                }
                 
                 if (!TryCoerce(module, argument, targetType, out var coercedReceiver))
                 {
@@ -695,14 +700,14 @@ public class TypeInferenceVisitor
             var argument = callExpression.Arguments[i];
             var argumentType = _typeMap.GetType(argument);
             var parameterType = function.Signature.Parameters[i].Type;
-
+        
             if (!TryCoerce(module, argument, parameterType, out var coercedExpression))
             {
                 _diagnostics.InvalidArgument(argumentType.Symbol, parameterType.Symbol,
                     function.Symbol, callExpression.Span);
                 return callExpression;
             }
-
+        
             callExpression.Arguments[i] = coercedExpression;
         }
 
@@ -751,6 +756,20 @@ public class TypeInferenceVisitor
             return true;
         }
         
+        if (targetType is ReferenceTypeNode targetRef && sourceType.Symbol == targetRef.Target.Symbol)
+        {
+            result = new AddressOfExpressionNode(expression, targetRef.IsMutable, expression.Span);
+            SetType(module, result, targetType);
+            return true;
+        }
+
+        if (sourceType is ReferenceTypeNode sourceRef && sourceRef.Target.Symbol == targetType.Symbol)
+        {
+            result = new DereferenceExpressionNode(expression, expression.Span);
+            SetType(module, result, targetType);
+            return true;
+        }
+        
         if (_globalSymbolTableLookup.TryResolveCanonicalType(targetType, sourceType.Symbol.Segments, module, out var canonicalType))
         {
             if (canonicalType.Symbol == sourceType.Symbol)
@@ -764,20 +783,6 @@ public class TypeInferenceVisitor
         if (sourceType.Symbol.ToString() == targetType.Symbol.ToString())
         {
             result = expression;
-            return true;
-        }
-
-        if (targetType is ReferenceTypeNode targetRef && sourceType.Symbol == targetRef.Target.Symbol)
-        {
-            result = new AddressOfExpressionNode(expression, targetRef.IsMutable, expression.Span);
-            SetType(module, result, targetType);
-            return true;
-        }
-
-        if (sourceType is ReferenceTypeNode sourceRef && sourceRef.Target.Symbol == targetType.Symbol)
-        {
-            result = new DereferenceExpressionNode(expression, expression.Span);
-            SetType(module, result, targetType);
             return true;
         }
 

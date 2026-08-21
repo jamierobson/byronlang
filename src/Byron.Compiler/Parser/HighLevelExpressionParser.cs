@@ -153,7 +153,7 @@ public partial class ByronHighLevelAstParser
             {
                 if (identifier is { Kind: TokenKind.Identifier})
                 {
-                    expression = ParseCallExpression(self, expression); //todo: See if we need identifier here.
+                    expression = ParseCallExpression(self, expression);
                     continue;
                 }
                 throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);

@@ -6,26 +6,6 @@ public abstract record AstNode(High.AstNode SourceNode);
 
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
 
-// public record ModuleNode: AstNode
-// {
-//     public ModuleNode(
-//         High.FileModuleNode SourceNode, 
-//         IEnumerable<FunctionDeclarationNode> functions,
-//         IEnumerable<StructDeclarationNode> structs
-//         // IEnumerable<ModuleNode> childModules
-//         ) : base(SourceNode)
-//     {
-//         Functions = [..functions];
-//         Structs = [..structs];
-//         // ChildModules = [..childModules];
-//     }
-//     
-//     public IReadOnlyList<FunctionDeclarationNode> Functions { get; }
-//     public IReadOnlyList<StructDeclarationNode> Structs { get; }
-//     // public IReadOnlyList<ModuleNode> ChildModules { get; }
-// }
-
-
 // Top level declarations
 public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode SourceNode, string CanonicalName) : AstNode(SourceNode)
 {
