@@ -160,10 +160,9 @@ public record BoolLiteralNode(High.BooleanLiteralNode SourceNode) : ExpressionNo
     public bool Value => SourceNode.Value;
 }
 
-public record VariableExpressionNode(High.VariableExpressionNode SourceNode) : ExpressionNode(SourceNode)
+public record VariableExpressionNode(High.VariableExpressionNode SourceNode, string Name) : ExpressionNode(SourceNode)
 {
     public new High.VariableExpressionNode SourceNode => (High.VariableExpressionNode)base.SourceNode;
-    public  string Name => SourceNode.Name;
 }
 
 public record CallExpressionNode(High.CallExpressionNode SourceNode, ExpressionNode Callee, List<ExpressionNode> Arguments) : ExpressionNode(SourceNode)

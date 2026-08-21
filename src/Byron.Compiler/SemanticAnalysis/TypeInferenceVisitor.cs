@@ -10,11 +10,9 @@ public class TypeInferenceVisitor
     private readonly TypeMap _typeMap;
     private readonly ScopedSymbolTable _scopedSymbolTable;
     private readonly Diagnostics _diagnostics;
-    // private readonly GlobalSymbolTable _globalSymbolTable;
     private readonly GlobalSymbolTableLookup _globalSymbolTableLookup;
     
     public TypeInferenceVisitor(
-        // GlobalSymbolTable globalSymbolTable,
         GlobalSymbolTableLookup globalSymbolTableLookup,
         TypeMap typeMap,
         ScopedSymbolTable scopedSymbolTable,
@@ -534,8 +532,12 @@ public class TypeInferenceVisitor
             // todo: Work out what this lookup should _actually_ be
             if (_globalSymbolTableLookup.TryGetFunction(module, [], variableExpression.Name, module.Symbol.Segments, out var resolvedFunction))
             {
-                functionName = resolvedFunction.Symbol.ToString();
-                namespaceSegments = [];
+                functionName = resolvedFunction.Symbol.MemberName;
+                namespaceSegments = resolvedFunction.Symbol.Segments[..^1];
+                // variableExpression.Name = resolvedFunction.Symbol.ToString(); //todo: Do this in byron lowering pass instead.
+                var functionInvocationNode = new FunctionInvocationVariableExpressionNode(resolvedFunction, variableExpression.Span);
+                // callExpression.Callee = VisitExpression(module, functionInvocationNode);
+                callExpression.Callee = functionInvocationNode;
             }
             else
             {
@@ -654,7 +656,6 @@ public class TypeInferenceVisitor
         return methodCall;
     }
 
-    // private CallExpressionNode TryCoerceAllArguments(ModuleDeclarationNode module, CallExpressionNode callExpression, FunctionDescriptor function)
     private CallExpressionNode TryCoerceAllArguments(ModuleDeclarationNode module, CallExpressionNode callExpression, FunctionDeclarationNode function)
     {
         if (callExpression.Arguments.Count != function.Signature.Parameters.Count)
@@ -741,13 +742,6 @@ public class TypeInferenceVisitor
             return true;
         }
 
-        // if (targetType is NominalTypeNode)
-        // {
-        //     result = expression;
-        //     SetType(module, expression, sourceType);
-        //     return true;
-        // }
-
         if (targetType is ReferenceTypeNode targetRef && sourceType.Symbol == targetRef.Target.Symbol)
         {
             result = new AddressOfExpressionNode(expression, targetRef.IsMutable, expression.Span);
@@ -797,7 +791,6 @@ public class TypeInferenceVisitor
                 return false;
             }
 
-            // initialization.NominalType = nominalType;
             SetType(initialization, nominalType);
             result = initialization;
             return true;

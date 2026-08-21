@@ -10,9 +10,7 @@ public class ByronLoweringPass
 {
     private readonly GlobalSymbolTable _globalSymbolTable;
     private readonly High.ProgramNode _ast;
-    // private readonly TypeRegistry _typeRegistry;
     private readonly TypeMap _highLevelExpressionTypeMap;
-    // private readonly FunctionRegistry _functionRegistry;
     private readonly Dictionary<High.TypeNode, Low.TypeNode> _highToLowLevelTypeMap = new();
     
     public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
@@ -22,7 +20,6 @@ public class ByronLoweringPass
             throw new ByronLowLevelParserException("Unable to lower an invalid AST");
         }
         
-        // (_ast, _typeRegistry, _highLevelExpressionTypeMap, _functionRegistry) = semanticAnalysisResult;
         (_ast, _globalSymbolTable, _highLevelExpressionTypeMap) = semanticAnalysisResult;
     }
     
@@ -51,7 +48,7 @@ public class ByronLoweringPass
         var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
         if (_globalSymbolTable.NominalTypes.CanonicalNames.TryGetValue(@struct.Type, out var canonicalName))
         {
-            return new Low.StructDeclarationNode(@struct, canonicalName.ToString(), fields);
+            return new Low.StructDeclarationNode(@struct, canonicalName.ToString().Mangle(), fields);
         }
         
         throw new ByronLowLevelParserException($"Struct {@struct.Symbol} is not defined");
@@ -65,7 +62,7 @@ public class ByronLoweringPass
 
         if (_globalSymbolTable.Functions.CanonicalNames.TryGetValue(declaration, out var canonicalName))
         {
-            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName.ToString(), parameters, returnType);
+            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName.ToString().Mangle(), parameters, returnType);
             return new Low.FunctionDeclarationNode(declaration, signature, body);
         }
         
@@ -109,7 +106,7 @@ public class ByronLoweringPass
     private Low.TypeNode NominalTypeNode(High.NominalTypeNode userDeclaredType)
     {
         var canonicalName = _globalSymbolTable.NominalTypes.CanonicalNames[userDeclaredType];
-        return new Low.NominalTypeNode(userDeclaredType, canonicalName.ToString());
+        return new Low.NominalTypeNode(userDeclaredType, canonicalName.ToString().Mangle());
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)
@@ -138,7 +135,7 @@ public class ByronLoweringPass
             High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral),
             High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
             High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
-            High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
+            High.VariableExpressionNode variable => VariableExpression(variable),
             High.MethodCallExpression call => MethodSyntaxCallExpression(call),
             High.FreeFunctionCallExpressionNode call => FreeFunctionCallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
@@ -156,6 +153,16 @@ public class ByronLoweringPass
             // Lowerable expressions here
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
+    }
+    
+    private Low.VariableExpressionNode VariableExpression(High.VariableExpressionNode variable)
+    {
+        if (variable is High.FunctionInvocationVariableExpressionNode invocation)
+        {
+            return new Low.VariableExpressionNode(invocation, invocation.Function.Symbol.ToString().Mangle());
+        }
+        
+        return new Low.VariableExpressionNode(variable, variable.Name);
     }
 
     private Low.BinaryExpressionNode CoercedBinaryExpression(High.BinaryExpressionNode binary)

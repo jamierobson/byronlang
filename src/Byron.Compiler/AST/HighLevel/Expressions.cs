@@ -21,12 +21,20 @@ public class BooleanLiteralNode(bool value, SourceSpan span) : LiteralExpression
 
 public class VariableExpressionNode : ExpressionNode
 {
-    public string Name { get; init; }
+    public string Name { get; set; }
 
     public VariableExpressionNode(string name, SourceSpan span) : base(span)
     {
         Name = name;
     }
+}
+
+public class FunctionInvocationVariableExpressionNode(
+    FunctionDeclarationNode function,
+    SourceSpan span)
+    : VariableExpressionNode(function.Symbol.MemberName, span)
+{
+    public FunctionDeclarationNode Function { get; } = function;
 }
 
 public class AddressOfExpressionNode : ExpressionNode
