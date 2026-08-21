@@ -5,7 +5,8 @@ using Byron.Compiler.AST.HighLevel;
 namespace Byron.Compiler.SemanticAnalysis;
 
 public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
-{    public bool TryResolveCanonicalType(
+{    
+    public bool TryResolveCanonicalType(
         TypeNode inputType,
         string[] currentScopeSegments,
         ModuleDeclarationNode currentModule,

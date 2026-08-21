@@ -70,7 +70,7 @@ public partial class ByronHighLevelAstParser
 
             Advance(); 
         
-            var rightSide = PrattParseBinaryExpression(self, minPrecedence);
+            var rightSide = PrattParseBinaryExpression(self, precedence + 1);
         
             expression = new BinaryExpressionNode(
                 expression, 

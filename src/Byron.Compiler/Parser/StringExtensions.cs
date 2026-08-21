@@ -4,6 +4,6 @@ public static class StringExtensions
 {
     extension(string value)
     {
-        public string Mangle() => value.Replace(".", "__");
+        public string Mangle() => value.Replace(".", "$$");
     }
 }

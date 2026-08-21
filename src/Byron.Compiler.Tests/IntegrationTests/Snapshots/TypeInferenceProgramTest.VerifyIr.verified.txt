@@ -1,60 +1,60 @@
-﻿%PointInSpace = type { i32 }
+﻿%test$$PointInSpace = type { i32 }
 
-%Point2d = type { %PointInSpace, %PointInSpace }
+%test$$Point2d = type { %test$$PointInSpace, %test$$PointInSpace }
 
 define i32 @main() {
-    %1 = alloca %Point2d
-    %2 = alloca %PointInSpace
-    %3 = getelementptr %PointInSpace, %PointInSpace* %2, i32 0, i32 0
+    %1 = alloca %test$$Point2d
+    %2 = alloca %test$$PointInSpace
+    %3 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %2, i32 0, i32 0
     store i32 10, i32* %3
-    %4 = load %PointInSpace, %PointInSpace* %2
-    %5 = getelementptr %Point2d, %Point2d* %1, i32 0, i32 0
-    store %PointInSpace %4, %PointInSpace* %5
-    %6 = alloca %PointInSpace
-    %7 = getelementptr %PointInSpace, %PointInSpace* %6, i32 0, i32 0
+    %4 = load %test$$PointInSpace, %test$$PointInSpace* %2
+    %5 = getelementptr %test$$Point2d, %test$$Point2d* %1, i32 0, i32 0
+    store %test$$PointInSpace %4, %test$$PointInSpace* %5
+    %6 = alloca %test$$PointInSpace
+    %7 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %6, i32 0, i32 0
     store i32 20, i32* %7
-    %8 = load %PointInSpace, %PointInSpace* %6
-    %9 = getelementptr %Point2d, %Point2d* %1, i32 0, i32 1
-    store %PointInSpace %8, %PointInSpace* %9
-    %10 = load %Point2d, %Point2d* %1
-    %myPoint.addr = alloca %Point2d
-    store %Point2d %10, %Point2d* %myPoint.addr
-    %11 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 0
-    %12 = alloca %PointInSpace
-    %13 = getelementptr %PointInSpace, %PointInSpace* %12, i32 0, i32 0
+    %8 = load %test$$PointInSpace, %test$$PointInSpace* %6
+    %9 = getelementptr %test$$Point2d, %test$$Point2d* %1, i32 0, i32 1
+    store %test$$PointInSpace %8, %test$$PointInSpace* %9
+    %10 = load %test$$Point2d, %test$$Point2d* %1
+    %myPoint.addr = alloca %test$$Point2d
+    store %test$$Point2d %10, %test$$Point2d* %myPoint.addr
+    %11 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 0
+    %12 = alloca %test$$PointInSpace
+    %13 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %12, i32 0, i32 0
     store i32 1, i32* %13
-    %14 = load %PointInSpace, %PointInSpace* %12
-    store %PointInSpace %14, %PointInSpace* %11
-    %15 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 0
-    %16 = getelementptr %PointInSpace, %PointInSpace* %15, i32 0, i32 0
-    %17 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 1
-    %18 = getelementptr %PointInSpace, %PointInSpace* %17, i32 0, i32 0
+    %14 = load %test$$PointInSpace, %test$$PointInSpace* %12
+    store %test$$PointInSpace %14, %test$$PointInSpace* %11
+    %15 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 0
+    %16 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %15, i32 0, i32 0
+    %17 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 1
+    %18 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %17, i32 0, i32 0
     %19 = load i32, i32* %18
-    %20 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 0
-    %21 = getelementptr %PointInSpace, %PointInSpace* %20, i32 0, i32 0
+    %20 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 0
+    %21 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %20, i32 0, i32 0
     %22 = load i32, i32* %21
     %23 = add i32 %19, %22
     %24 = add i32 %23, 2
     store i32 %24, i32* %16
-    %25 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 0
-    %26 = load %PointInSpace, %PointInSpace* %25
-    %27 = getelementptr %Point2d, %Point2d* %myPoint.addr, i32 0, i32 1
-    %28 = load %PointInSpace, %PointInSpace* %27
-    %29 = call i32 @add(%PointInSpace %26, %PointInSpace %28)
+    %25 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 0
+    %26 = load %test$$PointInSpace, %test$$PointInSpace* %25
+    %27 = getelementptr %test$$Point2d, %test$$Point2d* %myPoint.addr, i32 0, i32 1
+    %28 = load %test$$PointInSpace, %test$$PointInSpace* %27
+    %29 = call i32 @test$$add(%test$$PointInSpace %26, %test$$PointInSpace %28)
     %mySum.addr = alloca i32
     store i32 %29, i32* %mySum.addr
     %30 = load i32, i32* %mySum.addr
     ret i32 %30
 }
 
-define i32 @add(%PointInSpace %arg_0, %PointInSpace %arg_1) {
-    %a.addr = alloca %PointInSpace
-    store %PointInSpace %arg_0, %PointInSpace* %a.addr
-    %b.addr = alloca %PointInSpace
-    store %PointInSpace %arg_1, %PointInSpace* %b.addr
-    %1 = getelementptr %PointInSpace, %PointInSpace* %a.addr, i32 0, i32 0
+define i32 @test$$add(%test$$PointInSpace %arg_0, %test$$PointInSpace %arg_1) {
+    %a.addr = alloca %test$$PointInSpace
+    store %test$$PointInSpace %arg_0, %test$$PointInSpace* %a.addr
+    %b.addr = alloca %test$$PointInSpace
+    store %test$$PointInSpace %arg_1, %test$$PointInSpace* %b.addr
+    %1 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %a.addr, i32 0, i32 0
     %2 = load i32, i32* %1
-    %3 = getelementptr %PointInSpace, %PointInSpace* %b.addr, i32 0, i32 0
+    %3 = getelementptr %test$$PointInSpace, %test$$PointInSpace* %b.addr, i32 0, i32 0
     %4 = load i32, i32* %3
     %5 = add i32 %2, %4
     %result.addr = alloca i32

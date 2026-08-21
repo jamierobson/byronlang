@@ -52,15 +52,15 @@ public partial class ByronHighLevelAstParser
         if (ConsumingActiveTokenMatch(TokenKind.Return))
         {
             var start = Previous();
-            ExpressionNode? expr = null;
+            ExpressionNode? expression = null;
             
             if (!ActiveTokenMatch(TokenKind.Semicolon))
             {
-                expr = ParseExpression(self);
+                expression = ParseExpression(self);
             }
 
             var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
-            return new ReturnStatementNode(expr, new SourceSpan(start.Span.Line, start.Span.Column, start.Span.Start, semiColon.Span.End));
+            return new ReturnStatementNode(expression, new SourceSpan(start.Span.Line, start.Span.Column, start.Span.Start, semiColon.Span.End));
         }
         if (ConsumingActiveTokenMatch(TokenKind.Break))
         {

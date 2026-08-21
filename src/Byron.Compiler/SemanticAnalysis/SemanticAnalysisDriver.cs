@@ -32,6 +32,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
         foreach (var fileModule in program.RootModules)
         {
             CanonizeStructDeclarationFields(globalSymbolTableLookup, fileModule, _diagnostics);
+            CanonizeImplementBlockTypes(globalSymbolTableLookup, fileModule, _diagnostics);
         }
         
         var visitor = new TypeInferenceVisitor(globalSymbolTableLookup, typeMap, scopedSymbolTable, _diagnostics);
@@ -62,15 +63,37 @@ public class SemanticAnalysisDriver(ProgramNode program)
             var associatedFunctionContext = new FunctionDeclarationContext(module, implementBlock);
             foreach (var function in implementBlock.FunctionDeclarations)
             {
-            
                 visitor.VisitFunction(function, associatedFunctionContext);
             }
-            
         }
 
         foreach (var childModule in module.Declarations.ChildModules)
         {
             VisitFunctions(childModule, visitor);
+        }
+    }
+
+    public void CanonizeImplementBlockTypes(
+        GlobalSymbolTableLookup globalSymbolTableLookup,
+        ModuleDeclarationNode module, 
+        Diagnostics diagnostics)
+    {
+        foreach (var block in module.Declarations.ImplementBlocks)
+        {
+            if (globalSymbolTableLookup.TryResolveCanonicalType(block.TypeNode, module.Symbol.Segments, module, out var canonicalType))
+            {
+                block.UpdateType((NominalTypeNode)canonicalType);
+            }
+            else
+            {
+                diagnostics.UndeclaredType(block.TypeNode, "struct field");
+            }
+            // todo: Trait node
+        }
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            CanonizeImplementBlockTypes(globalSymbolTableLookup, childModule, diagnostics);
         }
     }
 

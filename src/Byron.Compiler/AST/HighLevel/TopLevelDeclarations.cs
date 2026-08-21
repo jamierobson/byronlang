@@ -33,9 +33,13 @@ public abstract class TopLevelDeclarationNode : AstNode
 
 public class ImplementBlockDeclarationNode : TopLevelDeclarationNode
 {
-    public TraitTypeNode? TraitNode { get; init; }
-    public NominalTypeNode TypeNode { get; init; }
-
+    public void UpdateType(NominalTypeNode typeNode)
+    {
+        TypeNode = typeNode;
+        Symbol = typeNode.Symbol;
+    }
+    public TraitTypeNode? TraitNode { get; set; }
+    public NominalTypeNode TypeNode { get; set; }
     public List<FunctionDeclarationNode> FunctionDeclarations { get; } = new();
 
     public ImplementBlockDeclarationNode(NominalTypeNode typeNode, TraitTypeNode? traitNode, SourceSpan span)

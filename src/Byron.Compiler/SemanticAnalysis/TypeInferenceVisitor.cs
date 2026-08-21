@@ -534,9 +534,7 @@ public class TypeInferenceVisitor
             {
                 functionName = resolvedFunction.Symbol.MemberName;
                 namespaceSegments = resolvedFunction.Symbol.Segments[..^1];
-                // variableExpression.Name = resolvedFunction.Symbol.ToString(); //todo: Do this in byron lowering pass instead.
                 var functionInvocationNode = new FunctionInvocationVariableExpressionNode(resolvedFunction, variableExpression.Span);
-                // callExpression.Callee = VisitExpression(module, functionInvocationNode);
                 callExpression.Callee = functionInvocationNode;
             }
             else
@@ -552,14 +550,30 @@ public class TypeInferenceVisitor
                 if(_globalSymbolTableLookup.TryGetStruct(module, targetVariableExpression.Name, module.Symbol.Segments, out var structDeclaration))
                 {
                     namespaceSegments = structDeclaration.Symbol.Segments;
+                    targetVariableExpression.Name = structDeclaration.Type.Symbol.ToString(); //todo: Is this correct? Should we prefer the same approach as if (callExpression.Callee is VariableExpressionNode variableExpression) where we use a new node type?
+
+                    if (_globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName,
+                            module.Symbol.Segments, out var staticFunction))
+                    {
+                        var staticFunctionInvocation = new FunctionInvocationVariableExpressionNode(staticFunction, memberAccess.Span);
+                        functionInvocation.Callee = staticFunctionInvocation;
+                    }
+                    
                 }
-                else if (_scopedSymbolTable.TryGet(targetVariableExpression.Name, out var symbol))
+                else if (_scopedSymbolTable.TryGet(targetVariableExpression.Name, out _))
                 {
                     memberAccess.Target = VisitExpression(module, targetVariableExpression);
                     var memberAccessTargetType = _typeMap.GetType(memberAccess.Target);// todo: Should this be symbol.Type? 
-                    namespaceSegments = [.. memberAccessTargetType.Symbol.Segments, memberAccessTargetType.Symbol.MemberName];
+                    namespaceSegments = memberAccessTargetType.Symbol.Segments;
                     
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
+                    if (!_globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName, module.Symbol.Segments, out var declaration))
+                    {
+                        _diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
+                        return functionInvocation;
+                    }
+                    
+                    var functionInvocationNode = new FunctionInvocationVariableExpressionNode(declaration, memberAccess.Span);
+                    functionInvocation = new MethodCallExpression(targetVariableExpression, functionInvocationNode, callExpression.Arguments, callExpression.Span);
                 }
                 else
                 {
@@ -572,8 +586,16 @@ public class TypeInferenceVisitor
 
                 if (_typeMap.TryGetType(memberAccess.Target, out var targetType))
                 {
-                    namespaceSegments = [.. targetType.Symbol.Segments, targetType.Symbol.MemberName];
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
+                    namespaceSegments = targetType.Symbol.Segments;
+                    
+                    if (!_globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName, module.Symbol.Segments, out var declaration))
+                    {
+                        _diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
+                        return functionInvocation;
+                    }
+                    
+                    var functionInvocationNode = new FunctionInvocationVariableExpressionNode(declaration, memberAccess.Span);
+                    functionInvocation = new MethodCallExpression(memberAccess.Target, functionInvocationNode, callExpression.Arguments, callExpression.Span);
                 }
                 else
                 {
@@ -613,6 +635,9 @@ public class TypeInferenceVisitor
         {
             _diagnostics.InvalidArgumentCount(methodCall, function);
         }
+                    
+        var functionInvocationNode = new FunctionInvocationVariableExpressionNode(function, methodCall.Callee.Span);
+        methodCall.Callee = functionInvocationNode;
 
         ExpressionNode[] arguments = [methodCall.Receiver, ..methodCall.Arguments];
         var maximumArgumentCount = Math.Min(arguments.Length, function.Signature.Parameters.Count);
@@ -863,7 +888,16 @@ public class TypeInferenceVisitor
             return;
         }
 
-        _typeMap.SetType(expression, resolvedType);
+        if (possiblyUnresolvedType is ReferenceTypeNode reference)
+        {
+            var canonicalReference = new ReferenceTypeNode(resolvedType, reference.IsMutable, reference.Span);
+            _typeMap.SetType(expression, canonicalReference);
+        }
+        else
+        {
+            _typeMap.SetType(expression, resolvedType);
+        }
+        
     }
     
     bool SupportsMethodInvocation(FunctionSignatureNode signature) => signature.Parameters.Count > 0 && signature.Parameters[0].Name == ParameterNode.SelfArgumentName;

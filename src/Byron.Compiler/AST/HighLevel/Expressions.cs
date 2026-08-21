@@ -81,7 +81,7 @@ public class MethodCallExpression : CallExpressionNode
 {
     public ExpressionNode Receiver { get; set; }
 
-    public MethodCallExpression(ExpressionNode receiver, ExpressionNode callee, List<ExpressionNode> arguments, SourceSpan span) : base(callee, arguments, span)
+    public MethodCallExpression(ExpressionNode receiver, FunctionInvocationVariableExpressionNode callee, List<ExpressionNode> arguments, SourceSpan span) : base(callee, arguments, span)
     {
         Receiver = receiver;
     }
@@ -118,7 +118,7 @@ public class StructFieldInitializationExpressionNode : ExpressionNode
 public class MemberAccessExpressionNode : ExpressionNode
 {
     public ExpressionNode Target { get; set; }
-    public string MemberName { get; init; }
+    public string MemberName { get; set; }
 
     public MemberAccessExpressionNode(ExpressionNode target, string memberName, SourceSpan span) : base(span)
     {
