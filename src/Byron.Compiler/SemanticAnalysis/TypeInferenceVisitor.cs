@@ -652,7 +652,7 @@ public class TypeInferenceVisitor(
     {
         if (!SupportsMethodInvocation(signature))
         {
-            throw new InvalidOperationException($"Cannot get {ParameterNode.SelfArgumentName} argument for a function who doesn't support method invocation.");
+            throw new ByronSemanticAnalysisException($"Cannot get {ParameterNode.SelfArgumentName} argument for a function who doesn't support method invocation.", diagnostics);
         }
         return signature.Parameters[0];
         

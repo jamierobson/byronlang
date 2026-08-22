@@ -1,30 +1,12 @@
 # Living notes to keep track of the decisions being made
 
-# Dereferencing
-
-To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I need to consider auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`, if we ever want to allow that.
-
-`Unsafe` then functions as a raw pointer. This also needs dereferencing with `myUnsafe.*.myProperty`. I don't think we will auto forward here. Linear obligation flags are carried on the unsafe ownership handle.
-
-# Modules, aliases, and symbols
-- In trying to implement the below traits feature, trying to consistently resolve symbols is becoming a pain. It's worth taking an aside now to mature symbol tracking and resolution.
-- To start with, let's use a module block, feed in to the context, and tag everything inside that block with the specified module. 
-
-```
-module My.Module {
-}
-```
-
-Let's also add `alias` statements, since we're here, will also help when importing A as B later. 
-
-We will also mature the resolution of symbols based on aliases and locally scoped symbols.
-
 # Interfaces or Traits
 Long story short, I think we're closer to traits than interfaces. There we go. We have traits, not interfaces.
 
 We can consider traits or interfaces, and I'd like to do the simplest I can for now. Since we already use `implement Foo` blocks to attach functions to types, we may want to lean in to using the `implement Bar for Foo` to attach interfaces / traits. 
 
 Some questions needing answers:
+- Let's also add `alias` statements, since we're here, will also help when importing A as B later. 
 - What's the namespace of the functions implemented in a block? First thought is `module.type.implementedinterface`. 
 - We don't allow overloading. 
   - What to do when `FooTrait` and `BarTrait` both want an implementation of a function, and on top of that, what if it's _already_ implemented on the type? 
@@ -89,6 +71,7 @@ fn main():i32 {
     return 0;
 }
 ```
+
 
 # The basic memory cycle
 

@@ -289,7 +289,7 @@ public partial class LlvmIrGenerator
             BinaryOperator.BitwiseOr or BinaryOperator.LogicalOr => "or",
             BinaryOperator.BitwiseXor => "xor",
 
-            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a logical operation")
+            _ => throw new ByronCodeGenerationException($"Operation {nodeOperator} is not a logical operation")
         };
     }
     
@@ -301,7 +301,7 @@ public partial class LlvmIrGenerator
             BinaryOperator.Subtract => isFloat ? "fsub" : "sub",
             BinaryOperator.Multiply => isFloat ? "fmul" : "mul",
             BinaryOperator.Divide => isFloat ? "fdiv" : isUnsigned ? "udiv" : "sdiv",
-            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not an arithmetic operation")
+            _ => throw new ByronCodeGenerationException($"Operation {nodeOperator} is not an arithmetic operation")
         };
     }
     
@@ -318,7 +318,7 @@ public partial class LlvmIrGenerator
             BinaryOperator.GreaterThan => isFloat ? "ogt" : isUnsigned ? "ugt" : "sgt",
             BinaryOperator.GreaterThanOrEqual => isFloat ? "oge" : isUnsigned ? "uge" : "sge",
             
-            _ => throw new InvalidOperationException($"Operation {nodeOperator} is not a boolean operation")
+            _ => throw new ByronCodeGenerationException($"Operation {nodeOperator} is not a boolean operation")
         };
     }
 }

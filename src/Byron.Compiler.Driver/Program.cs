@@ -21,7 +21,7 @@ async Task TryParseFile(string filePath)
     {
         var sourceLines = File.ReadAllLines(filePath);
         var sourceText = await File.ReadAllTextAsync(filePath);
-        
+
         Console.WriteLine("Parsing the following program");
         var totalLines = sourceLines.Length + 1;
         var maxDigits = totalLines.ToString().Length;
@@ -31,7 +31,7 @@ async Task TryParseFile(string filePath)
             Console.WriteLine($"{lineNumber.ToString().PadLeft(maxDigits, '0')}: {line}");
             lineNumber++;
         }
-        
+
         var tokens = new Tokenizer(sourceText).Tokenise();
         var tokenizedFile = new TokenizedFile(filePath, tokens);
         var highLevelAst = new ByronHighLevelAstParser(tokenizedFile).Parse();
@@ -90,28 +90,41 @@ async Task TryParseFile(string filePath)
         {
             Console.WriteLine(stdout);
         }
-        
+
         Console.WriteLine();
         Console.WriteLine();
         var exitState = InProcessExecutionEngine.Execute(generatedCode);
         Console.WriteLine($"Program executed: Exit state: {exitState}");
         Console.WriteLine();
     }
+    catch (ByronHighLevelParserException e)
+    {
+        Console.WriteLine($"Error during token parsing: {e.Message} at line {e.Span.Line} column {e.Span.Column}");
+    }
+    catch (ByronSemanticAnalysisException e)
+    {
+        Console.WriteLine($"Error during semantic analysis: {e.Message}");
+        Console.WriteLine("Compilation errors:");
+        foreach (var diagnosticsDiagnosticMessage in e.Diagnostics.DiagnosticMessages)
+        {
+            Console.WriteLine(diagnosticsDiagnosticMessage);
+        }
+    }
+    catch (ByronLowLevelParserException e)
+    {
+        Console.WriteLine($"Error during lowering: {e.Message} at {e.StackTrace}");
+    }
+    catch (ByronCodeGenerationException e)
+    {
+        Console.WriteLine($"Error during code generation: {e.Message} at {e.StackTrace}");
+    }
     catch (ByronNotImplementedException e)
     {
         Console.WriteLine(e.Message);
     }
-    catch (ByronHighLevelParserException e)
-    {
-        Console.WriteLine($"{e.Message} at line {e.Span.Line} column {e.Span.Column}");
-    }
-    catch (ByronCodeGenerationException e)
-    {
-        Console.WriteLine($"{e.Message} at {e.StackTrace}");
-    }
     catch(Exception e)
     {
-        Console.WriteLine($"Unhandled Parser Exception: {e.Message}");
+        Console.WriteLine($"Unhandled Parser Exception: {e.GetType()}: {e.Message}");
     }
 }
 

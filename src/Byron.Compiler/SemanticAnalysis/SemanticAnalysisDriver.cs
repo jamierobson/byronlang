@@ -9,7 +9,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
     
     public SemanticAnalysisResult Analyze()
     {
-        var typeMap = new TypeMap();
+        var typeMap = new TypeMap(_diagnostics);
         var scopedSymbolTable = new ScopedSymbolTable();
         var globalSymbolTable = new GlobalSymbolTable();
         
@@ -173,7 +173,7 @@ public record SemanticAnalysisResult
     {
         if (!Success)
         {
-            throw new InvalidOperationException($"Cannot deconstruct the program contents of the {nameof(SemanticAnalysisResult)} when semantic analysis rejected the program");
+            throw new ByronSemanticAnalysisException($"Cannot deconstruct the program contents of the {nameof(SemanticAnalysisResult)} when semantic analysis rejected the program", Diagnostics);
         }
         ast = Ast;
         globalSymbolTable = GlobalSymbolTable;

@@ -3,7 +3,7 @@ using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public class TypeMap
+public class TypeMap(Diagnostics diagnostics)
 {
     private readonly Dictionary<NodeId, TypeNode> _nodeTypes = new();
 
@@ -19,7 +19,7 @@ public class TypeMap
             return type;
         }
 
-        throw new InvalidOperationException($"Node {node.GetType().Name} (Id: {node}) has not been assigned a type at {node.Span}.");
+        throw new ByronSemanticAnalysisException($"Node {node.GetType().Name} (Id: {node}) has not been assigned a type at {node.Span}.", diagnostics);
     }
 
     public bool TryGetType(ExpressionNode node, [NotNullWhen(true)] out TypeNode? type)
