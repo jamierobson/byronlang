@@ -74,7 +74,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
             symbolSegments.Add(segment.Lexeme);
         }
         
-        var endToken = Consume(TokenKind.Semicolon, "Expected ';' ");
+        var endToken = Consume(TokenKind.Semicolon, "Expected ';' after alias declaration");
         
         var symbol = new Symbol(symbolSegments.ToArray());
         return new AliasDeclarationNode(aliasIdentifier.Lexeme, symbol, ExpandSpan(startToken, endToken));

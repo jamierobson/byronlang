@@ -29,6 +29,7 @@ public class Diagnostics
     public void Duplicate(FunctionDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate function declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(TraitDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate trait declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(StructDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate struct declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
+    public void Duplicate(AliasDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate aliasS {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(VariableDeclarationNode variableDeclaration) => Add($"A local variable {variableDeclaration.Name} cannot be declared at {variableDeclaration.Span} because the variable name already has another binding");
     public void TypeMismatch(TypeNode leftType, TypeNode rightType) => Add($"Cannot convert {leftType.Symbol} to type {rightType.Symbol} at {rightType.Span}");
     public void TypeMismatch(TypeNode leftType, string rightType) => Add($"Cannot convert {leftType.Symbol} to type {rightType} at {leftType.Span}");
@@ -38,7 +39,8 @@ public class Diagnostics
     public void MissingMember(string canonicalName, StructFieldInitializerNode initializer) => Add($"{canonicalName} does not contain field {initializer.FieldName} at {initializer.Span}");
     public void MissingMember(AST.Symbol symbol, StructFieldInitializerNode initializer) => Add($"{symbol} does not contain field {initializer.FieldName} at {initializer.Span}");
     public void InvalidStructName(StructDeclarationNode structDeclaration, string canonicalName) => Add($"Invalid struct name {structDeclaration.Symbol} at {structDeclaration.Span}");
-    public void CircularReference(AST.Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
+    public void CircularReference(Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
+    public void CircularReference(AliasDeclarationNode alias) => Add($"Circular reference in type {alias.Name} at {alias.Span}");
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
     public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
     public void InvalidArgument(AST.Symbol argumentType, AST.Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");
@@ -53,4 +55,5 @@ public class Diagnostics
     public void InvalidCast(LookupSymbol lookupSymbol, TypeNode targetType, SourceSpan span) => Add($"Cannot coerce variable {lookupSymbol.Name} from {lookupSymbol.Type} to {targetType.Symbol} at {span}");
     public void AmbiguousEntryPoint(FunctionDeclarationNode function, SourceSpan functionSpan) => Add($"Ambiguous application entry point: duplicate definition of {FunctionSignatureNode.EntryFunctionName} at  {function.Span}.");
     public void InvalidStructInitializationType(NominalTypeNode initializationNominalType, SourceSpan initializationSpan) => Add($"Invalid struct initialization: {initializationNominalType} is not a valid struct type at {initializationSpan}");
+
 }

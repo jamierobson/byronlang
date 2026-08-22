@@ -30,6 +30,7 @@ public class GlobalSymbolTable
         };
     
     private readonly Dictionary<Symbol, StructDeclarationNode> _structs = new();
+    private readonly Dictionary<Symbol, AliasDeclarationNode> _aliases = new();
     public IReadOnlyDictionary<Symbol, StructDeclarationNode> Structs => _structs;
     
     public readonly SymbolList<FunctionDeclarationNode> Functions = new();
@@ -189,6 +190,59 @@ public class GlobalSymbolTable
         }
 
         return [.. parentNamespaceSegments, .. thisNamespaceSegments[overlapSize..]];
+    }
+
+    public void RegisterAliasSymbols(ModuleDeclarationNode module, string[] parentNamespaceSegments, Diagnostics diagnostics)
+    {
+        var thisNamespaceSegments = CreateCanonicalSymbolSegments(parentNamespaceSegments, module.Symbol.Segments);
+
+        foreach (var aliasNode in module.Declarations.Aliases)
+        {
+            var aliasKey = new Symbol([..thisNamespaceSegments, aliasNode.Name]);
+
+            if (_aliases.TryGetValue(aliasKey, out var aliasDeclaration))
+            {
+                diagnostics.Duplicate(aliasDeclaration, aliasNode.Span);
+            }
+
+            _aliases.Add(aliasKey, aliasNode);
+        }
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            RegisterAliasSymbols(childModule, thisNamespaceSegments, diagnostics);
+        }
+    }
+
+    public void UnrollAliases(Diagnostics diagnostics)
+    {
+        var resolvedAliases = new Dictionary<Symbol, AliasDeclarationNode>();
+
+        foreach (var alias in _aliases)
+        {
+            var visited = new HashSet<Symbol> { alias.Key };
+            var currentTarget = alias.Value.AliasingSymbol;
+
+            while (_aliases.TryGetValue(currentTarget, out var nextAlias))
+            {
+                if (!visited.Add(currentTarget))
+                {
+                    diagnostics.CircularReference(alias.Value);
+                    break;
+                }
+
+                currentTarget = nextAlias.AliasingSymbol;
+            }
+
+            alias.Value.Symbol = currentTarget;
+            resolvedAliases[alias.Key] = alias.Value;
+        }
+
+        _aliases.Clear();
+        foreach (var (k, v) in resolvedAliases)
+        {
+            _aliases[k] = v;
+        }
     }
 }
 

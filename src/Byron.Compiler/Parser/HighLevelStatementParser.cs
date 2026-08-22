@@ -59,19 +59,19 @@ public partial class ByronHighLevelAstParser
                 expression = ParseExpression(self);
             }
 
-            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after return expression.");
             return new ReturnStatementNode(expression, new SourceSpan(start.Span.Line, start.Span.Column, start.Span.Start, semiColon.Span.End));
         }
         if (ConsumingActiveTokenMatch(TokenKind.Break))
         {
             var start = Previous();
-            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after 'break'.");
             return new BreakStatement(ExpandSpan(start, semiColon));
         }
         if (ConsumingActiveTokenMatch(TokenKind.Continue))
         {
             var start = Previous();
-            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';' after 'continue'.");
             return new ContinueStatement(ExpandSpan(start, semiColon));
         }
         if (ConsumingActiveTokenMatch(TokenKind.While))
@@ -92,7 +92,7 @@ public partial class ByronHighLevelAstParser
             Consume(TokenKind.Equals, "Expected '='.");
             
             var initializer = ParseExpression(self);
-            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'.");
+            var semiColon = Consume(TokenKind.Semicolon, "Expected ';'. after variable declaration assignment");
             return new VariableDeclarationNode(isMutable, nameToken.Lexeme, type, initializer, new SourceSpan(mutabilityToken.Span.Line, mutabilityToken.Span.Column, mutabilityToken.Span.Start, semiColon.Span.End));
         }
 

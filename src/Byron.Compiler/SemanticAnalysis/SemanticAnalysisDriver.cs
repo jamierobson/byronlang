@@ -12,6 +12,13 @@ public class SemanticAnalysisDriver(ProgramNode program)
         var typeMap = new TypeMap(_diagnostics);
         var scopedSymbolTable = new ScopedSymbolTable();
         var globalSymbolTable = new GlobalSymbolTable();
+
+        foreach (var fileModule in program.RootModules)
+        {
+            globalSymbolTable.RegisterAliasSymbols(fileModule, [], _diagnostics);
+        }
+        
+        globalSymbolTable.UnrollAliases(_diagnostics);
         
         foreach (var fileModule in program.RootModules)
         {
