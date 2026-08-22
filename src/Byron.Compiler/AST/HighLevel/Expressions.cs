@@ -7,44 +7,34 @@ public abstract class ExpressionNode : AstNode
     protected ExpressionNode(SourceSpan span) : base(span) { }
 }
 
-public class IntegerLiteralNode : ExpressionNode
+public class LiteralExpressionNode<T>(T value, SourceSpan span) : ExpressionNode(span)
+    where T : struct
 {
-    public long Value { get; init; }
-
-    public IntegerLiteralNode(long value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
+    public T Value { get; init; } = value;
 }
 
-public class FloatLiteralNode : ExpressionNode
-{
-    public double Value { get; init; }
+public class IntegerLiteralNode(long value, SourceSpan span) : LiteralExpressionNode<long>(value, span);
 
-    public FloatLiteralNode(double value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
-}
+public class FloatLiteralNode(double value, SourceSpan span) : LiteralExpressionNode<double>(value, span);
 
-public class BooleanLiteralNode : ExpressionNode
-{
-    public bool Value { get; init; }
-
-    public BooleanLiteralNode(bool value, SourceSpan span) : base(span)
-    {
-        Value = value;
-    }
-}
+public class BooleanLiteralNode(bool value, SourceSpan span) : LiteralExpressionNode<bool>(value, span);
 
 public class VariableExpressionNode : ExpressionNode
 {
-    public string Name { get; init; }
+    public string Name { get; set; }
 
     public VariableExpressionNode(string name, SourceSpan span) : base(span)
     {
         Name = name;
     }
+}
+
+public class FunctionInvocationVariableExpressionNode(
+    FunctionDeclarationNode function,
+    SourceSpan span)
+    : VariableExpressionNode(function.Symbol.MemberName, span)
+{
+    public FunctionDeclarationNode Function { get; } = function;
 }
 
 public class AddressOfExpressionNode : ExpressionNode
@@ -91,7 +81,7 @@ public class MethodCallExpression : CallExpressionNode
 {
     public ExpressionNode Receiver { get; set; }
 
-    public MethodCallExpression(ExpressionNode receiver, ExpressionNode callee, List<ExpressionNode> arguments, SourceSpan span) : base(callee, arguments, span)
+    public MethodCallExpression(ExpressionNode receiver, FunctionInvocationVariableExpressionNode callee, List<ExpressionNode> arguments, SourceSpan span) : base(callee, arguments, span)
     {
         Receiver = receiver;
     }
@@ -114,7 +104,7 @@ public class BinaryExpressionNode : ExpressionNode
 
 public class StructFieldInitializationExpressionNode : ExpressionNode
 {
-    public NominalTypeNode NominalType { get; init; }
+    public NominalTypeNode NominalType { get; set; }
     public List<StructFieldInitializerNode> FieldInitializers { get; init; }
 
     public StructFieldInitializationExpressionNode(NominalTypeNode nominalType, List<StructFieldInitializerNode> fieldInitializers, SourceSpan span)
@@ -128,7 +118,7 @@ public class StructFieldInitializationExpressionNode : ExpressionNode
 public class MemberAccessExpressionNode : ExpressionNode
 {
     public ExpressionNode Target { get; set; }
-    public string MemberName { get; init; }
+    public string MemberName { get; set; }
 
     public MemberAccessExpressionNode(ExpressionNode target, string memberName, SourceSpan span) : base(span)
     {

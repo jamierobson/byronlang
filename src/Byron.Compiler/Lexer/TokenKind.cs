@@ -46,8 +46,11 @@ public enum TokenKind
     SelfType,
 
     Import,
+    
     Use,
     Using,
+    Module,
+    Alias,
     As,
 
     Unsafe,

@@ -153,8 +153,8 @@ public partial class LlvmIrGenerator
 
     private (string ReturnValue, LlvmType ReturnType) GenerateStructFieldInitializationExpression(StructFieldInitializationExpressionNode node)
     {
-        var layout = _context.GetStructLayout(node.StructName);
-        var structType = new LlvmType.Struct(node.StructName);
+        var layout = _context.GetStructLayout(node.Type.CanonicalName);
+        var structType = new LlvmType.Struct(node.Type.CanonicalName);
 
         var structPointerRegister = _context.AllocateRegister();
         _context.EmitLine($"    {structPointerRegister} = alloca {structType}");

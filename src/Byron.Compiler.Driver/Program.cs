@@ -33,7 +33,8 @@ async Task TryParseFile(string filePath)
         }
         
         var tokens = new Tokenizer(sourceText).Tokenise();
-        var highLevelAst = new ByronHighLevelAstParser(tokens).Parse();
+        var tokenizedFile = new TokenizedFile(filePath, tokens);
+        var highLevelAst = new ByronHighLevelAstParser(tokenizedFile).Parse();
 
         var semanticAnalysisResult = new SemanticAnalysisDriver(highLevelAst).Analyze();
         if (!semanticAnalysisResult.Success)

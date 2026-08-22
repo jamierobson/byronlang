@@ -6,6 +6,19 @@ To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have
 
 `Unsafe` then functions as a raw pointer. This also needs dereferencing with `myUnsafe.*.myProperty`. I don't think we will auto forward here. Linear obligation flags are carried on the unsafe ownership handle.
 
+# Modules, aliases, and symbols
+- In trying to implement the below traits feature, trying to consistently resolve symbols is becoming a pain. It's worth taking an aside now to mature symbol tracking and resolution.
+- To start with, let's use a module block, feed in to the context, and tag everything inside that block with the specified module. 
+
+```
+module My.Module {
+}
+```
+
+Let's also add `alias` statements, since we're here, will also help when importing A as B later. 
+
+We will also mature the resolution of symbols based on aliases and locally scoped symbols.
+
 # Interfaces or Traits
 Long story short, I think we're closer to traits than interfaces. There we go. We have traits, not interfaces.
 
@@ -288,7 +301,7 @@ Later, we _could_ look at `Owned<T, dynamic TransferringAllocator>` that opted i
 - Assignment is always a statement, never an expression
 - Allow "closing" mutabilty by `var thing = ...;` and then later `let immutable = take thing`; immutable is now forever immutable. This would allow you to partially construct, and then lock in the final value when the value is set as needed
 - `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
-
+- Unit test pipeline steps when they get relatively stable, otherwise use Verify to snapshot test the IR output, to monitor for regressions.
 
 
 

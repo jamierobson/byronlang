@@ -8,10 +8,9 @@ namespace Byron.Compiler.Parser;
 
 public class ByronLoweringPass
 {
+    private readonly GlobalSymbolTable _globalSymbolTable;
     private readonly High.ProgramNode _ast;
-    // private readonly TypeRegistry _typeRegistry;
     private readonly TypeMap _highLevelExpressionTypeMap;
-    // private readonly FunctionRegistry _functionRegistry;
     private readonly Dictionary<High.TypeNode, Low.TypeNode> _highToLowLevelTypeMap = new();
     
     public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
@@ -21,39 +20,38 @@ public class ByronLoweringPass
             throw new ByronLowLevelParserException("Unable to lower an invalid AST");
         }
         
-        (_ast, _, _highLevelExpressionTypeMap, _) = semanticAnalysisResult;
-        // (_ast, _typeRegistry, _highLevelExpressionTypeMap, _functionRegistry) = semanticAnalysisResult;
+        (_ast, _globalSymbolTable, _highLevelExpressionTypeMap) = semanticAnalysisResult;
     }
     
     public LoweredProgram Lower()
     {
-        var declarations = _ast.Declarations
-        .Select(TopLevelDeclaration)
+        var declarations = _ast.RootModules
+        .SelectMany(Module)
         .ToList();
 
         return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
     }
 
-    private Low.TopLevelDeclarationNode TopLevelDeclaration(High.TopLevelDeclarationNode declaration)
+    private List<Low.TopLevelDeclarationNode> Module(High.FileModuleNode fileModule)
     {
-        return declaration switch
-        {
-            High.FunctionDeclarationNode function => FunctionDeclaration(function),
-            High.StructDeclarationNode @struct => StructDeclaration(@struct),
-            High.TraitDeclarationNode trait => TraitDeclaration(trait),
-            _ => throw new ByronNotImplementedException(declaration.GetType(), this, declaration.Span) 
-        };
-    }
-
-    private Low.Discarded TraitDeclaration(High.TraitDeclarationNode trait)
-    {
-        return new Low.Discarded(trait);
+        var structs = fileModule.Declarations.Structs.Select(StructDeclaration).ToList();
+        var functions = fileModule
+            .Declarations.ImplementBlocks.SelectMany(x => x.FunctionDeclarations)
+            .Union(fileModule.Declarations.Functions)
+            .Select(FunctionDeclaration).ToList();
+        
+        return [..structs, ..functions];
     }
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
     {
-        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, Type(x.Type))).ToList();
-        return new Low.StructDeclarationNode(@struct, fields);
+        var fields = @struct.Fields.Select(x => new Low.StructFieldNode(x, x.Name, Type(x.Type))).ToList();
+        if (_globalSymbolTable.NominalTypes.CanonicalNames.TryGetValue(@struct.Type, out var canonicalName))
+        {
+            return new Low.StructDeclarationNode(@struct, canonicalName.ToString().Mangle(), fields);
+        }
+        
+        throw new ByronLowLevelParserException($"Struct {@struct.Symbol} is not defined");
     } 
 
     private Low.FunctionDeclarationNode FunctionDeclaration(High.FunctionDeclarationNode declaration)
@@ -61,9 +59,14 @@ public class ByronLoweringPass
         var parameters = declaration.Signature.Parameters.Select(Parameter).ToList();
         var returnType = Type(declaration.Signature.ReturnType);
         var body = BlockStatement(declaration.Body);
-        var signature = new Low.FunctionSignatureNode(declaration.Signature, parameters, returnType);
+
+        if (_globalSymbolTable.Functions.CanonicalNames.TryGetValue(declaration, out var canonicalName))
+        {
+            var signature = new Low.FunctionSignatureNode(declaration.Signature, canonicalName.ToString().Mangle(), parameters, returnType);
+            return new Low.FunctionDeclarationNode(declaration, signature, body);
+        }
         
-        return new Low.FunctionDeclarationNode(declaration, signature, body);
+        throw new ByronLowLevelParserException($"{declaration.Symbol} is not defined");
     }
 
     private Low.ParameterNode Parameter(High.ParameterNode parameter)
@@ -75,7 +78,7 @@ public class ByronLoweringPass
             type = new Low.ReferenceTypeNode(parameter.Type, type);
         }
         
-        return new Low.ParameterNode(parameter, type);
+        return new Low.ParameterNode(parameter, parameter.Name, parameter.Ownership, type);
     }
 
     private Low.TypeNode Type(High.TypeNode type)
@@ -83,15 +86,14 @@ public class ByronLoweringPass
         Low.TypeNode loweredType = type switch
         {
             High.ReferenceTypeNode referenceType => new Low.ReferenceTypeNode(referenceType, Type(referenceType.Target)),
-            High.NominalTypeNode userDeclaredType => new Low.NominalTypeNode(userDeclaredType),
+            High.NominalTypeNode userDeclaredType => NominalTypeNode(userDeclaredType),
             High.SelfTypeNode self => Type(self.ScopedType),
             High.VoidTypeNode @void => new Low.VoidTypeNode(@void),
-            High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed),
-            High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned),
-            High.FloatTypeNode @float => new Low.FloatTypeNode(@float),
+            High.SignedIntTypeNode signed => new Low.SignedIntTypeNode(signed, signed.BitWidth, signed.Signed),
+            High.UnsignedIntTypeNode unsigned => new Low.UnsignedIntTypeNode(unsigned, unsigned.BitWidth, unsigned.Signed),
+            High.FloatTypeNode @float => new Low.FloatTypeNode(@float, @float.BitWidth),
             High.BoolTypeNode @bool => new Low.BoolTypeNode(@bool),
             High.RuneTypeNode rune => new Low.RuneTypeNode(rune),
-            // High.TraitTypeNode  =>
 
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
@@ -99,6 +101,12 @@ public class ByronLoweringPass
         _highToLowLevelTypeMap[type] = loweredType;
 
         return loweredType;
+    }
+
+    private Low.TypeNode NominalTypeNode(High.NominalTypeNode userDeclaredType)
+    {
+        var canonicalName = _globalSymbolTable.NominalTypes.CanonicalNames[userDeclaredType];
+        return new Low.NominalTypeNode(userDeclaredType, canonicalName.ToString().Mangle());
     }
 
     private Low.StatementNode Statement(High.StatementNode statement)
@@ -124,10 +132,10 @@ public class ByronLoweringPass
     {
         return expression switch
         {
-            High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral),
-            High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral),
-            High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral),
-            High.VariableExpressionNode variable => new Low.VariableExpressionNode(variable),
+            High.FloatLiteralNode floatLiteral => new Low.FloatLiteralNode(floatLiteral, floatLiteral.Value),
+            High.IntegerLiteralNode intLiteral => new Low.IntegerLiteralNode(intLiteral, intLiteral.Value),
+            High.BooleanLiteralNode boolLiteral => new Low.BoolLiteralNode(boolLiteral, boolLiteral.Value),
+            High.VariableExpressionNode variable => VariableExpression(variable),
             High.MethodCallExpression call => MethodSyntaxCallExpression(call),
             High.FreeFunctionCallExpressionNode call => FreeFunctionCallExpression(call),
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
@@ -138,13 +146,23 @@ public class ByronLoweringPass
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
             High.CastFloatToIntNode floatToInt => new Low.CastFloatToIntNode(floatToInt,Expression(floatToInt.Operand), Type(floatToInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastFloatToIntNode")), 
-            High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(intToFloat,Expression(intToFloat.Operand), Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode")),
+            High.CastIntToFloatNode intToFloat => new Low.CastIntToFloatNode(intToFloat,Expression(intToFloat.Operand), Type(intToFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating CastIntToFloatNode"), intToFloat.SourceTypeIsSigned),
             High.ExtendIntegerNode extendInt => new Low.ExtendIntegerNode(extendInt,Expression(extendInt.Operand), Type(extendInt.TargetType) as Low.IntegerTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendIntegerNode")),
             High.ExtendFloatNode extendFloat => new Low.ExtendFloatNode(extendFloat,Expression(extendFloat.Operand), Type(extendFloat.TargetType) as Low.FloatTypeNode ?? throw new ByronCodeGenerationException("Invalid target type for generating ExtendFloatNode")),
 
             // Lowerable expressions here
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
+    }
+    
+    private Low.VariableExpressionNode VariableExpression(High.VariableExpressionNode variable)
+    {
+        if (variable is High.FunctionInvocationVariableExpressionNode invocation)
+        {
+            return new Low.VariableExpressionNode(invocation, invocation.Function.Symbol.ToString().Mangle());
+        }
+        
+        return new Low.VariableExpressionNode(variable, variable.Name);
     }
 
     private Low.BinaryExpressionNode CoercedBinaryExpression(High.BinaryExpressionNode binary)
@@ -155,7 +173,7 @@ public class ByronLoweringPass
         var coercedLeft = binary.Left;
         var coercedRight = binary.Right;
 
-        if (leftType.CanonicalName != rightType.CanonicalName) // todo: Is this a potential bug? Check in failing tests
+        if (leftType.Symbol != rightType.Symbol)
         {
             var targetType = _highLevelExpressionTypeMap.GetType(binary);
 
@@ -163,7 +181,7 @@ public class ByronLoweringPass
             coercedRight = Coerce(binary.Right, rightType, targetType);
         }
         
-        return new Low.BinaryExpressionNode(binary, Expression(coercedLeft), Expression(coercedRight));
+        return new Low.BinaryExpressionNode(binary, Expression(coercedLeft), binary.Operator, Expression(coercedRight));
     }
     
     private High.ExpressionNode Coerce(High.ExpressionNode expression, High.TypeNode sourceType, High.TypeNode targetType)
@@ -197,8 +215,9 @@ public class ByronLoweringPass
     {
         return new Low.StructFieldInitializationExpressionNode(
             structFieldInitialization,
+            (Low.NominalTypeNode)Type(structFieldInitialization.NominalType), //This cast is expected to always be true, since Type maps high to low nominal type  
             structFieldInitialization.FieldInitializers.Select(
-                x => new Low.StructFieldInitializerNode(x, Expression(x.Value))).ToList()
+                x => new Low.StructFieldInitializerNode(x, x.FieldName, Expression(x.Value))).ToList()
             );
     }
     
@@ -207,7 +226,7 @@ public class ByronLoweringPass
         var explicitType = variable.TypeAnnotation != null ? Type(variable.TypeAnnotation) : null;
         var initializer = Expression(variable.Initializer);
         
-        return new Low.VariableDeclarationNode(variable, explicitType, initializer);
+        return new Low.VariableDeclarationNode(variable, variable.Name, variable.IsMutable, explicitType, initializer);
     }
 
     private Low.IfStatementNode IfElse(High.IfElseStatement ifElse)

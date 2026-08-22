@@ -7,9 +7,9 @@ public class Tokenizer
     private int _line;
     private int _firstCharacterOffset;
 
-    public Tokenizer(string source)
+    public Tokenizer(string sourceText)
     {
-        _source = source;
+        _source = sourceText;
         _position = 0;
         _line = 1;
         _firstCharacterOffset = 0;

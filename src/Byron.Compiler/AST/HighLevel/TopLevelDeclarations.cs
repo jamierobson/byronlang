@@ -4,31 +4,36 @@ namespace Byron.Compiler.AST.HighLevel;
 
 public abstract class TopLevelDeclarationNode : AstNode
 {
-    public string Name { get; init; }
-    public string[] ModulePath { get; init; }
-    public CanonicalName CanonicalName => field ??= new(ModulePath, Name);
+    public Symbol Symbol { get; set; }
 
-    protected TopLevelDeclarationNode(string name, string[] modulePath, SourceSpan span) : base(span)
+    protected TopLevelDeclarationNode(string name, SourceSpan span) : base(span)
     {
-        Name = name;
-        ModulePath = modulePath;
+        if(string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentException($"{nameof(name)} must not be null when defining a symbol");
+        }
+        Symbol = new Symbol([..name.Split('.')]);
     }
-
-    protected TopLevelDeclarationNode(CanonicalName canonicalName, SourceSpan span) : base(span)
+    
+    protected TopLevelDeclarationNode(Symbol symbol, SourceSpan span) : base(span)
     {
-        CanonicalName =  canonicalName;
-        Name = canonicalName.ShortName;
-        ModulePath = canonicalName.ModulePath;
+        Symbol = symbol;
     }
 }
 
 public class ImplementBlockDeclarationNode : TopLevelDeclarationNode
 {
-    public TraitTypeNode? TraitNode { get; init; }
-    public NominalTypeNode TypeNode { get; init; }
+    public void UpdateType(NominalTypeNode typeNode)
+    {
+        TypeNode = typeNode;
+        Symbol = typeNode.Symbol;
+    }
+    public TraitTypeNode? TraitNode { get; set; }
+    public NominalTypeNode TypeNode { get; set; }
+    public List<FunctionDeclarationNode> FunctionDeclarations { get; } = new();
 
     public ImplementBlockDeclarationNode(NominalTypeNode typeNode, TraitTypeNode? traitNode, SourceSpan span)
-        : base(typeNode.Name, typeNode.ModulePath, span)
+        : base(typeNode.Symbol, span)
     {
         TypeNode = typeNode;
         TraitNode = traitNode;
@@ -40,8 +45,8 @@ public class FunctionDeclarationNode : TopLevelDeclarationNode
     public FunctionSignatureNode Signature { get; init; }
     public BlockStatementNode Body { get; init; }
 
-    public FunctionDeclarationNode(string[] modulePath, FunctionSignatureNode signature, BlockStatementNode body, SourceSpan span)
-        : base(signature.Name, modulePath, span)
+    public FunctionDeclarationNode(FunctionSignatureNode signature, BlockStatementNode body, SourceSpan span)
+        : base(signature.Name, span)
     {
         Signature =  signature;
         Body = body;
@@ -50,9 +55,11 @@ public class FunctionDeclarationNode : TopLevelDeclarationNode
 
 public class FunctionSignatureNode : AstNode
 {
+    public static string EntryFunctionName = "main";
+    
     public string Name { get; init; }
     public List<ParameterNode> Parameters { get; init; }
-    public TypeNode ReturnType { get; init; }
+    public TypeNode ReturnType { get; set; }
     public FunctionSignatureNode(string name, List<ParameterNode> parameters, TypeNode returnType, SourceSpan span) : base(span)
     {
         Name = name;
@@ -63,9 +70,10 @@ public class FunctionSignatureNode : AstNode
 
 public class ParameterNode : AstNode
 {
+    public const string SelfArgumentName = "self";
     public ReceiverBindingOwnership Ownership { get; init; }
     public string Name { get; init; }
-    public TypeNode Type { get; init; }
+    public TypeNode Type { get; set; }
 
     public ParameterNode(ReceiverBindingOwnership ownership, string name, TypeNode type, SourceSpan span) : base(span)
     {
@@ -80,7 +88,7 @@ public class TraitDeclarationNode : TopLevelDeclarationNode
     public TraitTypeNode Type { get; init; }
     public List<StructFieldNode> RequiredFields { get; init; }
     public List<FunctionSignatureNode> RequiredFunctions { get; init; }
-    public TraitDeclarationNode(TraitTypeNode type, List<StructFieldNode> fields, List<FunctionSignatureNode> functions, SourceSpan span) : base(type.CanonicalName, span)
+    public TraitDeclarationNode(TraitTypeNode type, List<StructFieldNode> fields, List<FunctionSignatureNode> functions, SourceSpan span) : base(type.Symbol, span)
     {
         RequiredFields = fields;
         RequiredFunctions = functions;
@@ -90,11 +98,16 @@ public class TraitDeclarationNode : TopLevelDeclarationNode
 
 public class StructDeclarationNode : TopLevelDeclarationNode
 {
+    public void UpdateSymbol(Symbol symbol)
+    {
+        Symbol = symbol;
+        Type.Symbol = symbol;
+    }
     public NominalTypeNode Type { get; }
     public List<StructFieldNode> Fields { get; init; }
 
     public StructDeclarationNode(NominalTypeNode type, List<StructFieldNode> fields, SourceSpan span)
-        : base(type.Name, type.ModulePath, span)
+        : base(type.Symbol, span)
     {
         Type = type;
         Fields = fields;
@@ -104,7 +117,7 @@ public class StructDeclarationNode : TopLevelDeclarationNode
 public class StructFieldNode : AstNode
 {
     public string Name { get; init; }
-    public TypeNode Type { get; init; }
+    public TypeNode Type { get; set; }
 
     public StructFieldNode(string name, TypeNode type, SourceSpan span) : base(span)
     {

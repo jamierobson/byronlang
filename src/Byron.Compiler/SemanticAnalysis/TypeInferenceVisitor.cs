@@ -1,60 +1,82 @@
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using Byron.Compiler.AST;
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public class TypeInferenceVisitor
+public class TypeInferenceVisitor(
+    GlobalSymbolTableLookup globalSymbolTableLookup,
+    CanonicalResolvingTypeMap typeMap,
+    TypeCoercion typeCoercion,
+    ScopedSymbolTable scopedSymbolTable,
+    Diagnostics diagnostics)
 {
-    private readonly TypeRegistry _typeRegistry;
-    private readonly FunctionRegistry _functionRegistry;
-    private readonly TypeMap _typeMap;
-    private readonly SymbolTable _symbolTable;
-    private readonly Diagnostics _diagnostics;
-
-    public TypeInferenceVisitor(
-        TypeRegistry typeRegistry,
-        FunctionRegistry functionRegistry,
-        TypeMap typeMap,
-        SymbolTable symbolTable,
-        Diagnostics diagnostics)
+    private void TryCanonize(ParameterNode parameter, FunctionDeclarationContext context)
     {
-        _typeRegistry = typeRegistry;
-        _functionRegistry = functionRegistry;
-        _typeMap = typeMap;
-        _symbolTable = symbolTable;
-        _diagnostics = diagnostics;
+        parameter.Type = CanonizedOrProvidedValue(parameter.Type, context);
     }
 
-    public void VisitFunction(FunctionDeclarationNode function)
+    private void TryCanonize(FunctionSignatureNode signature, FunctionDeclarationContext context)
     {
-        _symbolTable.EnterScope();
+        signature.ReturnType = CanonizedOrProvidedValue(signature.ReturnType, context);
+    }
+
+    private TypeNode CanonizedOrProvidedValue(TypeNode type, FunctionDeclarationContext context)
+    {
+        if (globalSymbolTableLookup.TryResolveCanonicalType(type, context.ImplementBlock?.Symbol.Segments ??  context.Module.Symbol.Segments, context.Module, out var lookup))
+        {
+            return lookup;
+        }
+        
+        diagnostics.UndeclaredType(type, "function argument");
+        return type;
+    }
+    
+    public void VisitFunction(FunctionDeclarationNode function, FunctionDeclarationContext declarationContext)
+    {
+        scopedSymbolTable.EnterScope();
+
+        TryCanonize(function.Signature, declarationContext);
 
         for (var i = 0; i < function.Signature.Parameters.Count; i++)
         {
             var parameter = function.Signature.Parameters[i];
-            if (parameter.Name == ParameterSymbol.SelfArgumentName)
+            if (parameter.Name == ParameterNode.SelfArgumentName)
             {
                 if (i != 0)
                 {
-                    _diagnostics.InvalidSelfArgument(function, parameter);
+                    diagnostics.InvalidSelfArgumentPosition(function, parameter);
                 }
 
-                string[] expectedModulePath = [..parameter.Type.CanonicalName.ModulePath, parameter.Type.CanonicalName.ShortName];
-                var isValidSelfType =
-                    function.CanonicalName.ModulePath.SequenceEqual(expectedModulePath) 
-                    && string.Equals(parameter.Type.CanonicalName.ShortName, function.CanonicalName.ModulePath.LastOrDefault());
-
-                if (!isValidSelfType)
+                if (declarationContext.ImplementBlock is null)
                 {
-                    _diagnostics.InvalidSelfArgument(
-                        parameter.Type.CanonicalName.ToString(),
-                        function.CanonicalName.ToModulePathString(),
+                    diagnostics.InvalidSelfArgumentOutsideOfImplementBlock(function.Signature, parameter.Span);
+                }
+                else
+                {
+                    var expectedParameterType = declarationContext.ImplementBlock.TypeNode;
+                    var actualParameterType = parameter.Type;
+
+                    if (!globalSymbolTableLookup.TryResolveCanonicalType(actualParameterType, declarationContext.ImplementBlock.Symbol.Segments, declarationContext.Module, out var canonicalType))
+                    {
+                        diagnostics.UndeclaredType(actualParameterType);
+                    }
+
+                    if (expectedParameterType == canonicalType)
+                    {
+                        parameter.Type = canonicalType;
+                    }
+                    else
+                    {
+                        diagnostics.InvalidSelfArgumentType(
+                        parameter.Type.Symbol.ToString(),
+                        function.Symbol.ToString(),
                         function);
+                    }
                 }
             }
+
+            TryCanonize(parameter, declarationContext);
 
             var isMutable = parameter.Ownership.IsMutable();
 
@@ -62,91 +84,91 @@ public class TypeInferenceVisitor
                 ? new ReferenceTypeNode(parameter.Type, isMutable, parameter.Span)
                 : parameter.Type;
 
-            _symbolTable.Declare(parameter.Name, type, isMutable);
+            scopedSymbolTable.Declare(parameter.Name, type, isMutable);
         }
 
-        VisitBlock(function.Body);
+        VisitBlock(declarationContext.Module, function.Body);
 
-        _symbolTable.ExitScope();
+        scopedSymbolTable.ExitScope();
     }
 
-    public void VisitBlock(BlockStatementNode block)
+    public void VisitBlock(ModuleDeclarationNode module, BlockStatementNode block)
     {
         foreach (var statement in block.Statements)
         {
-            VisitStatement(statement);
+            VisitStatement(module, statement);
         }
     }
 
-    private void VisitStatement(StatementNode statement)
+    private void VisitStatement(ModuleDeclarationNode module, StatementNode statement)
     {
         switch (statement)
         {
             case VariableDeclarationNode variable:
-                VisitVariableDeclaration(variable);
+                VisitVariableDeclaration(module, variable);
                 break;
             case ExpressionStatementNode expressionStatement:
-                expressionStatement.Expression = VisitExpression(expressionStatement.Expression);
+                expressionStatement.Expression = VisitExpression(module, expressionStatement.Expression);
                 break;
             case AssignmentStatementNode assignment:
-                VisitAssignmentStatement(assignment);
+                VisitAssignmentStatement(module, assignment);
                 break;
             case IfElseStatement ifElse:
-                VisitIfElseStatement(ifElse);
+                VisitIfElseStatement(module, ifElse);
                 break;
             case ReturnStatementNode @return:
-                VisitReturnStatement(@return);
+                VisitReturnStatement(module, @return);
                 break;
             case WhileStatement @while:
-                VisitStatementWhile(@while);
+                VisitStatementWhile(module, @while);
                 break;
         }
     }
 
-    private void VisitStatementWhile(WhileStatement @while)
+    private void VisitStatementWhile(ModuleDeclarationNode module, WhileStatement @while)
     {
-        _ = VisitExpression(@while.ContinuationCondition);
-        VisitBlock(@while.Body);
+        _ = VisitExpression(module, @while.ContinuationCondition);
+        VisitBlock(module, @while.Body);
     }
 
-    private void VisitReturnStatement(ReturnStatementNode @return)
+    private void VisitReturnStatement(ModuleDeclarationNode module, ReturnStatementNode @return)
     {
         if (@return.Expression is not null)
         {
-            _ = VisitExpression(@return.Expression);
+            _ = VisitExpression(module, @return.Expression);
             // todo: Type check expression vs current function return type using TryCoerce.
         }
     }
 
-    private void VisitIfElseStatement(IfElseStatement ifElse)
+    private void VisitIfElseStatement(ModuleDeclarationNode module, IfElseStatement ifElse)
     {
-        _ = VisitExpression(ifElse.Condition);
-        var conditionType = _typeMap.GetType(ifElse.Condition);
+        _ = VisitExpression(module, ifElse.Condition);
+        var conditionType = typeMap.GetType(ifElse.Condition);
         if (conditionType is not BoolTypeNode)
         {
-            _diagnostics.TypeMismatch(conditionType, PrimitiveTypeNames.boolean);
+            diagnostics.TypeMismatch(conditionType, PrimitiveTypeNames.boolean);
             return;
         }
 
-        VisitBlock(ifElse.ThenBranch);
+        VisitBlock(module, ifElse.ThenBranch);
 
         if (ifElse.ElseBranch != null)
         {
-            VisitBlock(ifElse.ElseBranch);
+            VisitBlock(module, ifElse.ElseBranch);
         }
     }
 
-    private void VisitAssignmentStatement(AssignmentStatementNode assignment)
+    private void VisitAssignmentStatement(ModuleDeclarationNode module, AssignmentStatementNode assignment)
     {
-        assignment.Target = VisitExpression(assignment.Target);
-        assignment.Value = VisitExpression(assignment.Value);
+        assignment.Target = VisitExpression(module, assignment.Target);
+        assignment.Value = VisitExpression(module, assignment.Value);
 
-        var targetType = _typeMap.GetType(assignment.Target);
+        var targetType = typeMap.GetType(assignment.Target);
 
-        if (!TryCoerce(assignment.Value, targetType, out var coercedValue))
+        if (!typeCoercion.TryCoerce(module, assignment.Value, targetType, out var coercedValue))
         {
-            var valueType = _typeMap.GetType(assignment.Value);
-            _diagnostics.TypeMismatch(targetType, valueType);
+            var valueType = typeMap.GetType(assignment.Value);
+            diagnostics.TypeMismatch(targetType, valueType);
             return;
         }
 
@@ -154,28 +176,28 @@ public class TypeInferenceVisitor
 
         if (assignment.Target is VariableExpressionNode variable)
         {
-            if (_symbolTable.TryGet(variable.Name, out var symbol) && !symbol.IsMutable)
+            if (scopedSymbolTable.TryGet(variable.Name, out var symbol) && !symbol.IsMutable)
             {
-                _diagnostics.InvalidMutation(variable, symbol.Type.Span);
+                diagnostics.InvalidMutation(variable, symbol.Type.Span);
             }
         }
     }
 
-    private ExpressionNode VisitExpression(ExpressionNode expression)
+    private ExpressionNode VisitExpression(ModuleDeclarationNode module, ExpressionNode expression)
     {
         return expression switch
         {
-            UnaryExpressionNode unary => VisitUnaryExpression(unary),
+            UnaryExpressionNode unary => VisitUnaryExpression(module, unary),
             IntegerLiteralNode integerLiteral => VisitIntegerLiteralNode(integerLiteral),
             FloatLiteralNode floatLiteral => VisitFloatLiteralNode(floatLiteral),
             BooleanLiteralNode booleanLiteral => VisitBooleanLiteralNode(booleanLiteral),
-            StructFieldInitializationExpressionNode structFieldInitializationExpression => VisitStructFieldInitializationExpression(structFieldInitializationExpression),
-            VariableExpressionNode variableExpression => VisitVariableExpression(variableExpression),
-            CallExpressionNode callExpression => VisitCallExpressionNode(callExpression),
-            MemberAccessExpressionNode memberAccess => VisitMemberExpressionNode(memberAccess),
-            BinaryExpressionNode binaryExpressionNode => VisitBinaryExpressionNode(binaryExpressionNode),
-            AddressOfExpressionNode addressOf => VisitAddressOfExpression(addressOf),
-            DereferenceExpressionNode dereference => VisitDereferenceExpressionNode(dereference),
+            StructFieldInitializationExpressionNode structFieldInitializationExpression => VisitStructFieldInitializationExpression(module, structFieldInitializationExpression),
+            VariableExpressionNode variableExpression => VisitVariableExpression(module, variableExpression),
+            CallExpressionNode callExpression => VisitCallExpressionNode(module, callExpression),
+            MemberAccessExpressionNode memberAccess => VisitMemberExpressionNode(module, memberAccess),
+            BinaryExpressionNode binaryExpressionNode => VisitBinaryExpressionNode(module, binaryExpressionNode),
+            AddressOfExpressionNode addressOf => VisitAddressOfExpression(module, addressOf),
+            DereferenceExpressionNode dereference => VisitDereferenceExpressionNode(module, dereference),
 
             _ => expression
         };
@@ -183,7 +205,7 @@ public class TypeInferenceVisitor
 
     private ExpressionNode VisitBooleanLiteralNode(BooleanLiteralNode booleanLiteral)
     {
-        _typeMap.SetType(booleanLiteral, new BoolTypeNode(booleanLiteral.Span));
+        typeMap.SetType(booleanLiteral, new BoolTypeNode(booleanLiteral.Span));
         return booleanLiteral;
     }
 
@@ -193,7 +215,7 @@ public class TypeInferenceVisitor
         FloatTypeNode floatType = TypeBounds.CanCoerceToType(floatLiteral.Value, float32Type)
             ? float32Type
             : new Float64TypeNode(floatLiteral.Span);
-        _typeMap.SetType(floatLiteral, floatType);
+        typeMap.SetType(floatLiteral, floatType);
         return floatLiteral;
     }
 
@@ -203,41 +225,44 @@ public class TypeInferenceVisitor
         SignedIntTypeNode intType = TypeBounds.CanCoerceToType(integerLiteral.Value, int32Type)
             ? int32Type
             : new Int64TypeNode(integerLiteral.Span);
-        _typeMap.SetType(integerLiteral, intType);
+        typeMap.SetType(integerLiteral, intType);
         return integerLiteral;
     }
 
-    private ExpressionNode VisitDereferenceExpressionNode(DereferenceExpressionNode dereference)
+    private ExpressionNode VisitDereferenceExpressionNode(ModuleDeclarationNode module, DereferenceExpressionNode dereference)
     {
-        dereference.Target = VisitExpression(dereference.Target);
-        var targetType = _typeMap.GetType(dereference.Target);
+        dereference.Target = VisitExpression(module, dereference.Target);
+        var targetType = typeMap.GetType(dereference.Target);
 
         if (targetType is ReferenceTypeNode referenceTypeNode)
         {
-            _typeMap.SetType(dereference, referenceTypeNode.Target);
+            typeMap.SetType(module, dereference, referenceTypeNode.Target);
         }
         else
         {
-            _diagnostics.InvalidDereference(dereference, targetType);
+            diagnostics.InvalidDereference(dereference, targetType);
         }
 
         return dereference;
     }
 
-    private ExpressionNode VisitAddressOfExpression(AddressOfExpressionNode addressOf)
+    private ExpressionNode VisitAddressOfExpression(ModuleDeclarationNode module, AddressOfExpressionNode addressOf)
     {
-        addressOf.Target = VisitExpression(addressOf.Target);
-        var targetType = _typeMap.GetType(addressOf.Target);
+        addressOf.Target = VisitExpression(module, addressOf.Target);
+        var targetType = typeMap.GetType(addressOf.Target);
 
         var referenceType = new ReferenceTypeNode(targetType, addressOf.IsMutable, addressOf.Span);
-        _typeMap.SetType(addressOf, referenceType);
+        typeMap.SetType(module, addressOf, referenceType);
+        targetType = typeMap.GetType(addressOf.Target);
+        referenceType.Target = targetType;
+        
         return addressOf;
     }
 
-    private ExpressionNode VisitUnaryExpression(UnaryExpressionNode unary)
+    private ExpressionNode VisitUnaryExpression(ModuleDeclarationNode module, UnaryExpressionNode unary)
     {
-        unary.Operand = VisitExpression(unary.Operand);
-        var operandType = _typeMap.GetType(unary.Operand);
+        unary.Operand = VisitExpression(module, unary.Operand);
+        var operandType = typeMap.GetType(unary.Operand);
 
         switch (unary.Operator)
         {
@@ -245,20 +270,20 @@ public class TypeInferenceVisitor
             {
                 if (operandType is not SignedIntTypeNode and not FloatTypeNode)
                 {
-                    _diagnostics.InvalidUnaryOperation(unary, operandType);
+                    diagnostics.InvalidUnaryOperation(unary, operandType);
                 }
 
-                _typeMap.SetType(unary, operandType);
+                typeMap.SetType(module, unary, operandType);
                 return unary;
             }
             case UnaryOperator.Not:
             {
                 if (operandType is not BoolTypeNode)
                 {
-                    _diagnostics.InvalidUnaryOperation(unary, operandType);
+                    diagnostics.InvalidUnaryOperation(unary, operandType);
                 }
 
-                _typeMap.SetType(unary, new BoolTypeNode(unary.Span));
+                typeMap.SetType(module, unary, new BoolTypeNode(unary.Span));
                 return unary;
             }
             default:
@@ -267,31 +292,36 @@ public class TypeInferenceVisitor
     }
 
     private ExpressionNode VisitStructFieldInitializationExpression(
+        ModuleDeclarationNode module, 
         StructFieldInitializationExpressionNode initialization)
     {
-        _typeMap.SetType(initialization, initialization.NominalType);
-        var structName = initialization.NominalType.CanonicalName;
-        if (!_typeRegistry.TryGetStruct(structName, out var structDeclaration))
+        typeMap.SetType(module, initialization, initialization.NominalType);
+        var structType = typeMap.GetType(initialization);
+        initialization.NominalType = (NominalTypeNode)structType;
+        
+        if (!globalSymbolTableLookup.TryResolveCanonicalType(initialization.NominalType, module.Symbol.Segments, module, out var typeCanonicalName))
         {
-            _diagnostics.UndeclaredType(initialization.NominalType);
+            diagnostics.UndeclaredType(initialization.NominalType);
             return initialization;
         }
+        
+        var structDeclaration = globalSymbolTableLookup.Structs[typeCanonicalName.Symbol];
 
         foreach (var fieldInitializer in initialization.FieldInitializers)
         {
-            fieldInitializer.Value = VisitExpression(fieldInitializer.Value);
+            fieldInitializer.Value = VisitExpression(module, fieldInitializer.Value);
 
             var matchingField = structDeclaration.Fields.FirstOrDefault(f => f.Name == fieldInitializer.FieldName);
             if (matchingField is null)
             {
-                _diagnostics.MissingMember(structName, fieldInitializer);
+                diagnostics.MissingMember(structType.Symbol.MemberName, fieldInitializer);
                 continue;
             }
 
-            if (!TryCoerce(fieldInitializer.Value, matchingField.Type, out var coercedValue))
+            if (!typeCoercion.TryCoerce(module, fieldInitializer.Value, matchingField.Type, out var coercedValue))
             {
-                var valueType = _typeMap.GetType(fieldInitializer.Value);
-                _diagnostics.TypeMismatch(matchingField.Type, valueType);
+                var valueType = typeMap.GetType(fieldInitializer.Value);
+                diagnostics.TypeMismatch(matchingField.Type, valueType);
             }
             else
             {
@@ -302,225 +332,181 @@ public class TypeInferenceVisitor
         return initialization;
     }
 
-    private ExpressionNode VisitBinaryExpressionNode(BinaryExpressionNode binaryExpression)
+    private ExpressionNode VisitBinaryExpressionNode(ModuleDeclarationNode module, BinaryExpressionNode binaryExpression)
     {
-        binaryExpression.Left = VisitExpression(binaryExpression.Left);
-        binaryExpression.Right = VisitExpression(binaryExpression.Right);
+        binaryExpression.Left = VisitExpression(module, binaryExpression.Left);
+        binaryExpression.Right = VisitExpression(module, binaryExpression.Right);
 
-        var leftType = _typeMap.GetType(binaryExpression.Left);
-        var rightType = _typeMap.GetType(binaryExpression.Right);
+        var leftType = typeMap.GetType(binaryExpression.Left);
+        var rightType = typeMap.GetType(binaryExpression.Right);
 
         if (binaryExpression.Operator.IsRelationalComparison())
         {
             var boolType = new BoolTypeNode(binaryExpression.Span);
-            _typeMap.SetType(binaryExpression, boolType);
+            typeMap.SetType(module, binaryExpression, boolType);
 
-            if (TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType,
+            if (typeCoercion.TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType,
                     out var coercedType))
             {
-                binaryExpression.Left = AddCastsWhenRequired(binaryExpression.Left, coercedType);
-                binaryExpression.Right = AddCastsWhenRequired(binaryExpression.Right, coercedType);
+                binaryExpression.Left = typeCoercion.AddCastsWhenRequired(module, binaryExpression.Left, coercedType);
+                binaryExpression.Right = typeCoercion.AddCastsWhenRequired(module, binaryExpression.Right, coercedType);
             }
             else
             {
-                _diagnostics.TypeMismatch(leftType, rightType);
+                diagnostics.TypeMismatch(leftType, rightType);
             }
 
             return binaryExpression;
         }
 
-        if (TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType,
+        if (typeCoercion.TryGetPreferredCoercionType(binaryExpression.Left, leftType, binaryExpression.Right, rightType,
                 out var coerced))
         {
-            binaryExpression.Left = AddCastsWhenRequired(binaryExpression.Left, coerced);
-            binaryExpression.Right = AddCastsWhenRequired(binaryExpression.Right, coerced);
-            _typeMap.SetType(binaryExpression, coerced);
+            binaryExpression.Left = typeCoercion.AddCastsWhenRequired(module, binaryExpression.Left, coerced);
+            binaryExpression.Right = typeCoercion.AddCastsWhenRequired(module, binaryExpression.Right, coerced);
+            typeMap.SetType(module, binaryExpression, coerced);
         }
         else
         {
-            _diagnostics.TypeMismatch(leftType, rightType);
+            diagnostics.TypeMismatch(leftType, rightType);
         }
 
         return binaryExpression;
     }
 
-    private ExpressionNode AddCastsWhenRequired(ExpressionNode expression, TypeNode targetType)
+    private void VisitVariableDeclaration(ModuleDeclarationNode module, VariableDeclarationNode variableDeclaration)
     {
-        var sourceType = _typeMap.GetType(expression);
-
-        if (sourceType.CanonicalName == targetType.CanonicalName)
+        if (scopedSymbolTable.TryGet(variableDeclaration.Name, out _))
         {
-            return expression;
-        }
-
-        var cast = Cast(expression, sourceType, targetType);
-        _typeMap.SetType(cast, targetType);
-        return cast;
-    }
-
-    private ExpressionNode Cast(ExpressionNode operand, TypeNode sourceType, TypeNode targetType)
-    {
-        if (sourceType is IntegerTypeNode sourceInt && targetType is FloatTypeNode targetFloat)
-        {
-            return new CastIntToFloatNode(operand, targetFloat, sourceInt.Signed, operand.Span);
-        }
-
-        if (sourceType is FloatTypeNode && targetType is IntegerTypeNode targetInt)
-        {
-            if (operand is FloatLiteralNode floatLit && !TypeBounds.CanCoerceToType(floatLit.Value, targetInt))
-            {
-                return operand;
-            }
-
-            return new CastFloatToIntNode(operand, targetInt, targetInt.Signed, operand.Span);
-        }
-
-        if (sourceType is IntegerTypeNode sourceIntToWiden && targetType is IntegerTypeNode widerInt)
-        {
-            if (sourceIntToWiden.BitWidth < widerInt.BitWidth)
-            {
-                return new ExtendIntegerNode(operand, widerInt, operand.Span);
-            }
-
-            return operand;
-        }
-
-        if (sourceType is FloatTypeNode sourceFloatToWiden && targetType is FloatTypeNode widerFloat &&
-            sourceFloatToWiden.BitWidth < widerFloat.BitWidth)
-        {
-            return new ExtendFloatNode(operand, widerFloat, operand.Span);
-        }
-
-        return operand;
-    }
-
-    private bool TryGetPreferredCoercionType(ExpressionNode leftExpression, TypeNode leftType,
-        ExpressionNode rightExpression, TypeNode rightType, [NotNullWhen(true)] out TypeNode? preferredType)
-    {
-        preferredType = null;
-
-        if (leftType.CanonicalName == rightType.CanonicalName)
-        {
-            preferredType = leftType;
-            return true;
-        }
-
-        if (leftType is IntegerTypeNode integerLeft && rightType is FloatTypeNode &&
-            TypeBounds.CanCoerceToType(rightExpression, integerLeft))
-        {
-            preferredType = leftType;
-            return true;
-        }
-
-        if (rightType is IntegerTypeNode integerRight && leftType is FloatTypeNode &&
-            TypeBounds.CanCoerceToType(leftExpression, integerRight))
-        {
-            preferredType = rightType;
-            return true;
-        }
-
-        return false;
-    }
-
-    private void VisitVariableDeclaration(VariableDeclarationNode variableDeclaration)
-    {
-        if (_symbolTable.TryGet(variableDeclaration.Name, out _))
-        {
-            _diagnostics.Duplicate(variableDeclaration);
-            _ = VisitExpression(variableDeclaration.Initializer);
+            diagnostics.Duplicate(variableDeclaration);
+            _ = VisitExpression(module, variableDeclaration.Initializer);
             return;
         }
 
-        variableDeclaration.Initializer = VisitExpression(variableDeclaration.Initializer);
-        var inferredType = _typeMap.GetType(variableDeclaration.Initializer);
+        variableDeclaration.Initializer = VisitExpression(module, variableDeclaration.Initializer);
+        var inferredType = typeMap.GetType(variableDeclaration.Initializer);
         var finalType = inferredType;
 
         if (variableDeclaration.TypeAnnotation is not null)
         {
-            if (!_typeRegistry.IsValidType(variableDeclaration.TypeAnnotation))
+            if (!globalSymbolTableLookup.TypeExists(module, variableDeclaration.TypeAnnotation))
             {
-                _diagnostics.UndeclaredType(variableDeclaration.TypeAnnotation);
+                diagnostics.UndeclaredType(variableDeclaration.TypeAnnotation);
                 return;
             }
 
-            if (!TryCoerce(variableDeclaration.Initializer, variableDeclaration.TypeAnnotation, out var coercedInitializer))
+            if (!typeCoercion.TryCoerce(module, variableDeclaration.Initializer, variableDeclaration.TypeAnnotation, out var coercedInitializer))
             {
-                _diagnostics.TypeMismatch(variableDeclaration.TypeAnnotation, inferredType);
+                diagnostics.TypeMismatch(variableDeclaration.TypeAnnotation, inferredType);
                 return;
             }
 
             variableDeclaration.Initializer = coercedInitializer;
-            finalType = variableDeclaration.TypeAnnotation;
+            variableDeclaration.TypeAnnotation = finalType;
         }
 
-        _symbolTable.Declare(variableDeclaration.Name, finalType, variableDeclaration.IsMutable);
+        scopedSymbolTable.Declare(variableDeclaration.Name, finalType, variableDeclaration.IsMutable);
     }
 
-    private ExpressionNode VisitVariableExpression(VariableExpressionNode variableExpression)
+    private ExpressionNode VisitVariableExpression(ModuleDeclarationNode module, VariableExpressionNode variableExpression)
     {
-        if (_symbolTable.TryGet(variableExpression.Name, out var symbol))
+        if (scopedSymbolTable.TryGet(variableExpression.Name, out var symbol))
         {
-            _typeMap.SetType(variableExpression, symbol.Type);
+            typeMap.SetType(module, variableExpression, symbol.Type);
         }
         else
         {
-            _diagnostics.UndeclaredVariable(variableExpression);
+            diagnostics.UndeclaredVariable(variableExpression);
         }
 
         return variableExpression;
     }
-
-    private ExpressionNode VisitCallExpressionNode(CallExpressionNode callExpression)
+    
+    private ExpressionNode VisitCallExpressionNode(ModuleDeclarationNode module, CallExpressionNode callExpression)
     {
         CallExpressionNode functionInvocation = callExpression;
 
         for (var i = 0; i < callExpression.Arguments.Count; i++)
         {
-            callExpression.Arguments[i] = VisitExpression(callExpression.Arguments[i]);
+            callExpression.Arguments[i] = VisitExpression(module, callExpression.Arguments[i]);
         }
 
-
-        string[] modulePath;
+        string[] namespaceSegments;
         string functionName;
 
         if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
-            functionName = variableExpression.Name;
-            modulePath = [];
+            // todo: Work out what this lookup should _actually_ be
+            if (globalSymbolTableLookup.TryGetFunction(module, [], variableExpression.Name, module.Symbol.Segments, out var resolvedFunction))
+            {
+                functionName = resolvedFunction.Symbol.MemberName;
+                namespaceSegments = resolvedFunction.Symbol.Segments[..^1];
+                var functionInvocationNode = new FunctionInvocationVariableExpressionNode(resolvedFunction, variableExpression.Span);
+                callExpression.Callee = functionInvocationNode;
+            }
+            else
+            {
+                functionName = variableExpression.Name;
+                namespaceSegments = [];    
+            }
         }
         else if (callExpression.Callee is MemberAccessExpressionNode memberAccess)
         {
             if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
             {
-                if (_typeRegistry.TryGetStruct(targetVariableExpression.Name, out var targetStruct))
+                if(globalSymbolTableLookup.TryGetStruct(module, targetVariableExpression.Name, module.Symbol.Segments, out var structDeclaration))
                 {
-                    modulePath = [.. targetStruct.ModulePath, targetStruct.Name];
-                }
-                else if (_symbolTable.TryGet(targetVariableExpression.Name, out var symbol))
-                {
-                    memberAccess.Target = VisitExpression(targetVariableExpression);
-                    var memberAccessTargetType = _typeMap.GetType(memberAccess.Target); 
-                    modulePath = [.. memberAccessTargetType.CanonicalName.ModulePath, memberAccessTargetType.CanonicalName.ShortName];
+                    namespaceSegments = structDeclaration.Symbol.Segments;
+                    targetVariableExpression.Name = structDeclaration.Type.Symbol.ToString(); //todo: Is this correct? Should we prefer the same approach as if (callExpression.Callee is VariableExpressionNode variableExpression) where we use a new node type?
+
+                    if (globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName,
+                            module.Symbol.Segments, out var staticFunction))
+                    {
+                        var staticFunctionInvocation = new FunctionInvocationVariableExpressionNode(staticFunction, memberAccess.Span);
+                        functionInvocation.Callee = staticFunctionInvocation;
+                    }
                     
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
+                }
+                else if (scopedSymbolTable.TryGet(targetVariableExpression.Name, out _))
+                {
+                    memberAccess.Target = VisitExpression(module, targetVariableExpression);
+                    var memberAccessTargetType = typeMap.GetType(memberAccess.Target); 
+                    namespaceSegments = memberAccessTargetType.Symbol.Segments;
+                    
+                    if (!globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName, module.Symbol.Segments, out var declaration))
+                    {
+                        diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
+                        return functionInvocation;
+                    }
+                    
+                    var functionInvocationNode = new FunctionInvocationVariableExpressionNode(declaration, memberAccess.Span);
+                    functionInvocation = new MethodCallExpression(targetVariableExpression, functionInvocationNode, callExpression.Arguments, callExpression.Span);
                 }
                 else
                 {
-                    modulePath = [targetVariableExpression.Name];
+                    namespaceSegments = [targetVariableExpression.Name];
                 }
             } 
             else
             {
-                memberAccess.Target = VisitExpression(memberAccess.Target);
+                memberAccess.Target = VisitExpression(module, memberAccess.Target);
 
-                if (_typeMap.TryGetType(memberAccess.Target, out var targetType))
+                if (typeMap.TryGetType(memberAccess.Target, out var targetType))
                 {
-                    modulePath = [.. targetType.CanonicalName.ModulePath, targetType.CanonicalName.ShortName];
-                    functionInvocation = new MethodCallExpression(memberAccess.Target, memberAccess, callExpression.Arguments, callExpression.Span);
+                    namespaceSegments = targetType.Symbol.Segments;
+                    
+                    if (!globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName, module.Symbol.Segments, out var declaration))
+                    {
+                        diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
+                        return functionInvocation;
+                    }
+                    
+                    var functionInvocationNode = new FunctionInvocationVariableExpressionNode(declaration, memberAccess.Span);
+                    functionInvocation = new MethodCallExpression(memberAccess.Target, functionInvocationNode, callExpression.Arguments, callExpression.Span);
                 }
                 else
                 {
-                    modulePath = [];
+                    namespaceSegments = [];
                 }
             }
 
@@ -531,50 +517,59 @@ public class TypeInferenceVisitor
             throw new ByronNotImplementedException(callExpression.Callee.GetType(), this, callExpression.Span);
         }
 
-        if (!_functionRegistry.TryGetFunctionInScope(modulePath, functionName, out var function))
+        if (!globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, functionName, module.Symbol.Segments, out var function))
         {
-            _diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);
+            diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);
             return functionInvocation;
         }
-
+        
         return functionInvocation switch
         {
-            MethodCallExpression methodCall => TryCoerceAllArguments(methodCall, function),
-            _ => TryCoerceAllArguments(functionInvocation, function)
+            MethodCallExpression methodCall => TryCoerceAllArguments(module, methodCall, function),
+            _ => TryCoerceAllArguments(module, functionInvocation, function)
         };
     }
 
-    private MethodCallExpression TryCoerceAllArguments(MethodCallExpression methodCall, FunctionSymbol function)
+    private MethodCallExpression TryCoerceAllArguments(ModuleDeclarationNode module, MethodCallExpression methodCall, FunctionDeclarationNode function)
     {
-        if (!function.SupportsMethodInvocation())
+        if (!SupportsMethodInvocation(function.Signature))
         {
-            _diagnostics.InvalidSelfArgument(function, methodCall.Span);
+            diagnostics.NoSelfArgument(function, methodCall.Span);
         }
         
-        if (methodCall.Arguments.Count + 1 != function.Parameters.Count)
+        if (methodCall.Arguments.Count + 1 != function.Signature.Parameters.Count)
         {
-            _diagnostics.InvalidArgumentCount(methodCall, function);
+            diagnostics.InvalidArgumentCount(methodCall, function);
         }
+                    
+        var functionInvocationNode = new FunctionInvocationVariableExpressionNode(function, methodCall.Callee.Span);
+        methodCall.Callee = functionInvocationNode;
 
         ExpressionNode[] arguments = [methodCall.Receiver, ..methodCall.Arguments];
-        var maximumArgumentCount = Math.Min(arguments.Length, function.Parameters.Count);
+        var maximumArgumentCount = Math.Min(arguments.Length, function.Signature.Parameters.Count);
 
         for (var i = 0; i < maximumArgumentCount; i++)
         {
             var argument = arguments[i];
-            var argumentType = _typeMap.GetType(argument);
+            var argumentType = typeMap.GetType(argument);
 
             if (i == 0)
             {
-                var self = function.Self();
-                var targetType = self.OwnershipBinding.IsReference()
-                    ? new ReferenceTypeNode(self.Type, self.OwnershipBinding.IsMutable(), self.Type.Span)
-                    : self.Type;
+                var self = SelfParameter(function.Signature);
+                var targetType = self.Type;
                 
-                
-                if (!TryCoerce(argument, targetType, out var coercedReceiver))
+                if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
                 {
-                    _diagnostics.InvalidArgument(argumentType.CanonicalName, targetType.CanonicalName, function.CanonicalName, methodCall.Span);
+                    diagnostics.UndeclaredType(self.Type, "self type argument");
+                }
+                else if(self.Ownership.IsReference())
+                {
+                    targetType = new ReferenceTypeNode(resolvedSelfType, self.Ownership.IsMutable(), self.Type.Span);
+                }
+                
+                if (!typeCoercion.TryCoerce(module, argument, targetType, out var coercedReceiver))
+                {
+                    diagnostics.InvalidArgument(argumentType.Symbol, targetType.Symbol, function.Symbol, methodCall.Span);
                     return methodCall;
                 }
                 
@@ -583,170 +578,83 @@ public class TypeInferenceVisitor
             else
             {
                 
-                var targetType = function.Parameters[i].Type;
+                var targetType = function.Signature.Parameters[i].Type;
                 
-                if (!TryCoerce(argument, targetType, out var coercedArgument))
+                if (!typeCoercion.TryCoerce(module, argument, targetType, out var coercedArgument))
                 {
-                    _diagnostics.InvalidArgument(argumentType.CanonicalName, targetType.CanonicalName, function.CanonicalName, methodCall.Span);
+                    diagnostics.InvalidArgument(argumentType.Symbol, targetType.Symbol, function.Symbol, methodCall.Span);
                     return methodCall;
                 }
                 methodCall.Arguments[i - 1] = coercedArgument;
             }
         }
 
-        _typeMap.SetType(methodCall, function.ReturnType);
+        typeMap.SetType(module, methodCall, function.Signature.ReturnType);
         return methodCall;
     }
 
-    private CallExpressionNode TryCoerceAllArguments(CallExpressionNode callExpression, FunctionSymbol function)
+    private CallExpressionNode TryCoerceAllArguments(ModuleDeclarationNode module, CallExpressionNode callExpression, FunctionDeclarationNode function)
     {
-        if (callExpression.Arguments.Count != function.Parameters.Count)
+        if (callExpression.Arguments.Count != function.Signature.Parameters.Count)
         {
-            _diagnostics.InvalidArgumentCount(callExpression, function);
+            diagnostics.InvalidArgumentCount(callExpression, function);
         }
 
-        var maximumArgumentCount = Math.Min(callExpression.Arguments.Count, function.Parameters.Count);
+        var maximumArgumentCount = Math.Min(callExpression.Arguments.Count, function.Signature.Parameters.Count);
 
         for (var i = 0; i < maximumArgumentCount; i++)
         {
             var argument = callExpression.Arguments[i];
-            var argumentType = _typeMap.GetType(argument);
-            var parameterType = function.Parameters[i].Type;
-
-            if (!TryCoerce(argument, parameterType, out var coercedExpression))
+            var argumentType = typeMap.GetType(argument);
+            var parameterType = function.Signature.Parameters[i].Type;
+        
+            if (!typeCoercion.TryCoerce(module, argument, parameterType, out var coercedExpression))
             {
-                _diagnostics.InvalidArgument(argumentType.CanonicalName, parameterType.CanonicalName,
-                    function.CanonicalName, callExpression.Span);
+                diagnostics.InvalidArgument(argumentType.Symbol, parameterType.Symbol,
+                    function.Symbol, callExpression.Span);
                 return callExpression;
             }
-
+        
             callExpression.Arguments[i] = coercedExpression;
         }
 
-        _typeMap.SetType(callExpression, function.ReturnType);
+        typeMap.SetType(module, callExpression, function.Signature.ReturnType);
         return callExpression;
     }
-
-    private ExpressionNode VisitMemberExpressionNode(MemberAccessExpressionNode memberAccess)
+    
+    private ExpressionNode VisitMemberExpressionNode(ModuleDeclarationNode module, MemberAccessExpressionNode memberAccess)
     {
-        memberAccess.Target = VisitExpression(memberAccess.Target);
-        var targetType = _typeMap.GetType(memberAccess.Target);
-
-        var targetTypeCanonicalName = targetType.CanonicalName;
-        if (_typeRegistry.TryGetStruct(targetTypeCanonicalName, out var structDeclaration))
+        memberAccess.Target = VisitExpression(module, memberAccess.Target);
+        var targetType = typeMap.GetType(memberAccess.Target);
+        
+        if (globalSymbolTableLookup.TryGetStruct(targetType, out var structDeclaration))
         {
             var field = structDeclaration.Fields.FirstOrDefault(f => f.Name == memberAccess.MemberName);
             if (field is not null)
             {
-                _typeMap.SetType(memberAccess, field.Type);
+                typeMap.SetType(module, memberAccess, field.Type);
             }
             else
             {
-                _diagnostics.MissingMember(targetTypeCanonicalName, memberAccess);
+                diagnostics.MissingMember(targetType.Symbol, memberAccess);
             }
         }
         else
         {
-            _diagnostics.MissingMember(targetTypeCanonicalName, memberAccess);
+            diagnostics.MissingMember(targetType.Symbol, memberAccess);
         }
 
         return memberAccess;
     }
+    bool SupportsMethodInvocation(FunctionSignatureNode signature) => signature.Parameters.Count > 0 && signature.Parameters[0].Name == ParameterNode.SelfArgumentName;
 
-    private bool TryCoerce(ExpressionNode expression, TypeNode targetType,
-        [NotNullWhen(true)] out ExpressionNode? result)
+    private ParameterNode SelfParameter(FunctionSignatureNode signature)
     {
-        if (expression is AddressOfExpressionNode addressOf)
+        if (!SupportsMethodInvocation(signature))
         {
-            result = addressOf;
-            return true;
+            throw new InvalidOperationException($"Cannot get {ParameterNode.SelfArgumentName} argument for a function who doesn't support method invocation.");
         }
+        return signature.Parameters[0];
         
-        var sourceType = _typeMap.GetType(expression);
-
-        if (sourceType.CanonicalName == targetType.CanonicalName)
-        {
-            result = expression;
-            return true;
-        }
-
-        if (targetType is ReferenceTypeNode targetRef && sourceType.CanonicalName == targetRef.Target.CanonicalName)
-        {
-            result = new AddressOfExpressionNode(expression, targetRef.IsMutable, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        if (sourceType is ReferenceTypeNode sourceRef && sourceRef.Target.CanonicalName == targetType.CanonicalName)
-        {
-            result = new DereferenceExpressionNode(expression, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        if (expression is IntegerLiteralNode intLiteral && targetType is NumericTypeNode targetNumeric)
-        {
-            if (TypeBounds.CanCoerceToType(intLiteral.Value, targetNumeric))
-            {
-                result = expression;
-                _typeMap.SetType(result, targetType);
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (expression is FloatLiteralNode floatLiteral && targetType is NumericTypeNode targetFloatNumeric)
-        {
-            if (TypeBounds.CanCoerceToType(floatLiteral.Value, targetFloatNumeric))
-            {
-                result = expression;
-                _typeMap.SetType(result, targetType);
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (sourceType is IntegerTypeNode sourceInt && targetType is FloatTypeNode targetFloat)
-        {
-            result = new CastIntToFloatNode(expression, targetFloat, sourceInt.Signed, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        if (sourceType is FloatTypeNode && targetType is IntegerTypeNode targetInt)
-        {
-            if (expression is FloatLiteralNode floatLit && !TypeBounds.CanCoerceToType(floatLit.Value, targetInt))
-            {
-                result = null;
-                return false;
-            }
-
-            result = new CastFloatToIntNode(expression, targetInt, targetInt.Signed, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        if (sourceType is IntegerTypeNode sourceIntToWiden && targetType is IntegerTypeNode widerInt &&
-            sourceIntToWiden.BitWidth < widerInt.BitWidth)
-        {
-            result = new ExtendIntegerNode(expression, widerInt, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        if (sourceType is FloatTypeNode sourceFloatToWiden && targetType is FloatTypeNode widerFloat &&
-            sourceFloatToWiden.BitWidth < widerFloat.BitWidth)
-        {
-            result = new ExtendFloatNode(expression, widerFloat, expression.Span);
-            _typeMap.SetType(result, targetType);
-            return true;
-        }
-
-        result = null;
-        return false;
     }
 }

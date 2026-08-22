@@ -2,85 +2,44 @@ using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.AST.HighLevel;
 
-public abstract class TypeNode : AstNode
+public abstract class TypeNode(Symbol symbol, SourceSpan span) : AstNode(span)
 {
-    public CanonicalName CanonicalName { get; init; }
-    
-    protected TypeNode(CanonicalName canonicalName, SourceSpan span) : base(span)
-    {
-        CanonicalName = canonicalName;
-    }
+    public Symbol Symbol { get; set; } = symbol;
 
-    protected TypeNode(string name, string[] modulePath, SourceSpan span) : this(CanonicalName.From(modulePath, name), span)
+    protected TypeNode(string name, SourceSpan span) : this(Symbol.From(name), span)
     {
     }
 }
 
-public class NominalTypeNode : TypeNode
+public class NominalTypeNode(string name, SourceSpan span) : TypeNode(name, span)
 {
-    public string Name { get; init; }
-    public string[] ModulePath { get; init; }
-
-    public NominalTypeNode(string name, string[] modulePath, SourceSpan span)
-        : base(name, modulePath , span)
+    public NominalTypeNode(string[] segments, SourceSpan span) : this(string.Join('.', segments), span)
     {
-        Name = name;
-        ModulePath = modulePath;
     }
 }
 
-public class SelfTypeNode : TypeNode
+public class SelfTypeNode(TypeNode scopedType, SourceSpan span) : TypeNode(scopedType.Symbol, span)
 {
-    public TypeNode ScopedType { get; init; }
-
-    public SelfTypeNode(TypeNode scopedType, SourceSpan span) : base(scopedType.CanonicalName, span)
-    {
-        ScopedType = scopedType;
-    }
+    public TypeNode ScopedType { get; init; } = scopedType;
 }
 
-public class TraitTypeNode : TypeNode
-{
-    public string Name { get; init; }
-    public string[] ModulePath { get; init; }
-
-    public TraitTypeNode(string name, string[] modulePath, SourceSpan span) : base(name, modulePath, span)
-    {
-        Name = name;
-        ModulePath = modulePath;
-    }
-}
+public class TraitTypeNode(string name, SourceSpan span) : TypeNode(name, span);
 
 public class ReferenceTypeNode : TypeNode
 {
-    public TypeNode Target { get; init; }
+    public TypeNode Target { get; set; }
     public bool IsMutable { get; init; }
 
-    public ReferenceTypeNode(TypeNode target, bool isMutable, SourceSpan span)
-        : base(new ReferenceCanonicalName(target, isMutable), span)
+    public ReferenceTypeNode(TypeNode target, bool isMutable, SourceSpan span) : base(target.Symbol, span) //todo: This might be a flaw - it's unclear what the symbol should be for a reference type. 
     {
         Target = target;
         IsMutable = isMutable;
     }
 }
 
-public abstract class BuiltInTypeNode : TypeNode
-{
-    public string Name { get; init; }
-    public string[] ModulePath { get; init; }
+public abstract class BuiltInTypeNode(string name, SourceSpan span) : TypeNode(name, span);
 
-    protected BuiltInTypeNode(string name, string[] modulePath, SourceSpan span)
-        : base(name, modulePath, span)
-    {
-        Name = name;
-        ModulePath = modulePath;
-    }
-}
-
-public abstract class PrimitiveTypeNode : BuiltInTypeNode
-{
-    protected PrimitiveTypeNode(string name, SourceSpan span) : base(name, [], span) { }
-}
+public abstract class PrimitiveTypeNode(string name, SourceSpan span) : BuiltInTypeNode(name, span);
 
 public class VoidTypeNode : PrimitiveTypeNode
 {
