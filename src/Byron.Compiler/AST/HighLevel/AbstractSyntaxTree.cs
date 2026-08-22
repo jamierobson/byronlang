@@ -12,19 +12,9 @@ public abstract class ModuleDeclarationNode(string name, SourceSpan span) : TopL
     public ModuleDeclarationCollection Declarations { get; } = new();
 }
 
-public class FileModuleNode : ModuleDeclarationNode
-{
+public class FileModuleNode(string fileName, SourceSpan span) : ModuleDeclarationNode(fileName, span);
 
-    public FileModuleNode(string fileName, SourceSpan span) : base(fileName, span)
-    {
-        ;
-    }
-}
-
-public class BlockModuleNode(string name, SourceSpan span) : ModuleDeclarationNode(name, span)
-{
-    
-}
+public class BlockModuleNode(string name, SourceSpan span) : ModuleDeclarationNode(name, span);
 
 public class ModuleDeclarationCollection
 {
@@ -41,14 +31,9 @@ public readonly record struct NodeId(int Value) : IComparable<NodeId>
     public int CompareTo(NodeId other) => Value.CompareTo(other.Value);
 }
 
-public abstract class AstNode
+public abstract class AstNode(SourceSpan span)
 {
     private static int _nextId;
     public NodeId Id { get; } = new(Interlocked.Increment(ref _nextId));
-    public SourceSpan Span { get; init; }
-
-    protected AstNode(SourceSpan span)
-    {
-        Span = span;
-    }
+    public SourceSpan Span { get; init; } = span;
 }

@@ -41,20 +41,16 @@ public class Diagnostics
     public void CircularReference(AST.Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
     public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
-    
     public void InvalidArgument(AST.Symbol argumentType, AST.Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
     public void InvalidUnaryOperation(UnaryExpressionNode unary, TypeNode operandType) => Add($"Cannot apply {unary.Operator.ToLexeme()} operator to type {operandType.Symbol} at {unary.Span}");
     public void InvalidDereference(DereferenceExpressionNode dereference, TypeNode targetType) => Add($"Cannot dereference a non-reference type {targetType.Symbol} at {dereference.Span}");
     public void InvalidArgumentCount(CallExpressionNode callExpression, FunctionDeclarationNode function) => Add($"{function.Symbol} has {function.Signature.Parameters.Count} parameter(s) but is invoked with {callExpression.Arguments.Count} arguments at {callExpression.Span}");
     public void NoSelfArgument(FunctionDeclarationNode function, SourceSpan callSiteSpan) => Add($"The function {function.Symbol} does not expose a first argument self at {callSiteSpan}");
-    // public void InvalidArgumentCount(CallExpressionNode callExpression, FunctionDescriptor function) => Add($"{function.Symbol} has {function.Parameters.Count} parameter(s) but is invoked with {callExpression.Arguments.Count} arguments at {callExpression.Span}");
-    // public void NoSelfArgument(FunctionDescriptor function, SourceSpan callSiteSpan) => Add($"The function {function.Symbol} does not expose a first argument self at {callSiteSpan}");
     public void InvalidSelfArgumentOutsideOfImplementBlock(FunctionSignatureNode function, SourceSpan callSiteSpan) => Add($"Cannot bind the Self type for function {function.Name}. Functions referring to self must be placed inside an implement block or a trait definition at {callSiteSpan}");
     public void InvalidSelfArgumentPosition(FunctionDeclarationNode function, ParameterNode parameter) => Add($"{parameter.Name} must be the first parameter declared in the function {function.Symbol} at {function.Span}"); 
     public void InvalidSelfArgumentType(string parameterType, string expectedType, FunctionDeclarationNode function) => Add($"The self parameter of function {function.Symbol} should be of type {expectedType}, but was declared as {parameterType} at {function.Span}");
     public void InvalidCast(LookupSymbol lookupSymbol, TypeNode targetType, SourceSpan span) => Add($"Cannot coerce variable {lookupSymbol.Name} from {lookupSymbol.Type} to {targetType.Symbol} at {span}");
     public void AmbiguousEntryPoint(FunctionDeclarationNode function, SourceSpan functionSpan) => Add($"Ambiguous application entry point: duplicate definition of {FunctionSignatureNode.EntryFunctionName} at  {function.Span}.");
-
     public void InvalidStructInitializationType(NominalTypeNode initializationNominalType, SourceSpan initializationSpan) => Add($"Invalid struct initialization: {initializationNominalType} is not a valid struct type at {initializationSpan}");
 }

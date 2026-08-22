@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.AST.HighLevel;
@@ -14,15 +13,6 @@ public abstract class TopLevelDeclarationNode : AstNode
             throw new ArgumentException($"{nameof(name)} must not be null when defining a symbol");
         }
         Symbol = new Symbol([..name.Split('.')]);
-    }
-
-    protected TopLevelDeclarationNode(IEnumerable<string> segments, SourceSpan span) : base(span)
-    {
-        if (segments.Count() == 0)
-        {
-            throw new ArgumentException($"{nameof(segments)} must not be empty when defining a symbol");
-        }
-        Symbol = new Symbol([..segments]);
     }
     
     protected TopLevelDeclarationNode(Symbol symbol, SourceSpan span) : base(span)

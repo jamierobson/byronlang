@@ -73,7 +73,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
         }
     }
 
-    public void CanonizeImplementBlockTypes(
+    private void CanonizeImplementBlockTypes(
         GlobalSymbolTableLookup globalSymbolTableLookup,
         ModuleDeclarationNode module, 
         Diagnostics diagnostics)
@@ -97,7 +97,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
         }
     }
 
-    public void CanonizeStructDeclarationFields(
+    private void CanonizeStructDeclarationFields(
         GlobalSymbolTableLookup globalSymbolTableLookup,
         ModuleDeclarationNode module, 
         Diagnostics diagnostics)

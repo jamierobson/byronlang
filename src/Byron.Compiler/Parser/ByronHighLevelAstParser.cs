@@ -199,7 +199,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
         return fields;
     }
 
-    public FunctionSignatureNode ParseFunctionSignature(SelfTypeContext? self)
+    private FunctionSignatureNode ParseFunctionSignature(SelfTypeContext? self)
     {
         var nameToken = Consume(TokenKind.Identifier, "Expected function name.");
         var parameters = ParseFunctionParameters(self); 
@@ -332,10 +332,6 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
             throw new ByronHighLevelParserException(
                 "The 'Self' type is only valid in an implementation block or in a trait function declaration", sourceSpan);
         }
-
-        TypeNode selfType =(context.ImplementBlock is not null)
-            ? context.ImplementBlock.TypeNode
-            : context.TraitDeclaration!;
         
         return new SelfTypeNode(context.GetSelfType(sourceSpan), sourceSpan);
     }

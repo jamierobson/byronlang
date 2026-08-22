@@ -7,260 +7,130 @@ public abstract record AstNode(High.AstNode SourceNode);
 public record ProgramNode(List<TopLevelDeclarationNode> Declarations);
 
 // Top level declarations
-public abstract record TopLevelDeclarationNode(High.TopLevelDeclarationNode SourceNode, string CanonicalName) : AstNode(SourceNode)
-{
-    public new High.TopLevelDeclarationNode SourceNode => (High.TopLevelDeclarationNode)base.SourceNode;
-}
+public abstract record TopLevelDeclarationNode(High.AstNode SourceNode, string CanonicalName) : AstNode(SourceNode);
 
 // Functions
-public record FunctionDeclarationNode(High.FunctionDeclarationNode SourceNode, FunctionSignatureNode Signature, BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode, Signature.CanonicalName)
-{
-    public new High.FunctionDeclarationNode SourceNode => (High.FunctionDeclarationNode)base.SourceNode;
-}
+public record FunctionDeclarationNode(
+    High.AstNode SourceNode,
+    FunctionSignatureNode Signature,
+    BlockStatementNode Body) : TopLevelDeclarationNode(SourceNode, Signature.CanonicalName);
 
-public record FunctionSignatureNode(High.FunctionSignatureNode SourceNode, string CanonicalName, List<ParameterNode> Parameters, TypeNode ReturnType) : AstNode(SourceNode)
-{
-    public new High.FunctionSignatureNode SourceNode => (High.FunctionSignatureNode)base.SourceNode;
-}
+public record FunctionSignatureNode(
+    High.AstNode SourceNode,
+    string CanonicalName,
+    List<ParameterNode> Parameters,
+    TypeNode ReturnType) : AstNode(SourceNode);
 
-public record ParameterNode(High.ParameterNode SourceNode, TypeNode Type) : AstNode(SourceNode)
-{
-    public new High.ParameterNode SourceNode => (High.ParameterNode)base.SourceNode;
-    public string Name => SourceNode.Name;
-    public ReceiverBindingOwnership Ownership => SourceNode.Ownership;
-}
+public record ParameterNode(High.AstNode SourceNode, string Name, ReceiverBindingOwnership Ownership, TypeNode Type)
+    : AstNode(SourceNode);
 
 // Structs
-public record StructDeclarationNode(High.StructDeclarationNode SourceNode, string CanonicalName, List<StructFieldNode> Fields) : TopLevelDeclarationNode(SourceNode, CanonicalName)
-{
-    public new High.StructDeclarationNode SourceNode => (High.StructDeclarationNode)base.SourceNode;
-    // public string Name => SourceNode.Symbol.MemberName;
-}
+public record StructDeclarationNode(High.AstNode SourceNode, string CanonicalName, List<StructFieldNode> Fields)
+    : TopLevelDeclarationNode(SourceNode, CanonicalName);
 
-public record StructFieldNode(High.StructFieldNode SourceNode, TypeNode Type) : AstNode(SourceNode)
-{
-    public new High.StructFieldNode SourceNode => (High.StructFieldNode)base.SourceNode;
-    public string Name => SourceNode.Name;
-}
+public record StructFieldNode(High.AstNode SourceNode, string Name, TypeNode Type) : AstNode(SourceNode);
 
-public record StructFieldInitializerNode(High.StructFieldInitializerNode SourceNode, ExpressionNode Value) : AstNode(SourceNode)
-{
-    public new High.StructFieldInitializerNode SourceNode => (High.StructFieldInitializerNode)base.SourceNode;
-    
-    public string FieldName => SourceNode.FieldName;
-}
+public record StructFieldInitializerNode(High.AstNode SourceNode, string FieldName, ExpressionNode Value)
+    : AstNode(SourceNode);
 
 // Statements
-public abstract record StatementNode(High.StatementNode SourceNode) : AstNode(SourceNode)
-{
-    public new High.StatementNode SourceNode => (High.StatementNode)base.SourceNode;
-}
+public abstract record StatementNode(High.AstNode SourceNode) : AstNode(SourceNode);
+public record BlockStatementNode(High.AstNode SourceNode, List<StatementNode> Statements) : StatementNode(SourceNode);
 
-public record BlockStatementNode(High.BlockStatementNode SourceNode, List<StatementNode> Statements) : StatementNode(SourceNode)
-{
-    public new High.BlockStatementNode SourceNode => (High.BlockStatementNode)base.SourceNode;
-}
+public record ReturnStatementNode(High.AstNode SourceNode, ExpressionNode? Expression)
+    : StatementNode(SourceNode);
 
-public record ReturnStatementNode(High.ReturnStatementNode SourceNode, ExpressionNode? Expression) : StatementNode(SourceNode)
-{
-    public new High.ReturnStatementNode SourceNode => (High.ReturnStatementNode)base.SourceNode;
-}
+public record YieldStatementNode(High.AstNode SourceNode, ExpressionNode Expression) : StatementNode(SourceNode);
 
-public record YieldStatementNode(High.YieldStatementNode SourceNode, ExpressionNode Expression) : StatementNode(SourceNode)
-{
-    public new High.YieldStatementNode SourceNode => (High.YieldStatementNode)base.SourceNode;
-}
+public record DiscardStatementNode(High.AstNode SourceNode, ExpressionNode Initializer) : StatementNode(SourceNode);
 
-public record DiscardStatementNode(High.DiscardStatementNode SourceNode, ExpressionNode Initializer) : StatementNode(SourceNode)
-{
-    public new High.DiscardStatementNode SourceNode => (High.DiscardStatementNode)base.SourceNode;
-}
+public record VariableDeclarationNode(
+    High.AstNode SourceNode,
+    string Name,
+    bool IsMutable,
+    TypeNode? ExplicitType,
+    ExpressionNode Initializer) : StatementNode(SourceNode);
 
-public record VariableDeclarationNode(High.VariableDeclarationNode SourceNode, TypeNode? ExplicitType, ExpressionNode Initializer) : StatementNode(SourceNode)
-{
-    public new High.VariableDeclarationNode SourceNode => (High.VariableDeclarationNode)base.SourceNode;
-    
-    public string Name => SourceNode.Name;
-    public bool IsMutable => SourceNode.IsMutable;
-}
+public record AssignmentStatementNode(
+    High.AstNode SourceNode,
+    ExpressionNode Target,
+    ExpressionNode Value) : StatementNode(SourceNode);
 
-public record AssignmentStatementNode(High.AssignmentStatementNode SourceNode, ExpressionNode Target, ExpressionNode Value) : StatementNode(SourceNode)
-{
-public new High.AssignmentStatementNode SourceNode => (High.AssignmentStatementNode)base.SourceNode;
-}
+public record ExpressionStatementNode(High.AstNode SourceNode, ExpressionNode Expression) : StatementNode(SourceNode);
 
-public record ExpressionStatementNode(High.ExpressionStatementNode SourceNode, ExpressionNode Expression) : StatementNode(SourceNode)
-{
-    public new High.ExpressionStatementNode SourceNode => (High.ExpressionStatementNode)base.SourceNode;
-}
+public record IfStatementNode(High.AstNode SourceNode, ExpressionNode Condition, BlockStatementNode ThenBranch)
+    : StatementNode(SourceNode);
+public record IfElseStatementNode(High.AstNode SourceNode, ExpressionNode Condition, BlockStatementNode ThenBranch, BlockStatementNode ElseBranch ) : IfStatementNode(SourceNode, Condition, ThenBranch);
 
-public record IfStatementNode(High.IfElseStatement SourceNode, ExpressionNode Condition, BlockStatementNode ThenBranch) : StatementNode(SourceNode)
-{
-    public new High.IfElseStatement SourceNode => (High.IfElseStatement)base.SourceNode;
-}
-
-public record IfElseStatementNode(High.IfElseStatement SourceNode, ExpressionNode Condition, BlockStatementNode ThenBranch, BlockStatementNode ElseBranch ) : IfStatementNode(SourceNode, Condition, ThenBranch);
-
-public record WhileStatement(High.WhileStatement SourceNode, ExpressionNode ContinuationCondition, BlockStatementNode Body ): StatementNode(SourceNode)
-{
-    public new High.WhileStatement SourceNode => (High.WhileStatement)base.SourceNode;
-}
-
+public record WhileStatement(High.AstNode SourceNode, ExpressionNode ContinuationCondition, BlockStatementNode Body)
+    : StatementNode(SourceNode);
 public record BreakStatement(High.BreakStatement SourceNode): StatementNode(SourceNode)
 {
     public new High.BreakStatement SourceNode => (High.BreakStatement)base.SourceNode;
 }
 
-public record ContinueStatement(High.ContinueStatement SourceNode): StatementNode(SourceNode)
-{
-    public new High.ContinueStatement SourceNode => (High.ContinueStatement)base.SourceNode;
-}
-
+public record ContinueStatement(High.AstNode SourceNode) : StatementNode(SourceNode);
 // Expressions
-public abstract record ExpressionNode(High.ExpressionNode SourceNode) : AstNode(SourceNode)
-{
-    public new High.ExpressionNode SourceNode => (High.ExpressionNode)base.SourceNode;
-}
+public abstract record ExpressionNode(High.AstNode SourceNode) : AstNode(SourceNode);
 
-public record IntegerLiteralNode(High.IntegerLiteralNode SourceNode) : ExpressionNode(SourceNode)
-{
-    public new High.IntegerLiteralNode SourceNode => (High.IntegerLiteralNode)base.SourceNode;
-    public long Value => SourceNode.Value;
-}
+public record IntegerLiteralNode(High.AstNode SourceNode, long Value) : ExpressionNode(SourceNode);
 
-public record FloatLiteralNode(High.FloatLiteralNode SourceNode) : ExpressionNode(SourceNode)
-{
-    public new High.FloatLiteralNode SourceNode => (High.FloatLiteralNode)base.SourceNode;
-    public double Value => SourceNode.Value;
-}
+public record FloatLiteralNode(High.AstNode SourceNode, double Value) : ExpressionNode(SourceNode);
 
-public record BoolLiteralNode(High.BooleanLiteralNode SourceNode) : ExpressionNode(SourceNode)
-{
-    public new High.BooleanLiteralNode SourceNode => (High.BooleanLiteralNode)base.SourceNode;
-    public bool Value => SourceNode.Value;
-}
+public record BoolLiteralNode(High.AstNode SourceNode, bool Value) : ExpressionNode(SourceNode);
 
-public record VariableExpressionNode(High.VariableExpressionNode SourceNode, string Name) : ExpressionNode(SourceNode)
-{
-    public new High.VariableExpressionNode SourceNode => (High.VariableExpressionNode)base.SourceNode;
-}
+public record VariableExpressionNode(High.AstNode SourceNode, string Name) : ExpressionNode(SourceNode);
 
-public record CallExpressionNode(High.CallExpressionNode SourceNode, ExpressionNode Callee, List<ExpressionNode> Arguments) : ExpressionNode(SourceNode)
-{
-    public new High.CallExpressionNode SourceNode => (High.CallExpressionNode)base.SourceNode;
-}
+public record CallExpressionNode(High.AstNode SourceNode, ExpressionNode Callee, List<ExpressionNode> Arguments)
+    : ExpressionNode(SourceNode);
 
-public record BinaryExpressionNode(High.BinaryExpressionNode SourceNode, ExpressionNode Left, ExpressionNode Right) : ExpressionNode(SourceNode)
-{
-    public new High.BinaryExpressionNode SourceNode => (High.BinaryExpressionNode)base.SourceNode;
-    public BinaryOperator Operator =>  SourceNode.Operator; 
-}
+public record BinaryExpressionNode(
+    High.AstNode SourceNode,
+    ExpressionNode Left,
+    BinaryOperator Operator,
+    ExpressionNode Right) : ExpressionNode(SourceNode);
 
-public record StructFieldInitializationExpressionNode(High.StructFieldInitializationExpressionNode SourceNode, NominalTypeNode Type, List<StructFieldInitializerNode> FieldInitializers) : ExpressionNode(SourceNode)
-{
-    public new High.StructFieldInitializationExpressionNode SourceNode => (High.StructFieldInitializationExpressionNode)base.SourceNode;
-    // public string StructName => SourceNode.NominalType.Symbol.MemberName;
-}
+public record StructFieldInitializationExpressionNode(
+    High.AstNode SourceNode,
+    NominalTypeNode Type,
+    List<StructFieldInitializerNode> FieldInitializers) : ExpressionNode(SourceNode);
 
-public record MemberAccessExpressionNode(High.MemberAccessExpressionNode SourceNode, ExpressionNode Target, string MemberName) : ExpressionNode(SourceNode)
-{
-    public new High.MemberAccessExpressionNode SourceNode => (High.MemberAccessExpressionNode)base.SourceNode;
-}
+public record MemberAccessExpressionNode(
+    High.AstNode SourceNode,
+    ExpressionNode Target,
+    string MemberName) : ExpressionNode(SourceNode);
 
-public record DereferenceExpressionNode(High.DereferenceExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
-{
-    public new High.DereferenceExpressionNode SourceNode => (High.DereferenceExpressionNode)base.SourceNode;
-}
+public record DereferenceExpressionNode(High.AstNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode);
+public record AddressOfExpressionNode(High.AstNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode);
+public record ExtendIntegerNode(High.AstNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType)
+    : ExpressionNode(SourceNode);
 
-public record AddressOfExpressionNode(High.AddressOfExpressionNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode)
-{
-    public new High.AddressOfExpressionNode SourceNode => (High.AddressOfExpressionNode)base.SourceNode;
-}
+public record ExtendFloatNode(High.AstNode SourceNode, ExpressionNode Operand, FloatTypeNode TargetType)
+    : ExpressionNode(SourceNode);
 
-public record ExtendIntegerNode(High.ExtendIntegerNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType) : ExpressionNode(SourceNode)
-{
-    public new High.ExtendIntegerNode SourceNode => (High.ExtendIntegerNode)base.SourceNode;
-}
-public record ExtendFloatNode(High.ExtendFloatNode SourceNode, ExpressionNode Operand, FloatTypeNode TargetType) : ExpressionNode(SourceNode)
-{
-    public new High.ExtendFloatNode SourceNode => (High.ExtendFloatNode)base.SourceNode;
-}
+public record CastIntToFloatNode(
+    High.AstNode SourceNode,
+    ExpressionNode Operand,
+    FloatTypeNode TargetType,
+    bool SourceTypeIsSigned) : ExpressionNode(SourceNode);
 
-public record CastIntToFloatNode(High.CastIntToFloatNode SourceNode, ExpressionNode Operand, FloatTypeNode TargetType) : ExpressionNode(SourceNode)
-{
-    public new High.CastIntToFloatNode SourceNode => (High.CastIntToFloatNode)base.SourceNode;
-    public bool SourceTypeIsSigned =>  SourceNode.SourceTypeIsSigned;
-}
-
-public record CastFloatToIntNode(High.CastFloatToIntNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType) : ExpressionNode(SourceNode)
-{
-    public new High.CastFloatToIntNode SourceNode => (High.CastFloatToIntNode)base.SourceNode;
-}
+public record CastFloatToIntNode(High.AstNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType)
+    : ExpressionNode(SourceNode);
 
 // public record BlockExpressionNode(List<StatementNode> Statements) : ExpressionNode;
 // public record MatchExpressionNode(ReceiverBindingOwnership BindingOwnership, ExpressionNode Source, List<MatchExpressionArmNode> Arms) : ExpressionNode;
 // public record MatchExpressionArmNode(bool IsMutable, string VariantName, string BindingIdentifier, BlockExpressionNode Body) : AstNode;
 
 // Types
-public abstract record TypeNode(High.TypeNode SourceNode) : AstNode(SourceNode)
-{
-    public new High.TypeNode SourceNode => (High.TypeNode)base.SourceNode;
-}
-
-public record NominalTypeNode(High.NominalTypeNode SourceNode, string CanonicalName) : TypeNode(SourceNode)
-{
-    public new High.NominalTypeNode SourceNode => (High.NominalTypeNode)base.SourceNode;
-}
-
-public record ReferenceTypeNode(High.TypeNode SourceNode, TypeNode Target) : TypeNode(SourceNode);
-
-public abstract record BuiltInTypeNode(High.BuiltInTypeNode SourceNode) : TypeNode(SourceNode)
-{
-    public new High.BuiltInTypeNode SourceNode => (High.BuiltInTypeNode)base.SourceNode;
-}
-
-public abstract record PrimitiveTypeNode(High.PrimitiveTypeNode SourceNode) : BuiltInTypeNode(SourceNode)
-{
-    public new High.PrimitiveTypeNode SourceNode => (High.PrimitiveTypeNode)base.SourceNode;
-}
-
-public record IntegerTypeNode(High.IntegerTypeNode SourceNode) : PrimitiveTypeNode(SourceNode)
-{
-    public new High.IntegerTypeNode SourceNode => (High.IntegerTypeNode)base.SourceNode;
-    public int BitWidth => SourceNode.BitWidth;
-    public bool Signed => SourceNode.Signed;
-}
-
-public record UnsignedIntTypeNode(High.UnsignedIntTypeNode SourceNode) : IntegerTypeNode(SourceNode)
-{
-    public new High.UnsignedIntTypeNode SourceNode => (High.UnsignedIntTypeNode)base.SourceNode;
-}
-
-public record SignedIntTypeNode(High.SignedIntTypeNode SourceNode) : IntegerTypeNode(SourceNode)
-{
-    public new High.SignedIntTypeNode SourceNode => (High.SignedIntTypeNode)base.SourceNode;
-}
-
-
-public record FloatTypeNode(High.FloatTypeNode SourceNode) : PrimitiveTypeNode(SourceNode)
-{
-    public new High.FloatTypeNode SourceNode => (High.FloatTypeNode)base.SourceNode;
-    public int BitWidth => SourceNode.BitWidth;
-}
-
-
-public record BoolTypeNode(High.BoolTypeNode SourceNode) : PrimitiveTypeNode(SourceNode)
-{
-    public new High.BoolTypeNode SourceNode => (High.BoolTypeNode)base.SourceNode;
-}
-
-
-public record RuneTypeNode(High.RuneTypeNode SourceNode) : PrimitiveTypeNode(SourceNode)
-{
-    public new High.RuneTypeNode SourceNode => (High.RuneTypeNode)base.SourceNode;
-}
-
-public record VoidTypeNode(High.VoidTypeNode SourceNode) : PrimitiveTypeNode(SourceNode)
-{
-    public new High.VoidTypeNode SourceNode => (High.VoidTypeNode)base.SourceNode;
-}
+public abstract record TypeNode(High.AstNode SourceNode) : AstNode(SourceNode);
+public record NominalTypeNode(High.AstNode SourceNode, string CanonicalName) : TypeNode(SourceNode);
+public record ReferenceTypeNode(High.AstNode SourceNode, TypeNode Target) : TypeNode(SourceNode);
+public abstract record BuiltInTypeNode(High.AstNode SourceNode) : TypeNode(SourceNode);
+public abstract record PrimitiveTypeNode(High.AstNode SourceNode) : BuiltInTypeNode(SourceNode);
+public record IntegerTypeNode(High.AstNode SourceNode, int BitWidth, bool Signed) : PrimitiveTypeNode(SourceNode);
+public record UnsignedIntTypeNode(High.AstNode SourceNode, int BitWidth, bool Signed) : IntegerTypeNode(SourceNode, BitWidth, Signed);
+public record SignedIntTypeNode(High.AstNode SourceNode, int BitWidth, bool Signed) : IntegerTypeNode(SourceNode, BitWidth, Signed);
+public record FloatTypeNode(High.AstNode SourceNode, int BitWidth) : PrimitiveTypeNode(SourceNode);
+public record BoolTypeNode(High.AstNode SourceNode) : PrimitiveTypeNode(SourceNode);
+public record RuneTypeNode(High.AstNode SourceNode) : PrimitiveTypeNode(SourceNode);
+public record VoidTypeNode(High.AstNode SourceNode) : PrimitiveTypeNode(SourceNode);
