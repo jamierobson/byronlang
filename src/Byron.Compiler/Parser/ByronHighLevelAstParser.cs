@@ -48,10 +48,36 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
                     declarations.ChildModules.Add(module);
                     ParseModuleDeclarations(module.Declarations);
                     continue;
+                case TokenKind.Alias:
+                    declarations.Aliases.Add(ParseAlias());
+                    break;
                 default:
                     throw new ByronNotImplementedException(token.Kind, this, token.Span);
             }
         }
+    }
+
+    private AliasDeclarationNode ParseAlias()
+    {
+        var startToken = Consume(TokenKind.Alias, "Expected 'alias' block.");
+        var aliasIdentifier = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
+        _ = Consume(TokenKind.Equals, "Expected '=' after identifier.");
+        
+        var symbolSegments = new List<string>();
+        
+        var firstIdentifierSegment = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
+        symbolSegments.Add(firstIdentifierSegment.Lexeme);
+        while (ActiveTokenMatch(TokenKind.Dot))
+        {
+            Advance();
+            var segment = Consume(TokenKind.Identifier, "Expected a period separated identifier");
+            symbolSegments.Add(segment.Lexeme);
+        }
+        
+        var endToken = Consume(TokenKind.Semicolon, "Expected ';' ");
+        
+        var symbol = new Symbol(symbolSegments.ToArray());
+        return new AliasDeclarationNode(aliasIdentifier.Lexeme, symbol, ExpandSpan(startToken, endToken));
     }
 
     private BlockModuleNode ModuleBlock()

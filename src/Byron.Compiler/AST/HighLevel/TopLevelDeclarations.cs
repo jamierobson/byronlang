@@ -83,6 +83,11 @@ public class ParameterNode : AstNode
     }
 }
 
+public class AliasDeclarationNode(string name, Symbol symbol, SourceSpan span) : TopLevelDeclarationNode(symbol, span)
+{
+    public string Name = name;
+}
+
 public class TraitDeclarationNode : TopLevelDeclarationNode
 {
     public TraitTypeNode Type { get; init; }

@@ -23,6 +23,7 @@ public class ModuleDeclarationCollection
     public List<TraitDeclarationNode> Traits { get; } = new();
     public List<BlockModuleNode> ChildModules { get; } = new();
     public List<ImplementBlockDeclarationNode> ImplementBlocks { get; } = new();
+    public List<AliasDeclarationNode> Aliases { get; } = new();
 }
 
 public readonly record struct NodeId(int Value) : IComparable<NodeId>

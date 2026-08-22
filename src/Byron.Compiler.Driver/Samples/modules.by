@@ -1,7 +1,7 @@
 alias DupeA = Module_A.Dupe;
 alias Module_A = My.ModuleA;
 alias Module_B = My.ModuleB;
-alias AliasedTrait = My.ModuleB.MyTrait;
+alias AliasedTrait = Module_B.MyTrait;
 
 fn main():i32 {
     let a = DupeA {
