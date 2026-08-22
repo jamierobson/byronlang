@@ -14,6 +14,11 @@ public abstract class TopLevelDeclarationNode : AstNode
         }
         Symbol = new Symbol([..name.Split('.')]);
     }
+
+    protected TopLevelDeclarationNode(string[] symbolSegments, SourceSpan span) : base(span)
+    {
+        Symbol = new Symbol(symbolSegments);
+    }
     
     protected TopLevelDeclarationNode(Symbol symbol, SourceSpan span) : base(span)
     {

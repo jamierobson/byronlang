@@ -9,11 +9,18 @@ public abstract class TypeNode(Symbol symbol, SourceSpan span) : AstNode(span)
     protected TypeNode(string name, SourceSpan span) : this(Symbol.From(name), span)
     {
     }
+
+    protected TypeNode(string[] nameSegments, SourceSpan span) : this(Symbol.From(nameSegments), span)
+    {
+    }
 }
 
-public class NominalTypeNode(string name, SourceSpan span) : TypeNode(name, span)
+public class NominalTypeNode : TypeNode
 {
-    public NominalTypeNode(string[] segments, SourceSpan span) : this(string.Join('.', segments), span)
+    public NominalTypeNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    public NominalTypeNode(string[] segments, SourceSpan span) : base(segments, span)
     {
     }
 }
@@ -23,7 +30,15 @@ public class SelfTypeNode(TypeNode scopedType, SourceSpan span) : TypeNode(scope
     public TypeNode ScopedType { get; init; } = scopedType;
 }
 
-public class TraitTypeNode(string name, SourceSpan span) : TypeNode(name, span);
+public class TraitTypeNode : TypeNode
+{
+    public TraitTypeNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    public TraitTypeNode(string[] nameSegments, SourceSpan span) : base(nameSegments, span)
+    {
+    }
+}
 
 public class ReferenceTypeNode : TypeNode
 {

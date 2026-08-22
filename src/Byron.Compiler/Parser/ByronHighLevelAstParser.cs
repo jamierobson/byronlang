@@ -62,31 +62,34 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
         var startToken = Consume(TokenKind.Alias, "Expected 'alias' block.");
         var aliasIdentifier = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
         _ = Consume(TokenKind.Equals, "Expected '=' after identifier.");
-        
-        var symbolSegments = new List<string>();
-        
-        var firstIdentifierSegment = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
-        symbolSegments.Add(firstIdentifierSegment.Lexeme);
-        while (ActiveTokenMatch(TokenKind.Dot))
-        {
-            Advance();
-            var segment = Consume(TokenKind.Identifier, "Expected a period separated identifier");
-            symbolSegments.Add(segment.Lexeme);
-        }
-        
+        var aliasingSymbolSegments = ParseMultiSegmentIdentifier("alias");
+        var symbol = new Symbol(aliasingSymbolSegments.Segments);
         var endToken = Consume(TokenKind.Semicolon, "Expected ';' after alias declaration");
-        
-        var symbol = new Symbol(symbolSegments.ToArray());
         return new AliasDeclarationNode(aliasIdentifier.Lexeme, symbol, ExpandSpan(startToken, endToken));
     }
+
+    private (string[] Segments, SourceSpan Span) ParseMultiSegmentIdentifier(string errorMessageUsage)
+    {
+        var firstIdentifier = Consume(TokenKind.Identifier, $"Expected identifier after {errorMessageUsage}.");
+
+        var identifierSegments = new List<string> { firstIdentifier.Lexeme };
+        while (ActiveTokenMatch(TokenKind.Dot) && PeekNext()?.Kind == TokenKind.Identifier)
+        {
+            Advance();
+            var nextSegment = Consume(TokenKind.Identifier, $"Expected identifier after '.'.");
+            identifierSegments.Add(nextSegment.Lexeme);
+        }
+        
+        return (identifierSegments.ToArray(), ExpandSpan(firstIdentifier, Previous()));
+    } 
 
     private BlockModuleNode ModuleBlock()
     {
         _ = Consume(TokenKind.Module, "Expected 'module' block.");
-        var identifier = Consume(TokenKind.Identifier, "Expected identifier");
+        var identifier = ParseMultiSegmentIdentifier("module declaration");
         _ = Consume(TokenKind.LBrace, "Expected '{'.");
         
-        return new BlockModuleNode(identifier.Lexeme, identifier.Span);
+        return new BlockModuleNode(identifier.Segments, identifier.Span);
     }
 
     private TraitDeclarationNode ParseTraitDeclaration()
@@ -142,19 +145,19 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
     private ImplementBlockDeclarationNode ParseImplementBlock()
     {
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
-        var activeIdentifier = Consume(TokenKind.Identifier, "Expected identifier");
+        var activeIdentifier = ParseMultiSegmentIdentifier("implement block declaration");
 
         TraitTypeNode? trait = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.For))
         {
-            trait = new TraitTypeNode(activeIdentifier.Lexeme, activeIdentifier.Span);
-            activeIdentifier = Consume(TokenKind.Identifier, "Expected struct identifier after 'for' in trait implementation block");
+            trait = new TraitTypeNode(activeIdentifier.Segments, activeIdentifier.Span);
+            activeIdentifier = ParseMultiSegmentIdentifier("type identifier after 'for in trait implementation block");
         }
         
         var leftBrace = Consume(TokenKind.LBrace, "Expected '{'.");
         
-        var declaredType = new NominalTypeNode(activeIdentifier.Lexeme, activeIdentifier.Span);
+        var declaredType = new NominalTypeNode(activeIdentifier.Segments, activeIdentifier.Span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
         var selfType = SelfTypeContext.From(implementBlockDeclarationNode);
 
@@ -404,7 +407,11 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
 
     private bool ActiveTokenMatch(TokenKind kind) => !IsAtEnd() && Peek().Kind == kind;
     private Token Peek() => tokenizedFile.Tokens[_activeTokenIndex];
+    private Token? PeekPlus(int lookahead) => _activeTokenIndex + lookahead < tokenizedFile.Tokens.Count
+        ? tokenizedFile.Tokens[_activeTokenIndex + lookahead]
+        : null;
     private Token Previous() => tokenizedFile.Tokens[_activeTokenIndex - 1];
+    private Token? PeekNext() => PeekPlus(1);
     private bool IsAtEnd() => _activeTokenIndex >= tokenizedFile.Tokens.Count || Peek().Kind == TokenKind.Eof;
     private Token Consume(TokenKind kind, string error) => ActiveTokenMatch(kind) ? Advance() : throw new ByronHighLevelParserException(error, _activeTokenIndex > 0 ? Previous().Span : Peek().Span);
     private SourceSpan ExpandSpan(Token firstToken, Token endToken) => ExpandSpan(firstToken.Span, endToken.Span);

@@ -16,7 +16,7 @@ public record SelfTypeContext(ImplementBlockDeclarationNode? ImplementBlock, Tra
             throw new ByronHighLevelParserException("The 'Self' type is only valid in an implementation block or in a trait function declaration", sourceSpan);
         }
         
-        return (ImplementBlock is not null)
+        return ImplementBlock is not null
             ? ImplementBlock.TypeNode
             : TraitDeclaration!;
     }

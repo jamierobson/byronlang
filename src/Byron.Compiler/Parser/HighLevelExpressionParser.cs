@@ -2,7 +2,6 @@ using System.Globalization;
 using Byron.Compiler.AST;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.AST.HighLevel;
-using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.Parser;
 
@@ -129,7 +128,6 @@ public partial class ByronHighLevelAstParser
     private ExpressionNode ParsePostfixExpression(SelfTypeContext? self)
     {
         var expression = ParsePrimaryExpression(self);
-        var identifier = Previous();
         while (!IsAtEnd())
         {
             if (ConsumingActiveTokenMatch(TokenKind.Dot))
@@ -151,12 +149,8 @@ public partial class ByronHighLevelAstParser
 
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
-                if (identifier is { Kind: TokenKind.Identifier})
-                {
-                    expression = ParseCallExpression(self, expression);
-                    continue;
-                }
-                throw new ByronHighLevelParserException("Bad identifier token provided to parsing function invocation", Peek().Span);
+                expression = ParseCallExpression(self, expression);
+                continue;
             }
             break;
         }
@@ -224,18 +218,30 @@ public partial class ByronHighLevelAstParser
             return new VariableExpressionNode(selfToken.Lexeme, selfToken.Span);
             
         }
-        if (ConsumingActiveTokenMatch(TokenKind.Identifier))
+        if (ActiveTokenMatch(TokenKind.Identifier))
         {
-            var identifier = Previous();
+            
+            var identifier = Advance();
             ExpressionNode expression;
             if (ConsumingActiveTokenMatch(TokenKind.LBrace))
             {
                 var initializers = ParseStructFieldInitializers(self);
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
-
                 var typeNode = new NominalTypeNode(identifier.Lexeme, identifier.Span);
+                
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier.Span, endToken.Span));
+            }
+            else if (TokenKindFollowingDotIdentifierSeries() is TokenKind.LBrace)
+            {
+                Advance(); // advance over period
+                var restOfIdentifier = ParseMultiSegmentIdentifier("struct initialization");
+                _ = Consume(TokenKind.LBrace, "Expected '{' in struct field initialization.");
+                
+                var initializers = ParseStructFieldInitializers(self);
+                var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
+                var typeNode = new NominalTypeNode([identifier.Lexeme, ..restOfIdentifier.Segments], identifier.Span);
 
-                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier, endToken));
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier.Span, endToken.Span));
             }
             else
             {
@@ -246,6 +252,18 @@ public partial class ByronHighLevelAstParser
         }
         
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
+    }
+
+    private TokenKind TokenKindFollowingDotIdentifierSeries()
+    {
+        var index = 0;
+        while (PeekPlus(index)?.Kind is TokenKind.Dot && PeekPlus(index + 1)?.Kind is TokenKind.Identifier)
+        {
+            index++;
+            index++;
+        }
+        
+        return PeekPlus(index)?.Kind ?? TokenKind.Eof;
     }
 
     private CallExpressionNode ParseCallExpression(SelfTypeContext? self, ExpressionNode callee)

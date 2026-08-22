@@ -7,14 +7,29 @@ public class ProgramNode(List<FileModuleNode> modules)
     public readonly IReadOnlyList<FileModuleNode> RootModules = modules;
 };
 
-public abstract class ModuleDeclarationNode(string name, SourceSpan span) : TopLevelDeclarationNode(name, span)
+public abstract class ModuleDeclarationNode : TopLevelDeclarationNode
 {
+    protected ModuleDeclarationNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    protected ModuleDeclarationNode(string[] symbolSegments, SourceSpan span) : base(symbolSegments, span)
+    {
+    }
     public ModuleDeclarationCollection Declarations { get; } = new();
 }
 
 public class FileModuleNode(string fileName, SourceSpan span) : ModuleDeclarationNode(fileName, span);
 
-public class BlockModuleNode(string name, SourceSpan span) : ModuleDeclarationNode(name, span);
+public class BlockModuleNode : ModuleDeclarationNode
+{
+    public BlockModuleNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    
+    public BlockModuleNode(string[] symbolSegments, SourceSpan span) : base(symbolSegments, span)
+    {
+    }
+}
 
 public class ModuleDeclarationCollection
 {

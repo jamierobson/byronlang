@@ -30,14 +30,9 @@ public record Symbol(string[] Segments)
     }
 
     public static Symbol From(string name) => new ([..name.Split('.')]);
+    public static Symbol From(string[] nameSegments) => new (nameSegments);
     public static readonly Symbol Empty =  new ([]); 
 
 }
 
 public record PrimitiveTypeSymbol(string TypeName, int ByteSize, bool IsSigned) : Symbol([..TypeName.Split('.')]);
-
-
-// public record ReferenceSymbol(TypeNode ReferencedType, bool IsMutable) : Symbol(ReferencedType.CanonicalName.ModulePath, ReferencedType.CanonicalName.ShortName)
-// {
-//     protected override string CanonicalNameAsString => field ??= $"&{(IsMutable ? "var " : "")}{ReferencedType}";
-// }
