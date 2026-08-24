@@ -558,7 +558,8 @@ public class TypeInferenceVisitor(
                 var self = SelfParameter(function.Signature);
                 var targetType = self.Type;
                 
-                if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
+                // if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
+                if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, function.Symbol.Segments[..^1], module, out var resolvedSelfType))
                 {
                     diagnostics.UndeclaredType(self.Type, "self type argument");
                 }
