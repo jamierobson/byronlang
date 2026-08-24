@@ -128,8 +128,15 @@ public partial class ByronHighLevelAstParser
     private ExpressionNode ParsePostfixExpression(SelfTypeContext? self)
     {
         var expression = ParsePrimaryExpression(self);
+        
         while (!IsAtEnd())
-        {
+        { 
+            if (ConsumingActiveTokenMatch(TokenKind.LParen))
+            {
+                expression = ParseCallExpression(self, expression);
+                continue;
+            }
+            
             if (ConsumingActiveTokenMatch(TokenKind.Dot))
             {
                 if (ConsumingActiveTokenMatch(TokenKind.Asterisk))
@@ -144,12 +151,6 @@ public partial class ByronHighLevelAstParser
                     memberToken.Lexeme, 
                     ExpandSpan(expression, memberToken)
                 );
-                continue;
-            }
-
-            if (ConsumingActiveTokenMatch(TokenKind.LParen))
-            {
-                expression = ParseCallExpression(self, expression);
                 continue;
             }
             break;
@@ -218,52 +219,39 @@ public partial class ByronHighLevelAstParser
             return new VariableExpressionNode(selfToken.Lexeme, selfToken.Span);
             
         }
+
         if (ActiveTokenMatch(TokenKind.Identifier))
         {
-            
-            var identifier = Advance();
             ExpressionNode expression;
+            var identifierChain = ParseMultiSegmentIdentifier("in a multi segmented identifier string");
+
             if (ConsumingActiveTokenMatch(TokenKind.LBrace))
             {
                 var initializers = ParseStructFieldInitializers(self);
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
-                var typeNode = new NominalTypeNode(identifier.Lexeme, identifier.Span);
-                
-                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier.Span, endToken.Span));
-            }
-            else if (TokenKindFollowingDotIdentifierSeries() is TokenKind.LBrace)
-            {
-                Advance(); // advance over period
-                var restOfIdentifier = ParseMultiSegmentIdentifier("struct initialization");
-                _ = Consume(TokenKind.LBrace, "Expected '{' in struct field initialization.");
-                
-                var initializers = ParseStructFieldInitializers(self);
-                var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
-                var typeNode = new NominalTypeNode([identifier.Lexeme, ..restOfIdentifier.Segments], identifier.Span);
+                var typeNode = new NominalTypeNode(identifierChain.Segments, identifierChain.Span);
 
-                expression = new StructFieldInitializationExpressionNode(typeNode, initializers, ExpandSpan(identifier.Span, endToken.Span));
+                expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
+                    ExpandSpan(identifierChain.Span, endToken.Span));
             }
             else
             {
-                expression = new VariableExpressionNode(identifier.Lexeme, identifier.Span);
+                expression = new VariableExpressionNode(identifierChain.Segments[0], identifierChain.Span);
+
+                for (var i = 1; i <= identifierChain.Segments.Length - 1; i++)
+                {
+                    expression = new MemberAccessExpressionNode(
+                        expression,
+                        identifierChain.Segments[i],
+                        identifierChain.Span
+                    ); 
+                }
             }
 
             return expression;
         }
         
         throw new ByronHighLevelParserException($"Parsing failed on token {Peek().Lexeme} at {Peek().Span}" + Peek().Lexeme, Peek().Span);
-    }
-
-    private TokenKind TokenKindFollowingDotIdentifierSeries()
-    {
-        var index = 0;
-        while (PeekPlus(index)?.Kind is TokenKind.Dot && PeekPlus(index + 1)?.Kind is TokenKind.Identifier)
-        {
-            index++;
-            index++;
-        }
-        
-        return PeekPlus(index)?.Kind ?? TokenKind.Eof;
     }
 
     private CallExpressionNode ParseCallExpression(SelfTypeContext? self, ExpressionNode callee)

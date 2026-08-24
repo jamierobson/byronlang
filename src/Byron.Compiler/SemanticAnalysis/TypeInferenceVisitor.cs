@@ -194,7 +194,7 @@ public class TypeInferenceVisitor(
             StructFieldInitializationExpressionNode structFieldInitializationExpression => VisitStructFieldInitializationExpression(module, structFieldInitializationExpression),
             VariableExpressionNode variableExpression => VisitVariableExpression(module, variableExpression),
             CallExpressionNode callExpression => VisitCallExpressionNode(module, callExpression),
-            MemberAccessExpressionNode memberAccess => VisitMemberExpressionNode(module, memberAccess),
+            MemberAccessExpressionNode memberAccess => VisitMemberAccessExpressionNode(module, memberAccess),
             BinaryExpressionNode binaryExpressionNode => VisitBinaryExpressionNode(module, binaryExpressionNode),
             AddressOfExpressionNode addressOf => VisitAddressOfExpression(module, addressOf),
             DereferenceExpressionNode dereference => VisitDereferenceExpressionNode(module, dereference),
@@ -623,7 +623,7 @@ public class TypeInferenceVisitor(
         return callExpression;
     }
     
-    private ExpressionNode VisitMemberExpressionNode(ModuleDeclarationNode module, MemberAccessExpressionNode memberAccess)
+    private ExpressionNode VisitMemberAccessExpressionNode(ModuleDeclarationNode module, MemberAccessExpressionNode memberAccess)
     {
         memberAccess.Target = VisitExpression(module, memberAccess.Target);
         var targetType = typeMap.GetType(memberAccess.Target);

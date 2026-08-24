@@ -19,14 +19,9 @@ public class FloatLiteralNode(double value, SourceSpan span) : LiteralExpression
 
 public class BooleanLiteralNode(bool value, SourceSpan span) : LiteralExpressionNode<bool>(value, span);
 
-public class VariableExpressionNode : ExpressionNode
+public class VariableExpressionNode(string name, SourceSpan span) : ExpressionNode(span)
 {
-    public string Name { get; set; }
-
-    public VariableExpressionNode(string name, SourceSpan span) : base(span)
-    {
-        Name = name;
-    }
+    public string Name { get; set; } = name;
 }
 
 public class FunctionInvocationVariableExpressionNode(

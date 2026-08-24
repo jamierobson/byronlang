@@ -62,7 +62,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
         var startToken = Consume(TokenKind.Alias, "Expected 'alias' block.");
         var aliasIdentifier = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
         _ = Consume(TokenKind.Equals, "Expected '=' after identifier.");
-        var aliasingSymbolSegments = ParseMultiSegmentIdentifier("alias");
+        var aliasingSymbolSegments = ParseMultiSegmentIdentifier("for the alias");
         var symbol = new Symbol(aliasingSymbolSegments.Segments);
         var endToken = Consume(TokenKind.Semicolon, "Expected ';' after alias declaration");
         return new AliasDeclarationNode(aliasIdentifier.Lexeme, symbol, ExpandSpan(startToken, endToken));
@@ -70,7 +70,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
 
     private (string[] Segments, SourceSpan Span) ParseMultiSegmentIdentifier(string errorMessageUsage)
     {
-        var firstIdentifier = Consume(TokenKind.Identifier, $"Expected identifier after {errorMessageUsage}.");
+        var firstIdentifier = Consume(TokenKind.Identifier, $"Expected identifier {errorMessageUsage}.");
 
         var identifierSegments = new List<string> { firstIdentifier.Lexeme };
         while (ActiveTokenMatch(TokenKind.Dot) && PeekNext()?.Kind == TokenKind.Identifier)
@@ -86,7 +86,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
     private BlockModuleNode ModuleBlock()
     {
         _ = Consume(TokenKind.Module, "Expected 'module' block.");
-        var identifier = ParseMultiSegmentIdentifier("module declaration");
+        var identifier = ParseMultiSegmentIdentifier("for the module declaration");
         _ = Consume(TokenKind.LBrace, "Expected '{'.");
         
         return new BlockModuleNode(identifier.Segments, identifier.Span);
@@ -145,14 +145,14 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
     private ImplementBlockDeclarationNode ParseImplementBlock()
     {
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
-        var activeIdentifier = ParseMultiSegmentIdentifier("implement block declaration");
+        var activeIdentifier = ParseMultiSegmentIdentifier("for an implement block declaration");
 
         TraitTypeNode? trait = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.For))
         {
             trait = new TraitTypeNode(activeIdentifier.Segments, activeIdentifier.Span);
-            activeIdentifier = ParseMultiSegmentIdentifier("type identifier after 'for in trait implementation block");
+            activeIdentifier = ParseMultiSegmentIdentifier("for the type identifier after 'for in trait implementation block declaration");
         }
         
         var leftBrace = Consume(TokenKind.LBrace, "Expected '{'.");
