@@ -11,20 +11,15 @@ public class Diagnostics
     private readonly List<string> _diagnosticMessages = [];
     public IReadOnlyList<string> DiagnosticMessages => _diagnosticMessages;
     
-    public void UndeclaredType(TypeNode type, string? usage = null)
-    {
-        if (string.IsNullOrWhiteSpace(usage))
-        {
-            _diagnosticMessages.Add($"The type {type.Symbol} could not be found at {type.Span}. Are you missing an import?");
-        }
-        else
-        {
-            _diagnosticMessages.Add($"The {usage} type {type.Symbol} could not be found at {type.Span}. Are you missing an import?");
-        }
-    }
+    public void UndeclaredType(TypeNode type, string? usage = null) => 
+        Add(string.IsNullOrWhiteSpace(usage)
+            ? $"The type {type.Symbol} could not be found at {type.Span}. Are you missing an import?"
+            : $"The {usage} type {type.Symbol} could not be found at {type.Span}. Are you missing an import?");
+    
     
     private void Add(string message) => _diagnosticMessages.Add(message);
-    
+
+    public void UndeclaredAlias(AliasDeclarationNode node) => Add($"The alias {node.Symbol} could not be found at {node.Span}. Are you missing an import?");
     public void Duplicate(ModuleDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate module declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(FunctionDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate function declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
     public void Duplicate(TraitDeclarationNode node, SourceSpan duplicateSpan) => Add($"Duplicate trait declaration {node.Symbol} at {node.Span}. Originally declared at {duplicateSpan}");
@@ -39,8 +34,9 @@ public class Diagnostics
     public void MissingMember(string canonicalName, StructFieldInitializerNode initializer) => Add($"{canonicalName} does not contain field {initializer.FieldName} at {initializer.Span}");
     public void MissingMember(AST.Symbol symbol, StructFieldInitializerNode initializer) => Add($"{symbol} does not contain field {initializer.FieldName} at {initializer.Span}");
     public void InvalidStructName(StructDeclarationNode structDeclaration, string canonicalName) => Add($"Invalid struct name {structDeclaration.Symbol} at {structDeclaration.Span}");
-    public void CircularReference(Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
-    public void CircularReference(AliasDeclarationNode alias) => Add($"Circular reference in type {alias.Name} at {alias.Span}");
+    // public void CircularReference(Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
+    // public void CircularReference(AliasDeclarationNode alias) => Add($"Circular reference in type {alias.Name} at {alias.Span}");
+    public void CircularReference(AliasDeclarationNode alias, HashSet<string> cycle) => Add($"Circular reference in type {alias.Name} at {alias.Span}. The cycle contains the aliases {string.Join(',', cycle)}");
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
     public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
     public void InvalidArgument(AST.Symbol argumentType, AST.Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");

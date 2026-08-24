@@ -15,10 +15,18 @@ public class SemanticAnalysisDriver(ProgramNode program)
 
         foreach (var fileModule in program.RootModules)
         {
-            globalSymbolTable.RegisterAliasSymbols(fileModule, [], _diagnostics);
+            globalSymbolTable.RegisterModules(fileModule, [], _diagnostics);
         }
         
-        globalSymbolTable.UnrollAliases(_diagnostics);
+        foreach (var fileModule in program.RootModules)
+        {
+            globalSymbolTable.RegisterAliasSymbols(fileModule, _diagnostics);
+        }
+
+        foreach (var fileModule in program.RootModules)
+        {
+            globalSymbolTable.BuildAliasContexts(fileModule, [], _diagnostics);
+        }
         
         foreach (var fileModule in program.RootModules)
         {
@@ -66,7 +74,6 @@ public class SemanticAnalysisDriver(ProgramNode program)
         {
             visitor.VisitFunction(function, moduleScopedFreeFunctionContext);
         }
-
 
         foreach (var implementBlock in module.Declarations.ImplementBlocks)
         {

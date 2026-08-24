@@ -29,10 +29,22 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         return success;
     }
 
-    private static bool TryResolveImportAlias(ModuleDeclarationNode module, string alias, out string[] expandedPrefix)
+
+    private bool TryResolveWithAliases(Symbol moduleSymbol, string name, out string[] expandedPrefix)
     {
         expandedPrefix = [];
-        return false;
+        if (!symbols.ModuleAliases.TryGetValue(moduleSymbol, out var availableAliases))
+        {
+            return false;
+        }
+
+        if (!availableAliases.TryGetValue(name, out var resolvedAlias))
+        {
+            return false;
+        }
+
+        expandedPrefix = resolvedAlias.Segments;
+        return true;
     }
     
     public bool TypeExists(ModuleDeclarationNode module, TypeNode typeNode)
@@ -73,15 +85,17 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     {
         string[] querySegments = [.. namespaceSegments, functionName];
         return TryResolveSymbol(
-            querySegments, currentScopeSegments, currentModule,
+            querySegments, 
+            currentScopeSegments, 
+            currentModule,
             symbols.Functions.CandidateSymbolsForMemberNamedElement,
             symbols.Functions.Symbols,
             out function);
     }
     
     private bool TryResolveSymbol<T>(
-        string[] querySegments,
-        string[] currentScopeSegments,
+        string[] querySegments, 
+        string[] currentScopeSegments, 
         ModuleDeclarationNode currentModule,
         IReadOnlyDictionary<string, HashSet<Symbol>> candidatesByMemberName,
         IReadOnlyDictionary<Symbol, T> symbolTable,
@@ -89,37 +103,30 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         where T : class
     {
         var exactSymbol = new Symbol(querySegments);
-        if (symbolTable.TryGetValue(exactSymbol, out result))
-        {
-            return true;
-        }
+        if (symbolTable.TryGetValue(exactSymbol, out result)) return true;
 
         var leafName = querySegments[^1];
-        if (!candidatesByMemberName.TryGetValue(leafName, out var candidates))
+        if (candidatesByMemberName.TryGetValue(leafName, out var candidates))
         {
-            result = null;
-            return false;
-        }
-
-        for (var i = currentScopeSegments.Length; i >= 0; i--)
-        {
-            var prefix = currentScopeSegments[..i];
-            var candidateSegments = GlobalSymbolTable.CreateCanonicalSymbolSegments(prefix, querySegments);
-            var candidateSymbol = new Symbol(candidateSegments);
-
-            if (candidates.Contains(candidateSymbol) && symbolTable.TryGetValue(candidateSymbol, out result))
+            for (var i = currentScopeSegments.Length; i >= 0; i--)
             {
-                
-                return true;
+                var candidateSymbol = new Symbol(GlobalSymbolTable.CreateCanonicalSymbolSegments(currentScopeSegments[..i], querySegments));
+                if (candidates.Contains(candidateSymbol) && symbolTable.TryGetValue(candidateSymbol, out result))
+                    return true;
             }
         }
 
-        if (TryResolveImportAlias(currentModule, querySegments[0], out var expandedPrefix))
+        if (TryResolveWithAliases(currentModule.Symbol, querySegments[0], out var expandedPrefix))
         {
-            var combinedSegments = GlobalSymbolTable.CreateCanonicalSymbolSegments(expandedPrefix, querySegments[1..]);
-            var aliasedSymbol = new Symbol(combinedSegments);
-
-            if (candidates.Contains(aliasedSymbol) && symbolTable.TryGetValue(aliasedSymbol, out result))
+            var aliasedSymbol = new Symbol(GlobalSymbolTable.CreateCanonicalSymbolSegments(expandedPrefix, querySegments[1..]));
+            if (symbolTable.TryGetValue(aliasedSymbol, out result))
+            {
+                return true;
+            }
+            
+            var moduleScopedAliasedSymbolSegments = GlobalSymbolTable.CreateCanonicalSymbolSegments(currentScopeSegments, aliasedSymbol.Segments);
+            var moduleScopedAliasedSymbol = new Symbol(moduleScopedAliasedSymbolSegments);
+            if (symbolTable.TryGetValue(moduleScopedAliasedSymbol, out result))
             {
                 return true;
             }

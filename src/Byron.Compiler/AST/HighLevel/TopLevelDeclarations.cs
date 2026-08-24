@@ -90,6 +90,10 @@ public class ParameterNode : AstNode
 
 public class AliasDeclarationNode(string name, Symbol symbol, SourceSpan span) : TopLevelDeclarationNode(symbol, span)
 {
+    public void UpdateAliasingSymbol(Symbol symbol)
+    {
+        Symbol = symbol;
+    }
     public Symbol AliasingSymbol => Symbol;
     public string Name = name;
 }

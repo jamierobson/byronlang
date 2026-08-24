@@ -30,13 +30,17 @@ public class GlobalSymbolTable
         };
     
     private readonly Dictionary<Symbol, StructDeclarationNode> _structs = new();
-    private readonly Dictionary<Symbol, AliasDeclarationNode> _aliases = new();
     public IReadOnlyDictionary<Symbol, StructDeclarationNode> Structs => _structs;
     
     public readonly SymbolList<FunctionDeclarationNode> Functions = new();
     public readonly SymbolList<TraitDeclarationNode> Traits = new();
     public readonly SymbolList<NominalTypeNode> NominalTypes = new();
     public readonly SymbolList<ModuleDeclarationNode> Modules = new();
+    
+    private Dictionary<Symbol, Dictionary<string, Symbol>> _moduleAliases = new();
+    public IReadOnlyDictionary<Symbol, Dictionary<string, Symbol>> ModuleAliases => _moduleAliases;
+    private readonly Dictionary<Symbol, Dictionary<string, AliasDeclarationNode>> _localAliases = new(); 
+    
     
     public void RegisterFunctionSymbols(ModuleDeclarationNode module, string[] parentNamespaceSegments, Diagnostics diagnostics)
     {
@@ -59,7 +63,6 @@ public class GlobalSymbolTable
             {
                 RegisterFunction(function, thisNamespaceSegments, diagnostics);
             }
-            
         }
 
         foreach (var block in module.Declarations.ImplementBlocks)
@@ -81,6 +84,11 @@ public class GlobalSymbolTable
                 
                 RegisterFunction(function, functionNamespace, diagnostics);
             }
+        }
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            RegisterFunctionSymbols(childModule, thisNamespaceSegments, diagnostics);
         }
     }
 
@@ -192,56 +200,115 @@ public class GlobalSymbolTable
         return [.. parentNamespaceSegments, .. thisNamespaceSegments[overlapSize..]];
     }
 
-    public void RegisterAliasSymbols(ModuleDeclarationNode module, string[] parentNamespaceSegments, Diagnostics diagnostics)
+    public void RegisterAliasSymbols(ModuleDeclarationNode module, Diagnostics diagnostics)
     {
-        var thisNamespaceSegments = CreateCanonicalSymbolSegments(parentNamespaceSegments, module.Symbol.Segments);
-
-        foreach (var aliasNode in module.Declarations.Aliases)
+        var localAliases = new Dictionary<string, AliasDeclarationNode>();
+        foreach (var alias in module.Declarations.Aliases)
         {
-            var aliasKey = new Symbol([..thisNamespaceSegments, aliasNode.Name]);
-
-            if (_aliases.TryGetValue(aliasKey, out var aliasDeclaration))
+            if (localAliases.TryGetValue(alias.Name, out var aliasDeclarationNode))
             {
-                diagnostics.Duplicate(aliasDeclaration, aliasNode.Span);
+                diagnostics.Duplicate(alias, aliasDeclarationNode.Span);
             }
 
-            _aliases.Add(aliasKey, aliasNode);
+            localAliases.TryAdd(alias.Name, alias);
+        }
+        _localAliases[module.Symbol] =  localAliases; // modules are already verified unique
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            RegisterAliasSymbols(childModule, diagnostics);
+        }
+    }
+
+    public void BuildAliasContexts(ModuleDeclarationNode module, Dictionary<string, Symbol> inheritedAliases, Diagnostics diagnostics)
+    {
+        var canonizedAliases = new Dictionary<string, Symbol>(inheritedAliases);
+
+        if (_localAliases.TryGetValue(module.Symbol, out var localAliases))
+        {
+            foreach (var registeredAlias in localAliases)
+            {
+                if (canonizedAliases.ContainsKey(registeredAlias.Key))
+                {
+                    // Aliases are already verified unique named in scope.
+                    // An alias will only already be registered here if it was eagerly canonized during another alias' resolution  
+                    continue;
+                }
+                
+                RegisterCanonizedAlias(registeredAlias.Value, localAliases, canonizedAliases, [], diagnostics);
+            }
+        }
+        
+        _moduleAliases[module.Symbol] = canonizedAliases;
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            BuildAliasContexts(childModule, canonizedAliases, diagnostics);
+        }
+    }
+
+    private void RegisterCanonizedAlias(AliasDeclarationNode alias,
+        Dictionary<string, AliasDeclarationNode> localAliases, 
+        Dictionary<string, Symbol> canonicalAliases,
+        HashSet<string> visitedAliases, 
+        Diagnostics diagnostics)
+    {
+        if (!visitedAliases.Add(alias.Name))
+        {
+            diagnostics.CircularReference(alias, visitedAliases);
+            return;
+        }
+        
+        var resolvingAliasSymbolSegments = alias.AliasingSymbol;
+
+        var aliasSubstituted = false;
+        var canonizedSymbolSegments = new List<string>();
+        
+        var replacementCandidate = resolvingAliasSymbolSegments.Segments[0];
+
+        if (canonicalAliases.TryGetValue(replacementCandidate, out var foundCanonicalAlias))
+        {
+            canonizedSymbolSegments.AddRange(foundCanonicalAlias.Segments);
+            aliasSubstituted = true;
+        }
+
+        if (localAliases.TryGetValue(replacementCandidate, out var foundLocalAlias))
+        {
+            RegisterCanonizedAlias(foundLocalAlias, localAliases, canonicalAliases, visitedAliases, diagnostics);
+            
+            if (canonicalAliases.TryGetValue(replacementCandidate, out foundCanonicalAlias))
+            {
+                canonizedSymbolSegments.AddRange(foundCanonicalAlias.Segments);
+                aliasSubstituted = true;
+            }
+        }
+
+        if (aliasSubstituted && alias.AliasingSymbol.Segments.Length > 1)
+        {
+            canonizedSymbolSegments.AddRange(alias.AliasingSymbol.Segments[1..]);
+        }
+        else
+        {
+            canonizedSymbolSegments.AddRange(alias.AliasingSymbol.Segments);
+        }
+        
+        var canonicalSymbol = Symbol.From(canonizedSymbolSegments);
+        alias.UpdateAliasingSymbol(canonicalSymbol);
+        canonicalAliases[alias.Name] = canonicalSymbol;
+        visitedAliases.Remove(alias.Name); //todo: Why?
+    }
+    
+    public void RegisterModules(ModuleDeclarationNode module, Dictionary<Symbol, ModuleDeclarationNode> discoveredModules, Diagnostics diagnostics)
+    {
+        if (discoveredModules.TryGetValue(module.Symbol, out var registeredModule))
+        {
+            diagnostics.Duplicate(module,  registeredModule.Span);
+            return;
         }
 
         foreach (var childModule in module.Declarations.ChildModules)
         {
-            RegisterAliasSymbols(childModule, thisNamespaceSegments, diagnostics);
-        }
-    }
-
-    public void UnrollAliases(Diagnostics diagnostics)
-    {
-        var resolvedAliases = new Dictionary<Symbol, AliasDeclarationNode>();
-
-        foreach (var alias in _aliases)
-        {
-            var visited = new HashSet<Symbol> { alias.Key };
-            var currentTarget = alias.Value.AliasingSymbol;
-
-            while (_aliases.TryGetValue(currentTarget, out var nextAlias))
-            {
-                if (!visited.Add(currentTarget))
-                {
-                    diagnostics.CircularReference(alias.Value);
-                    break;
-                }
-
-                currentTarget = nextAlias.AliasingSymbol;
-            }
-
-            alias.Value.Symbol = currentTarget;
-            resolvedAliases[alias.Key] = alias.Value;
-        }
-
-        _aliases.Clear();
-        foreach (var (k, v) in resolvedAliases)
-        {
-            _aliases[k] = v;
+            RegisterModules(childModule, discoveredModules,  diagnostics);
         }
     }
 }

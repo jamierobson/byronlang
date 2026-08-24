@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-
 namespace Byron.Compiler.AST;
 public record Symbol(string[] Segments)
 {
@@ -31,8 +29,9 @@ public record Symbol(string[] Segments)
 
     public static Symbol From(string name) => new ([..name.Split('.')]);
     public static Symbol From(string[] nameSegments) => new (nameSegments);
+    public static Symbol From(IEnumerable<string> nameSegments) => new (nameSegments.ToArray());
     public static readonly Symbol Empty =  new ([]); 
-
+    
 }
 
-public record PrimitiveTypeSymbol(string TypeName, int ByteSize, bool IsSigned) : Symbol([..TypeName.Split('.')]);
+public record PrimitiveTypeSymbol(string TypeName, int ByteSize, bool IsSigned) : Symbol([TypeName]);
