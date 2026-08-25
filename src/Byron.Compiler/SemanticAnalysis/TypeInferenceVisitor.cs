@@ -195,6 +195,7 @@ public class TypeInferenceVisitor(
             VariableExpressionNode variableExpression => VisitVariableExpression(module, variableExpression),
             CallExpressionNode callExpression => VisitCallExpressionNode(module, callExpression),
             MemberAccessExpressionNode memberAccess => VisitMemberAccessExpressionNode(module, memberAccess),
+            PathAccessExpressionNode pathAccess => VisitPathAccessExpressionNode(module, pathAccess),
             BinaryExpressionNode binaryExpressionNode => VisitBinaryExpressionNode(module, binaryExpressionNode),
             AddressOfExpressionNode addressOf => VisitAddressOfExpression(module, addressOf),
             DereferenceExpressionNode dereference => VisitDereferenceExpressionNode(module, dereference),
@@ -421,6 +422,22 @@ public class TypeInferenceVisitor(
 
         return variableExpression;
     }
+
+    private ExpressionNode VisitPathAccessExpressionNode(ModuleDeclarationNode module, PathAccessExpressionNode pathAccess)
+    {
+        var candidateType = new NominalTypeNode(pathAccess.Path, pathAccess.Span);
+        if (globalSymbolTableLookup.TryResolveCanonicalType(candidateType, module.Symbol.Segments, module, out var resolvedType))
+        {
+            typeMap.SetType(pathAccess, resolvedType);
+            return pathAccess;
+        }
+
+        if (scopedSymbolTable.TryGet(pathAccess.IdentifierSegments[0].Name, out var resolvedSymbol))
+        {
+            typeMap.SetType(pathAccess, resolvedSymbol.Type);
+        }
+        return pathAccess;
+    }
     
     private ExpressionNode VisitCallExpressionNode(ModuleDeclarationNode module, CallExpressionNode callExpression)
     {
@@ -437,7 +454,8 @@ public class TypeInferenceVisitor(
         if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
             // todo: Work out what this lookup should _actually_ be
-            if (globalSymbolTableLookup.TryGetFunction(module, [], variableExpression.Name, module.Symbol.Segments, out var resolvedFunction))
+            if (globalSymbolTableLookup.TryGetFunction(
+                    module, [], variableExpression.Name, module.Symbol.Segments, out var resolvedFunction))
             {
                 functionName = resolvedFunction.Symbol.MemberName;
                 namespaceSegments = resolvedFunction.Symbol.Segments[..^1];
@@ -449,6 +467,25 @@ public class TypeInferenceVisitor(
                 functionName = variableExpression.Name;
                 namespaceSegments = [];    
             }
+        }
+        else if (callExpression.Callee is PathAccessExpressionNode pathAccessExpression)
+        {
+            if (globalSymbolTableLookup.TryGetFunction(
+                    module, 
+                    [],
+                    pathAccessExpression.IdentifierSegments[0].Name,
+                    pathAccessExpression.Path[..^1],
+                    out var associatedFreeFunction))
+            {
+                namespaceSegments = pathAccessExpression.Path[..^1];
+                functionName = pathAccessExpression.IdentifierSegments[^1].Name;
+            }
+
+            // todo:
+            // If the path corresponds to a type.function, then this is an associated static function on that type.
+            // If it's on the 
+            namespaceSegments = pathAccessExpression.Path[..^1];
+            functionName = pathAccessExpression.IdentifierSegments[^1].Name;
         }
         else if (callExpression.Callee is MemberAccessExpressionNode memberAccess)
         {

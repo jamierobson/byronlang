@@ -24,6 +24,15 @@ public class VariableExpressionNode(string name, SourceSpan span) : ExpressionNo
     public string Name { get; set; } = name;
 }
 
+public record IdentifierSegment(string Name, SourceSpan Span); 
+
+public class PathAccessExpressionNode(IdentifierSegment[] identifierSegments, SourceSpan span) : ExpressionNode(span)
+{
+    private string[]? _pathSegments;
+    public readonly IdentifierSegment[] IdentifierSegments = identifierSegments;
+    public string[] Path => _pathSegments ??= IdentifierSegments.Select(s => s.Name).ToArray();
+}
+
 public class FunctionInvocationVariableExpressionNode(
     FunctionDeclarationNode function,
     SourceSpan span)

@@ -63,24 +63,24 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
         var aliasIdentifier = Consume(TokenKind.Identifier, "Expected identifier after 'alias' block.");
         _ = Consume(TokenKind.Equals, "Expected '=' after identifier.");
         var aliasingSymbolSegments = ParseMultiSegmentIdentifier("for the alias");
-        var symbol = new Symbol(aliasingSymbolSegments.Segments);
+        var symbol = new Symbol(aliasingSymbolSegments.Select(x => x.Name).ToArray());
         var endToken = Consume(TokenKind.Semicolon, "Expected ';' after alias declaration");
         return new AliasDeclarationNode(aliasIdentifier.Lexeme, symbol, ExpandSpan(startToken, endToken));
     }
 
-    private (string[] Segments, SourceSpan Span) ParseMultiSegmentIdentifier(string errorMessageUsage)
+    private IdentifierSegment[] ParseMultiSegmentIdentifier(string errorMessageUsage)
     {
         var firstIdentifier = Consume(TokenKind.Identifier, $"Expected identifier {errorMessageUsage}.");
 
-        var identifierSegments = new List<string> { firstIdentifier.Lexeme };
+        var identifierSegments = new List<IdentifierSegment> { new (firstIdentifier.Lexeme, firstIdentifier.Span) };
         while (ActiveTokenMatch(TokenKind.Dot) && PeekNext()?.Kind == TokenKind.Identifier)
         {
             Advance();
             var nextSegment = Consume(TokenKind.Identifier, $"Expected identifier after '.'.");
-            identifierSegments.Add(nextSegment.Lexeme);
+            identifierSegments.Add(new (nextSegment.Lexeme, nextSegment.Span));
         }
         
-        return (identifierSegments.ToArray(), ExpandSpan(firstIdentifier, Previous()));
+        return identifierSegments.ToArray();
     } 
 
     private BlockModuleNode ModuleBlock()
@@ -89,7 +89,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
         var identifier = ParseMultiSegmentIdentifier("for the module declaration");
         _ = Consume(TokenKind.LBrace, "Expected '{'.");
         
-        return new BlockModuleNode(identifier.Segments, identifier.Span);
+        return new BlockModuleNode(identifier.Select(x => x.Name).ToArray(), ExpandSpan(identifier[0].Span, identifier[^1].Span));
     }
 
     private TraitDeclarationNode ParseTraitDeclaration()
@@ -146,18 +146,23 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
     {
         var startDeclarationNode = Consume(TokenKind.Implement, "Expected 'implement' block.");
         var activeIdentifier = ParseMultiSegmentIdentifier("for an implement block declaration");
-
+        var segments = activeIdentifier.Select(x => x.Name).ToArray();
+        var span = ExpandSpan(activeIdentifier[0].Span, activeIdentifier[^1].Span);
+        
         TraitTypeNode? trait = null;
         
         if (ConsumingActiveTokenMatch(TokenKind.For))
         {
-            trait = new TraitTypeNode(activeIdentifier.Segments, activeIdentifier.Span);
+            trait = new TraitTypeNode(segments, span);
+            
             activeIdentifier = ParseMultiSegmentIdentifier("for the type identifier after 'for in trait implementation block declaration");
+            segments = activeIdentifier.Select(x => x.Name).ToArray();
+            span = ExpandSpan(activeIdentifier[0].Span, activeIdentifier[^1].Span);
         }
         
         var leftBrace = Consume(TokenKind.LBrace, "Expected '{'.");
         
-        var declaredType = new NominalTypeNode(activeIdentifier.Segments, activeIdentifier.Span);
+        var declaredType = new NominalTypeNode(segments, span);
         var implementBlockDeclarationNode = new ImplementBlockDeclarationNode(declaredType, trait, ExpandSpan(startDeclarationNode, leftBrace));
         var selfType = SelfTypeContext.From(implementBlockDeclarationNode);
 

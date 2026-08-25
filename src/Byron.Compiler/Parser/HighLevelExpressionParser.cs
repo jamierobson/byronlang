@@ -130,7 +130,7 @@ public partial class ByronHighLevelAstParser
         var expression = ParsePrimaryExpression(self);
         
         while (!IsAtEnd())
-        { 
+        {
             if (ConsumingActiveTokenMatch(TokenKind.LParen))
             {
                 expression = ParseCallExpression(self, expression);
@@ -154,6 +154,17 @@ public partial class ByronHighLevelAstParser
                 continue;
             }
             break;
+        }
+            
+        if (expression is PathAccessExpressionNode pathAccess)
+        {
+            var initialVariableIdentifier = pathAccess.IdentifierSegments[0];
+            expression = new VariableExpressionNode(initialVariableIdentifier.Name, initialVariableIdentifier.Span);
+            for (var i = 1; i <= pathAccess.IdentifierSegments.Length - 1; i++)
+            {
+                var segment = pathAccess.IdentifierSegments[i];
+                expression = new MemberAccessExpressionNode(expression, segment.Name, segment.Span);
+            }
         }
         
         return expression;
@@ -223,29 +234,24 @@ public partial class ByronHighLevelAstParser
         if (ActiveTokenMatch(TokenKind.Identifier))
         {
             ExpressionNode expression;
-            var identifierChain = ParseMultiSegmentIdentifier("in a multi segmented identifier string");
-
+            var identifierSegments = ParseMultiSegmentIdentifier("in a multi segmented identifier string");
+            
             if (ConsumingActiveTokenMatch(TokenKind.LBrace))
             {
                 var initializers = ParseStructFieldInitializers(self);
                 var endToken = Consume(TokenKind.RBrace, "Expected '}' after struct field initialization.");
-                var typeNode = new NominalTypeNode(identifierChain.Segments, identifierChain.Span);
+                var typeNode = new NominalTypeNode(identifierSegments.Select(x => x.Name).ToArray(), ExpandSpan(identifierSegments[0].Span, identifierSegments[^1].Span));
 
                 expression = new StructFieldInitializationExpressionNode(typeNode, initializers,
-                    ExpandSpan(identifierChain.Span, endToken.Span));
+                    ExpandSpan(identifierSegments[0].Span, endToken.Span));
+            }
+            else if(identifierSegments.Length > 1)
+            {
+                expression = new PathAccessExpressionNode(identifierSegments, ExpandSpan(identifierSegments[0].Span, identifierSegments[^1].Span));
             }
             else
             {
-                expression = new VariableExpressionNode(identifierChain.Segments[0], identifierChain.Span);
-
-                for (var i = 1; i <= identifierChain.Segments.Length - 1; i++)
-                {
-                    expression = new MemberAccessExpressionNode(
-                        expression,
-                        identifierChain.Segments[i],
-                        identifierChain.Span
-                    ); 
-                }
+                expression = new VariableExpressionNode(identifierSegments[0].Name, identifierSegments[0].Span);
             }
 
             return expression;
@@ -256,6 +262,28 @@ public partial class ByronHighLevelAstParser
 
     private CallExpressionNode ParseCallExpression(SelfTypeContext? self, ExpressionNode callee)
     {
+        var interpretedCallee = callee;
+        if (interpretedCallee is PathAccessExpressionNode pathAccessExpression)
+        {
+            var functionName = pathAccessExpression.IdentifierSegments[^1].Name;
+            if (pathAccessExpression.IdentifierSegments.Length > 2)
+            {
+                interpretedCallee = new MemberAccessExpressionNode(
+                    new PathAccessExpressionNode(pathAccessExpression.IdentifierSegments[..^1], pathAccessExpression.Span),
+                    functionName,
+                    callee.Span
+                );
+            }
+            else
+            {
+                interpretedCallee = new MemberAccessExpressionNode(
+                    new VariableExpressionNode(pathAccessExpression.IdentifierSegments[0].Name, pathAccessExpression.IdentifierSegments[0].Span),
+                    functionName,
+                    callee.Span
+                );
+            }
+        }
+        
         var arguments = new List<ExpressionNode>();
         if (!ActiveTokenMatch(TokenKind.RParen))
         {
@@ -265,7 +293,7 @@ public partial class ByronHighLevelAstParser
             } while (ConsumingActiveTokenMatch(TokenKind.Comma));
         }
         var endToken = Consume(TokenKind.RParen, "Expected ')'.");
-        return new FreeFunctionCallExpressionNode(callee, arguments, ExpandSpan(callee, endToken));
+        return new FreeFunctionCallExpressionNode(interpretedCallee, arguments, ExpandSpan(interpretedCallee, endToken));
     }
 
     private List<StructFieldInitializerNode> ParseStructFieldInitializers(SelfTypeContext? self)
