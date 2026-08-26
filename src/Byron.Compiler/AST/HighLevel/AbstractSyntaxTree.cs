@@ -15,10 +15,15 @@ public abstract class ModuleDeclarationNode : TopLevelDeclarationNode
     protected ModuleDeclarationNode(string[] symbolSegments, SourceSpan span) : base(symbolSegments, span)
     {
     }
+    protected ModuleDeclarationNode(Symbol symbol, SourceSpan span) : base(symbol, span)
+    {
+    }
     public ModuleDeclarationCollection Declarations { get; } = new();
 }
 
-public class FileModuleNode(string fileName, SourceSpan span) : ModuleDeclarationNode(fileName, span);
+public class FileModuleNode(Symbol symbol, SourceSpan span) : ModuleDeclarationNode(symbol, span)
+{
+}
 
 public class BlockModuleNode : ModuleDeclarationNode
 {

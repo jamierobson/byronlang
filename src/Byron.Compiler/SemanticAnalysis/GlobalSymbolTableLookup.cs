@@ -6,6 +6,15 @@ namespace Byron.Compiler.SemanticAnalysis;
 
 public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
 {    
+
+    public IReadOnlyDictionary<Symbol, StructDeclarationNode> Structs => symbols.Structs;
+    public bool TypeExists(ModuleDeclarationNode module, TypeNode typeNode)
+    {
+        return typeNode is PrimitiveTypeNode p
+            ? symbols.Primitives.ContainsKey(p.Symbol.ToString())
+            : TryResolveCanonicalType(typeNode, module.Symbol.Segments, module, out _);
+    }
+    
     public bool TryResolveCanonicalType(
         TypeNode inputType,
         string[] currentScopeSegments,
@@ -29,6 +38,41 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         return success;
     }
 
+    public bool TryGetStruct(TypeNode type, [NotNullWhen(true)] out StructDeclarationNode? declaration)
+    {
+        if (type is not NominalTypeNode nominalTypeNode)
+        {
+            declaration = null;
+            return false;
+        }
+
+        declaration = symbols.Structs[nominalTypeNode.Symbol];
+        return true;
+    }
+
+    public bool TryGetStruct(ModuleDeclarationNode module, string name, string[] symbolSegments, [NotNullWhen(true)] out StructDeclarationNode? declaration) => TryResolveSymbol(
+        [name], 
+        symbolSegments, 
+        module,
+        symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
+        symbols.Structs,
+        out declaration);
+    
+    public bool TryGetTrait(
+        Symbol symbol, 
+        string[] currentScopeSegments,
+        ModuleDeclarationNode currentModule,
+        [NotNullWhen(true)] out TraitDeclarationNode? resolvedTrait)
+    {
+        var success = TryResolveSymbol(
+            symbol.Segments, currentScopeSegments, currentModule,
+            symbols.Traits.CandidateSymbolsForMemberNamedElement,
+            symbols.Traits.Symbols,
+            out var resolved);
+        
+        resolvedTrait = resolved;
+        return success;
+    }
 
     private bool TryResolveWithAliases(Symbol moduleSymbol, string name, out string[] expandedPrefix)
     {
@@ -44,35 +88,6 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         }
 
         expandedPrefix = resolvedAlias.Segments;
-        return true;
-    }
-    
-    public bool TypeExists(ModuleDeclarationNode module, TypeNode typeNode)
-    {
-        return typeNode is PrimitiveTypeNode p
-            ? symbols.Primitives.ContainsKey(p.Symbol.ToString())
-            : TryResolveCanonicalType(typeNode, module.Symbol.Segments, module, out _);
-    }
-
-    public IReadOnlyDictionary<Symbol, StructDeclarationNode> Structs => symbols.Structs;
-
-    public bool TryGetStruct(ModuleDeclarationNode module, string name, string[] symbolSegments, [NotNullWhen(true)] out StructDeclarationNode? declaration) => TryResolveSymbol(
-        [name], 
-        symbolSegments, 
-        module,
-        symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
-        symbols.Structs,
-        out declaration);
-
-    public bool TryGetStruct(TypeNode type, [NotNullWhen(true)] out StructDeclarationNode? declaration)
-    {
-        if (type is not NominalTypeNode nominalTypeNode)
-        {
-            declaration = null;
-            return false;
-        }
-
-        declaration = symbols.Structs[nominalTypeNode.Symbol];
         return true;
     }
 

@@ -468,33 +468,29 @@ public class TypeInferenceVisitor(
                 namespaceSegments = [];    
             }
         }
-        else if (callExpression.Callee is PathAccessExpressionNode pathAccessExpression)
-        {
-            if (globalSymbolTableLookup.TryGetFunction(
-                    module, 
-                    [],
-                    pathAccessExpression.IdentifierSegments[0].Name,
-                    pathAccessExpression.Path[..^1],
-                    out var associatedFreeFunction))
-            {
-                namespaceSegments = pathAccessExpression.Path[..^1];
-                functionName = pathAccessExpression.IdentifierSegments[^1].Name;
-            }
-
-            // todo:
-            // If the path corresponds to a type.function, then this is an associated static function on that type.
-            // If it's on the 
-            namespaceSegments = pathAccessExpression.Path[..^1];
-            functionName = pathAccessExpression.IdentifierSegments[^1].Name;
-        }
         else if (callExpression.Callee is MemberAccessExpressionNode memberAccess)
         {
-            if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
+            if (memberAccess.Target is PathAccessExpressionNode pathAccessExpression)
+            {
+                if (globalSymbolTableLookup.TryGetFunction(
+                        module, 
+                        [],
+                         memberAccess.MemberName,
+                        pathAccessExpression.Path,
+                        out var associatedFreeFunction))
+                {
+                    
+                    var associatedFunctionInvokation = new FunctionInvocationVariableExpressionNode(associatedFreeFunction, memberAccess.Span);
+                    functionInvocation.Callee = associatedFunctionInvokation;
+                }
+                namespaceSegments = pathAccessExpression.Path;
+            }
+            else if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
             {
                 if(globalSymbolTableLookup.TryGetStruct(module, targetVariableExpression.Name, module.Symbol.Segments, out var structDeclaration))
                 {
                     namespaceSegments = structDeclaration.Symbol.Segments;
-                    targetVariableExpression.Name = structDeclaration.Type.Symbol.ToString(); //todo: Is this correct? Should we prefer the same approach as if (callExpression.Callee is VariableExpressionNode variableExpression) where we use a new node type?
+                    targetVariableExpression.Name = structDeclaration.Type.Symbol.ToString();
 
                     if (globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, memberAccess.MemberName,
                             module.Symbol.Segments, out var staticFunction))
@@ -553,7 +549,7 @@ public class TypeInferenceVisitor(
         {
             throw new ByronNotImplementedException(callExpression.Callee.GetType(), this, callExpression.Span);
         }
-
+        
         if (!globalSymbolTableLookup.TryGetFunction(module, namespaceSegments, functionName, module.Symbol.Segments, out var function))
         {
             diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);

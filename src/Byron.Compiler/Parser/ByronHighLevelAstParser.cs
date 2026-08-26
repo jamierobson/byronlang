@@ -14,7 +14,7 @@ public partial class ByronHighLevelAstParser(TokenizedFile tokenizedFile)
     public ProgramNode Parse()
     {
         var fileName = Path.GetFileNameWithoutExtension(tokenizedFile.FilePath);
-        var fileModule = new FileModuleNode(fileName, ExpandSpan(tokenizedFile.Tokens[0], tokenizedFile.Tokens[^1]));
+        var fileModule = new FileModuleNode(Symbol.Global, ExpandSpan(tokenizedFile.Tokens[0], tokenizedFile.Tokens[^1]));
         ParseModuleDeclarations(fileModule.Declarations);
         return new ProgramNode([fileModule]);
     }

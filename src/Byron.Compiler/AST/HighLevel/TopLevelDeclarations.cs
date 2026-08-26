@@ -17,6 +17,10 @@ public abstract class TopLevelDeclarationNode : AstNode
 
     protected TopLevelDeclarationNode(string[] symbolSegments, SourceSpan span) : base(span)
     {
+        if (symbolSegments.Length == 0)
+        {
+            throw new ArgumentException($"{nameof(symbolSegments)} must not be empty when defining a symbolS");
+        }
         Symbol = new Symbol(symbolSegments);
     }
     

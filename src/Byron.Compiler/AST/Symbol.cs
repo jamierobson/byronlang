@@ -30,7 +30,7 @@ public record Symbol(string[] Segments)
     public static Symbol From(string name) => new ([..name.Split('.')]);
     public static Symbol From(string[] nameSegments) => new (nameSegments);
     public static Symbol From(IEnumerable<string> nameSegments) => new (nameSegments.ToArray());
-    public static readonly Symbol Empty =  new ([]); 
+    public static readonly Symbol Global =  new ([]); 
     
 }
 

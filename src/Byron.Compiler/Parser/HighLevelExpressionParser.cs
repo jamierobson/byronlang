@@ -155,7 +155,6 @@ public partial class ByronHighLevelAstParser
             }
             break;
         }
-            
         if (expression is PathAccessExpressionNode pathAccess)
         {
             var initialVariableIdentifier = pathAccess.IdentifierSegments[0];

@@ -32,6 +32,7 @@ async Task TryParseFile(string filePath)
             lineNumber++;
         }
 
+        // todo: We would need to accept args that give the main executable module (must contain main in the global module), and which other files to include. 
         var tokens = new Tokenizer(sourceText).Tokenise();
         var tokenizedFile = new TokenizedFile(filePath, tokens);
         var highLevelAst = new ByronHighLevelAstParser(tokenizedFile).Parse();

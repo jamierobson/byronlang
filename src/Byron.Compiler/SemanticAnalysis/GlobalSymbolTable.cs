@@ -65,6 +65,7 @@ public class GlobalSymbolTable
             }
         }
 
+        var lookup = new GlobalSymbolTableLookup(this); //todo: I'd prefer not to have to instantiate to do this, move the aliasing funcitonality elsewhere
         foreach (var block in module.Declarations.ImplementBlocks)
         {
             foreach (var function in block.FunctionDeclarations)
@@ -74,8 +75,19 @@ public class GlobalSymbolTable
 
                 if (block.TraitNode is not null)
                 {
-                    var traitSymbol = CreateCanonicalSymbolSegments(thisNamespaceSegments, block.TraitNode.Symbol.Segments);
-                    functionNamespace = [..typeSymbol, ..traitSymbol];
+                    if (lookup.TryGetTrait(block.TraitNode.Symbol, 
+                            thisNamespaceSegments,
+                            module,
+                            out var trait))
+                    {
+                        functionNamespace = [..typeSymbol, ..trait.Symbol.Segments];
+                    }
+                    else
+                    {
+                        //todo: What about partially in scope, that neesd ot be worked around in here somewhere.
+                        var traitSymbol = CreateCanonicalSymbolSegments(thisNamespaceSegments, block.TraitNode.Symbol.Segments);
+                        functionNamespace = [..typeSymbol, ..traitSymbol];
+                    }
                 }
                 else
                 {

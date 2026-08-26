@@ -1,10 +1,10 @@
-%test$$Point1d = type { i32 }
+%Point1d = type { i32 }
 
-define i32 @test$$Point1d$$getValue(%test$$Point1d* %arg_0) {
-    %self.addr = alloca %test$$Point1d*
-    store %test$$Point1d* %arg_0, %test$$Point1d** %self.addr
-    %1 = load %test$$Point1d*, %test$$Point1d** %self.addr
-    %2 = getelementptr %test$$Point1d, %test$$Point1d* %1, i32 0, i32 0
+define i32 @Point1d$$getValue(%Point1d* %arg_0) {
+    %self.addr = alloca %Point1d*
+    store %Point1d* %arg_0, %Point1d** %self.addr
+    %1 = load %Point1d*, %Point1d** %self.addr
+    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
     %3 = load i32, i32* %2
     ret i32 %3
 }
