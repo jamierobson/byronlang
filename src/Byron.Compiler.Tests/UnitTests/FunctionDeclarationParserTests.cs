@@ -1,11 +1,9 @@
-using Byron.Compiler.AST.HighLevel;
-using Xunit;
 using Byron.Compiler.AST;
-using Byron.Compiler.Exceptions;
+using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
-namespace Byron.Compiler.Tests;
+namespace Byron.Compiler.Tests.UnitTests;
 
 public class FunctionDeclarationParserTests
 {

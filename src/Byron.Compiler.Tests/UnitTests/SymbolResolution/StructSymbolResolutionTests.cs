@@ -1,9 +1,9 @@
 using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Lexer;
 
-namespace Byron.Compiler.Tests;
+namespace Byron.Compiler.Tests.UnitTests.SymbolResolution;
 
-public class SymbolResolutionTests
+public class StructSymbolResolutionTests
 {
     private static TypeNode TypeNode(string name) => TypeNode([name]);
     private static TypeNode TypeNode(string[] name) => new NominalTypeNode(name, SourceSpan.Empty); 

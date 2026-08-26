@@ -3,7 +3,7 @@ using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.SemanticAnalysis;
 
-namespace Byron.Compiler.Tests;
+namespace Byron.Compiler.Tests.UnitTests.SymbolResolution;
 
 public class ModuleTestFixtureBuilder
 {

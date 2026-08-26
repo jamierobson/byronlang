@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Valuator.IntegrationTests;
+namespace Byron.Compiler.Tests.UnitTests;
 
 public static class ModuleInitializer
 {

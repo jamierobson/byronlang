@@ -1,7 +1,6 @@
 using Byron.Compiler.Lexer;
-using Xunit;
 
-namespace Byron.Compiler.Tests;
+namespace Byron.Compiler.Tests.UnitTests;
 
 public class TokenizerTests
 {

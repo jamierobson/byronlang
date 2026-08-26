@@ -27,7 +27,6 @@ public class SemanticAnalysisDriver(ProgramNode program)
             CanonizeImplementBlockTypes(globalSymbolTableLookup, fileModule, _diagnostics);
         }
         
-        
         var canonicalResolvingTypeMap = new CanonicalResolvingTypeMap(typeMap, globalSymbolTableLookup, _diagnostics);
         var typeCoercion = new TypeCoercion(globalSymbolTableLookup, canonicalResolvingTypeMap, _diagnostics);
         var visitor = new TypeInferenceVisitor(globalSymbolTableLookup, canonicalResolvingTypeMap, typeCoercion, scopedSymbolTable, _diagnostics);

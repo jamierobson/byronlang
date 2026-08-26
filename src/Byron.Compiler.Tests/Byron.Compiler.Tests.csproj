@@ -19,10 +19,4 @@
       <ProjectReference Include="..\Byron.Compiler\Byron.Compiler.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Compile Update="SymbolResolutionTestFixtureBuilder.cs">
-        <DependentUpon>SymbolResolutionTests.cs</DependentUpon>
-      </Compile>
-    </ItemGroup>
-
 </Project>
