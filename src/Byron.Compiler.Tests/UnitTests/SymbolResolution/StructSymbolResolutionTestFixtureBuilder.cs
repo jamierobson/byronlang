@@ -38,7 +38,12 @@ public class ModuleTestFixtureBuilder
         return aliasNode;
     }
     
-    public ImplementBlockDeclarationNode WithImplementBlock(NominalTypeNode associatedType, TraitTypeNode? associatedTrait) => new (associatedType, associatedTrait, SourceSpan.Empty);
+    public ImplementBlockDeclarationNode WithImplementBlock(NominalTypeNode associatedType, TraitTypeNode? associatedTrait = null)
+    {
+        var block = new ImplementBlockDeclarationNode(associatedType, associatedTrait, SourceSpan.Empty);
+        Module.Declarations.ImplementBlocks.Add(block);
+        return block;
+    }
 
     public FunctionDeclarationNode WithFunction(string name, ImplementBlockDeclarationNode? implementBlock = null)
     {
