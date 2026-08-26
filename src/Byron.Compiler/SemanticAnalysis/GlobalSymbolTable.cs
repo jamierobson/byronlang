@@ -104,9 +104,10 @@ public class GlobalSymbolTable
 
                 if (block.TraitNode is not null)
                 {
-                    if (lookup.TryGetTrait(block.TraitNode.Symbol, 
-                            thisNamespaceSegments,
+                    if (lookup.TryGetTrait(
                             module,
+                            block.TraitNode.Symbol, 
+                            thisNamespaceSegments,
                             out var trait))
                     {
                         functionNamespace = [..typeSymbol, ..trait.Symbol.Segments];
@@ -312,8 +313,7 @@ public class GlobalSymbolTable
             canonizedSymbolSegments.AddRange(foundCanonicalAlias.Segments);
             aliasSubstituted = true;
         }
-
-        if (localAliases.TryGetValue(replacementCandidate, out var foundLocalAlias))
+        else if (localAliases.TryGetValue(replacementCandidate, out var foundLocalAlias))
         {
             RegisterCanonizedAlias(foundLocalAlias, localAliases, canonicalAliases, visitedAliases, diagnostics);
             
@@ -323,20 +323,14 @@ public class GlobalSymbolTable
                 aliasSubstituted = true;
             }
         }
-
-        if (aliasSubstituted && alias.AliasingSymbol.Segments.Length > 1)
-        {
-            canonizedSymbolSegments.AddRange(alias.AliasingSymbol.Segments[1..]);
-        }
-        else
-        {
-            canonizedSymbolSegments.AddRange(alias.AliasingSymbol.Segments);
-        }
+        
+        canonizedSymbolSegments.AddRange(
+            aliasSubstituted ? alias.AliasingSymbol.Segments[1..] : alias.AliasingSymbol.Segments);
         
         var canonicalSymbol = Symbol.From(canonizedSymbolSegments);
         alias.UpdateAliasingSymbol(canonicalSymbol);
         canonicalAliases[alias.Name] = canonicalSymbol;
-        visitedAliases.Remove(alias.Name); //todo: Why?
+        visitedAliases.Remove(alias.Name);
     }
     
     public void RegisterModules(ModuleDeclarationNode module, Dictionary<Symbol, ModuleDeclarationNode> discoveredModules, Diagnostics diagnostics)

@@ -35,7 +35,7 @@ public class CanonicalResolvingTypeMap(TypeMap typeMap, GlobalSymbolTableLookup 
     public void SetType(ExpressionNode expression, TypeNode type) => typeMap.SetType(expression, type);
     public void SetType(ModuleDeclarationNode module, ExpressionNode expression, TypeNode possiblyUnresolvedType)
     {
-        if (!globalSymbolTableLookup.TryResolveCanonicalType(possiblyUnresolvedType, module.Symbol.Segments, module, out var resolvedType))
+        if (!globalSymbolTableLookup.TryResolveCanonicalType(module, possiblyUnresolvedType, module.Symbol.Segments, out var resolvedType))
         {
             diagnostics.UndeclaredType(possiblyUnresolvedType);
             return;

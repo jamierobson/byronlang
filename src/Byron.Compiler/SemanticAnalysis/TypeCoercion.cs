@@ -35,7 +35,7 @@ public class TypeCoercion(GlobalSymbolTableLookup globalSymbolTableLookup, Canon
             return true;
         }
         
-        if (globalSymbolTableLookup.TryResolveCanonicalType(targetType, sourceType.Symbol.Segments, module, out var canonicalType))
+        if (globalSymbolTableLookup.TryResolveCanonicalType(module, targetType, sourceType.Symbol.Segments, out var canonicalType))
         {
             if (canonicalType.Symbol == sourceType.Symbol)
             {

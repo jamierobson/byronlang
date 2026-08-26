@@ -73,7 +73,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
     {
         foreach (var block in module.Declarations.ImplementBlocks)
         {
-            if (globalSymbolTableLookup.TryResolveCanonicalType(block.TypeNode, module.Symbol.Segments, module, out var canonicalType))
+            if (globalSymbolTableLookup.TryResolveCanonicalType(module, block.TypeNode, module.Symbol.Segments, out var canonicalType))
             {
                 block.UpdateType((NominalTypeNode)canonicalType);
             }
@@ -97,8 +97,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
     {
         foreach (var field in module.Declarations.Structs.SelectMany(x => x.Fields))
         {
-            if (globalSymbolTableLookup.TryResolveCanonicalType(field.Type, module.Symbol.Segments, module,
-                    out var resolvedFieldType))
+            if (globalSymbolTableLookup.TryResolveCanonicalType(module, field.Type, module.Symbol.Segments, out var resolvedFieldType))
             {
                 field.Type = resolvedFieldType;
             }

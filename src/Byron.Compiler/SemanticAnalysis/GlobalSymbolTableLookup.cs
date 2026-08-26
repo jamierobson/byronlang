@@ -6,21 +6,21 @@ namespace Byron.Compiler.SemanticAnalysis;
 
 public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
 {    
-
     public IReadOnlyDictionary<Symbol, StructDeclarationNode> Structs => symbols.Structs;
     public bool TypeExists(ModuleDeclarationNode module, TypeNode typeNode)
     {
         return typeNode is PrimitiveTypeNode p
             ? symbols.Primitives.ContainsKey(p.Symbol.ToString())
-            : TryResolveCanonicalType(typeNode, module.Symbol.Segments, module, out _);
+            : TryResolveCanonicalType(module, typeNode, module.Symbol.Segments, out _);
     }
     
     public bool TryResolveCanonicalType(
+        ModuleDeclarationNode activeModule,
         TypeNode inputType,
         string[] currentScopeSegments,
-        ModuleDeclarationNode currentModule,
         [NotNullWhen(true)] out TypeNode? resolvedType)
     {
+        _ = currentScopeSegments; // Ignored and will be removed
         var leafName = inputType.Symbol.MemberName;
         if (inputType.Symbol.Segments.Length <= 1 && symbols.Primitives.ContainsKey(leafName))
         {
@@ -29,7 +29,9 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         }
 
         var success = TryResolveSymbol(
-            inputType.Symbol.Segments, currentScopeSegments, currentModule,
+            activeModule,
+            inputType.Symbol, 
+            // currentScopeSegments, 
             symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
             symbols.NominalTypes.Symbols,
             out var resolvedNominal);
@@ -50,22 +52,36 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         return true;
     }
 
-    public bool TryGetStruct(ModuleDeclarationNode module, string name, string[] symbolSegments, [NotNullWhen(true)] out StructDeclarationNode? declaration) => TryResolveSymbol(
-        [name], 
-        symbolSegments, 
-        module,
-        symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
-        symbols.Structs,
-        out declaration);
+    public bool TryGetStruct(
+        ModuleDeclarationNode activeModule,
+        string name,
+        string[] symbolSegments,
+        [NotNullWhen(true)] out StructDeclarationNode? declaration)
+    {
+        _ = symbolSegments;
+        var success = TryResolveSymbol(
+            activeModule,
+            Symbol.From(name), 
+            // symbolSegments, 
+            symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
+            symbols.Structs,
+            out var resolved);
+
+        declaration = resolved;
+        return success;
+    }
     
     public bool TryGetTrait(
+        ModuleDeclarationNode activeModule,
         Symbol symbol, 
         string[] currentScopeSegments,
-        ModuleDeclarationNode currentModule,
         [NotNullWhen(true)] out TraitDeclarationNode? resolvedTrait)
     {
+        _ = currentScopeSegments; // Ignored and will be removed
         var success = TryResolveSymbol(
-            symbol.Segments, currentScopeSegments, currentModule,
+            activeModule,
+            symbol, 
+            // currentScopeSegments, 
             symbols.Traits.CandidateSymbolsForMemberNamedElement,
             symbols.Traits.Symbols,
             out var resolved);
@@ -74,80 +90,109 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         return success;
     }
 
-    private bool TryResolveWithAliases(Symbol moduleSymbol, string name, out string[] expandedPrefix)
-    {
-        expandedPrefix = [];
-        if (!symbols.ModuleAliases.TryGetValue(moduleSymbol, out var availableAliases))
-        {
-            return false;
-        }
-
-        if (!availableAliases.TryGetValue(name, out var resolvedAlias))
-        {
-            return false;
-        }
-
-        expandedPrefix = resolvedAlias.Segments;
-        return true;
-    }
-
     public bool TryGetFunction(
-        ModuleDeclarationNode currentModule,
-        string[] namespaceSegments,
+        ModuleDeclarationNode activeModule,
+        Symbol symbol,
+        // string[] namespaceSegments,
         string functionName,
         string[] currentScopeSegments,
         [NotNullWhen(true)] out FunctionDeclarationNode? function)
     {
-        string[] querySegments = [.. namespaceSegments, functionName];
+        // Ignored deliberately
+        _ = functionName;
+        _ = currentScopeSegments;
         return TryResolveSymbol(
-            querySegments, 
-            currentScopeSegments, 
-            currentModule,
+            activeModule,
+            symbol, 
+            // currentScopeSegments, 
             symbols.Functions.CandidateSymbolsForMemberNamedElement,
             symbols.Functions.Symbols,
             out function);
     }
     
+    
     private bool TryResolveSymbol<T>(
-        string[] querySegments, 
-        string[] currentScopeSegments, 
-        ModuleDeclarationNode currentModule,
+        ModuleDeclarationNode module,
+        Symbol rawSymbol,
         IReadOnlyDictionary<string, HashSet<Symbol>> candidatesByMemberName,
         IReadOnlyDictionary<Symbol, T> symbolTable,
-        [NotNullWhen(true)] out T? result)
-        where T : class
+        [MaybeNullWhen(false)] out T? result
+    )
     {
-        var exactSymbol = new Symbol(querySegments);
-        if (symbolTable.TryGetValue(exactSymbol, out result)) return true;
-
-        var leafName = querySegments[^1];
-        if (candidatesByMemberName.TryGetValue(leafName, out var candidates))
+        if (TryResolveCandidateSymbol(module, rawSymbol, candidatesByMemberName, symbolTable, out result))
         {
-            for (var i = currentScopeSegments.Length; i >= 0; i--)
-            {
-                var candidateSymbol = new Symbol(GlobalSymbolTable.CreateCanonicalSymbolSegments(currentScopeSegments[..i], querySegments));
-                if (candidates.Contains(candidateSymbol) && symbolTable.TryGetValue(candidateSymbol, out result))
-                    return true;
-            }
+            return true;
         }
 
-        if (TryResolveWithAliases(currentModule.Symbol, querySegments[0], out var expandedPrefix))
+        if (symbols.ModuleAliases.TryGetValue(module.Symbol, out var aliases))
         {
-            var aliasedSymbol = new Symbol(GlobalSymbolTable.CreateCanonicalSymbolSegments(expandedPrefix, querySegments[1..]));
-            if (symbolTable.TryGetValue(aliasedSymbol, out result))
+            var candidateSymbol = ReplaceAliases(rawSymbol, aliases);
+            
+            if (candidateSymbol != rawSymbol && TryResolveCandidateSymbol(module, candidateSymbol, candidatesByMemberName, symbolTable, out result))
             {
                 return true;
+            }
+        }
+        
+        result = default;
+        return false;
+    }
+
+    private bool TryResolveCandidateSymbol<T>(
+        ModuleDeclarationNode module,
+        Symbol candidateSymbol,
+        IReadOnlyDictionary<string, HashSet<Symbol>> candidatesByMemberName,
+        IReadOnlyDictionary<Symbol, T> symbolTable,
+        [MaybeNullWhen(false)] out T? result)
+    { 
+        if (symbolTable.TryGetValue(candidateSymbol, out result))
+        {
+            return true;
+        }
+        
+        if (candidatesByMemberName.TryGetValue(candidateSymbol.Segments[^1], out var candidates))
+        {
+            var scope = module.Symbol.Segments;
+            for (var i = scope.Length; i >= 0; i--)
+            {
+                var scopedPrefix = scope[..i];
+                var qualifiedSegments = GlobalSymbolTable.CreateCanonicalSymbolSegments(scopedPrefix, candidateSymbol.Segments);
+                var candidate = Symbol.From(qualifiedSegments);
+
+                if (candidates.Contains(candidate) && symbolTable.TryGetValue(candidate, out result))
+                {
+                    return true;
+                }
             }
             
-            var moduleScopedAliasedSymbolSegments = GlobalSymbolTable.CreateCanonicalSymbolSegments(currentScopeSegments, aliasedSymbol.Segments);
-            var moduleScopedAliasedSymbol = new Symbol(moduleScopedAliasedSymbolSegments);
-            if (symbolTable.TryGetValue(moduleScopedAliasedSymbol, out result))
-            {
-                return true;
-            }
+            
+            // var moduleQualifiedCandidate = GlobalSymbolTable.CreateCanonicalSymbolSegments(module.Symbol.Segments, candidateSymbol.Segments);
+            // candidateSymbol = Symbol.From(moduleQualifiedCandidate);
+            // if (candidates.Contains(candidateSymbol) && symbolTable.TryGetValue(candidateSymbol, out result))
+            // {
+            //     return true;
+            // }
         }
 
-        result = null;
         return false;
+    }
+
+    private Symbol ReplaceAliases(Symbol candidateSymbol, Dictionary<string, Symbol> aliases)
+    {
+        var unaliasedSymbolPath = new List<string>();
+        
+        var head = candidateSymbol.Segments[0];
+        if (aliases.TryGetValue(head, out var alias))
+        {
+            unaliasedSymbolPath.AddRange(alias.Segments);
+            for (var i = 1; i < candidateSymbol.Segments.Length; i++)
+            {
+                unaliasedSymbolPath.Add(candidateSymbol.Segments[i]);
+            }
+            
+            return Symbol.From(unaliasedSymbolPath);
+        }
+        
+        return candidateSymbol;
     }
 }
