@@ -13,10 +13,17 @@ public class ModuleTestFixtureBuilder
         Module = module ?? new FileModuleNode(Symbol.Global, SourceSpan.Empty); 
     }
 
-    public NominalTypeNode WithType(string typeName)
+    public NominalTypeNode WithNominalType(string typeName)
     {
         var type = new NominalTypeNode(typeName, SourceSpan.Empty);
         Module.Declarations.Structs.Add(new StructDeclarationNode(type, [], type.Span));
+        return type;
+    }
+
+    public TraitTypeNode WithTrait(string typeName)
+    {
+        var type = new TraitTypeNode(typeName, SourceSpan.Empty);
+        Module.Declarations.Traits.Add(new TraitDeclarationNode(type, [], [], type.Span));
         return type;
     }
     
@@ -29,6 +36,25 @@ public class ModuleTestFixtureBuilder
         );
         Module.Declarations.Aliases.Add(aliasNode);
         return aliasNode;
+    }
+    
+    public ImplementBlockDeclarationNode WithImplementBlock(NominalTypeNode associatedType, TraitTypeNode? associatedTrait) => new (associatedType, associatedTrait, SourceSpan.Empty);
+
+    public FunctionDeclarationNode WithFunction(string name, ImplementBlockDeclarationNode? implementBlock = null)
+    {
+        var signature = new FunctionSignatureNode(name, [], new VoidTypeNode(SourceSpan.Empty), SourceSpan.Empty);
+        var function = new FunctionDeclarationNode(signature, new BlockStatementNode([], SourceSpan.Empty), SourceSpan.Empty);
+
+        if (implementBlock != null)
+        {
+            implementBlock.FunctionDeclarations.Add(function);
+        }
+        else
+        {
+            Module.Declarations.Functions.Add(function);
+        }
+        
+        return function;
     }
 
     public ModuleTestFixtureBuilder WithChild(string name)
@@ -46,10 +72,7 @@ public class SymbolResolutionTestFixtureBuilder(ModuleDeclarationNode module)
     {
         var diagnostics = new Diagnostics();
         var symbols = new GlobalSymbolTable();
-        symbols.RegisterModules(module, [], diagnostics);
-        symbols.RegisterAliasSymbols(module, diagnostics);
-        symbols.RegisterTypeSymbols(module, [], diagnostics);
-        symbols.BuildAliasContexts(module, [], diagnostics);
+        symbols.Register([module], diagnostics);
         
         return new GlobalSymbolTableLookup(symbols);
     }

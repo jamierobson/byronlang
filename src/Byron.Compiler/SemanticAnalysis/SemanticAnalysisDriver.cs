@@ -13,30 +13,7 @@ public class SemanticAnalysisDriver(ProgramNode program)
         var scopedSymbolTable = new ScopedSymbolTable();
         var globalSymbolTable = new GlobalSymbolTable();
 
-        foreach (var fileModule in program.RootModules)
-        {
-            globalSymbolTable.RegisterModules(fileModule, [], _diagnostics);
-        }
-        
-        foreach (var fileModule in program.RootModules)
-        {
-            globalSymbolTable.RegisterAliasSymbols(fileModule, _diagnostics);
-        }
-
-        foreach (var fileModule in program.RootModules)
-        {
-            globalSymbolTable.BuildAliasContexts(fileModule, [], _diagnostics);
-        }
-        
-        foreach (var fileModule in program.RootModules)
-        {
-            globalSymbolTable.RegisterTypeSymbols(fileModule, [], _diagnostics);
-        }
-
-        foreach (var fileModule in program.RootModules)
-        {
-            globalSymbolTable.RegisterFunctionSymbols(fileModule, [], _diagnostics);
-        }
+        globalSymbolTable.Register(program.RootModules, _diagnostics);
         
         if (_diagnostics.HasErrors)
         {

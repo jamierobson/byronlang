@@ -42,6 +42,35 @@ public class GlobalSymbolTable
     private readonly Dictionary<Symbol, Dictionary<string, AliasDeclarationNode>> _localAliases = new(); 
     
     
+
+    public void Register(IReadOnlyList<ModuleDeclarationNode> programRootModules, Diagnostics diagnostics)
+    {        
+        foreach (var fileModule in programRootModules)
+        {
+            RegisterModules(fileModule, [], diagnostics);
+        }
+        
+        foreach (var fileModule in programRootModules)
+        {
+            RegisterAliasSymbols(fileModule, diagnostics);
+        }
+
+        foreach (var fileModule in programRootModules)
+        {
+            BuildAliasContexts(fileModule, [], diagnostics);
+        }
+        
+        foreach (var fileModule in programRootModules)
+        {
+            RegisterTypeSymbols(fileModule, [], diagnostics);
+        }
+
+        foreach (var fileModule in programRootModules)
+        {
+            RegisterFunctionSymbols(fileModule, [], diagnostics);
+        }
+    }
+    
     public void RegisterFunctionSymbols(ModuleDeclarationNode module, string[] parentNamespaceSegments, Diagnostics diagnostics)
     {
         var thisNamespaceSegments = CreateCanonicalSymbolSegments(parentNamespaceSegments, module.Symbol.Segments);

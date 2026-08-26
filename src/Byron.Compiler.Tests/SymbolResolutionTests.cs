@@ -13,7 +13,7 @@ public class SymbolResolutionTests
     {
         // Arrange
         var moduleBuilder = new ModuleTestFixtureBuilder();
-        var type = moduleBuilder.WithType("a.b.c");
+        var type = moduleBuilder.WithNominalType("a.b.c");
         var module = moduleBuilder.Module;
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
@@ -33,7 +33,7 @@ public class SymbolResolutionTests
     {
         // Arrange
         var moduleBuilder = new ModuleTestFixtureBuilder();
-        var type = moduleBuilder.WithType("a.b.c");
+        var type = moduleBuilder.WithNominalType("a.b.c");
         var alias = moduleBuilder.WithAlias("alias", type.Symbol.ToString());
         
         var module = moduleBuilder.Module;
@@ -55,7 +55,7 @@ public class SymbolResolutionTests
     {
         // Arrange
         var moduleBuilder = new ModuleTestFixtureBuilder();
-        var type = moduleBuilder.WithType("a.b.c");
+        var type = moduleBuilder.WithNominalType("a.b.c");
         var alias = moduleBuilder.WithAlias("alias", "a.b");
         
         var module = moduleBuilder.Module;
@@ -77,8 +77,8 @@ public class SymbolResolutionTests
     {
         // Arrange
         var moduleBuilder = new ModuleTestFixtureBuilder();
-        var first = moduleBuilder.WithType("a.b.c");
-        _ = moduleBuilder.WithType("a.c");
+        var first = moduleBuilder.WithNominalType("a.b.c");
+        _ = moduleBuilder.WithNominalType("a.c");
         var module = moduleBuilder.Module;
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
@@ -95,8 +95,8 @@ public class SymbolResolutionTests
     {
         // Arrange
         var moduleBuilder = new ModuleTestFixtureBuilder();
-        var type = moduleBuilder.WithType("a.b.c");
-        _ = moduleBuilder.WithType("a.b.c.c");
+        var type = moduleBuilder.WithNominalType("a.b.c");
+        _ = moduleBuilder.WithNominalType("a.b.c.c");
         var alias = moduleBuilder.WithAlias("alias", type.Symbol.ToString());
         
         var module = moduleBuilder.Module;
@@ -119,8 +119,8 @@ public class SymbolResolutionTests
         var moduleA = fileModule.WithChild("a");  
         var moduleB = fileModule.WithChild("b"); 
         
-        _ = moduleA.WithType("c");
-        var typeInModuleB = moduleB.WithType("c");
+        _ = moduleA.WithNominalType("c");
+        var typeInModuleB = moduleB.WithNominalType("c");
         
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
@@ -138,7 +138,7 @@ public class SymbolResolutionTests
         // Arrange
         var fileModule = new ModuleTestFixtureBuilder();
         var module = fileModule.WithChild("a");  
-        var type = module.WithType("c");
+        var type = module.WithNominalType("c");
         
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
@@ -159,8 +159,8 @@ public class SymbolResolutionTests
         var moduleA = fileModule.WithChild("a");  
         var moduleB = fileModule.WithChild("b"); 
         
-        var typeInModuleA = moduleA.WithType("c");
-        _ = moduleB.WithType("c");
+        var typeInModuleA = moduleA.WithNominalType("c");
+        _ = moduleB.WithNominalType("c");
         
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
