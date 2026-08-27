@@ -49,8 +49,8 @@ implement Point3d for Point {
 fn main(): i32 {
     let point = Point {x: 1, y: 10, z: 100,};
     let fromImplementBlock = point.getSum(); // expect 1000
-    let fromPoint2d = Point.Point2d.getSum(&point);
-    let fromPoint3d = Point.Point3d.getSum(&point);
+    let fromPoint2d = Point.Point2d.getSum(&point); // expect 11
+    let fromPoint3d = Point.Point3d.getSum(&point); // expect 111
     
     var sumOfSums = fromImplementBlock + fromPoint2d + fromPoint3d;
     
@@ -59,8 +59,8 @@ fn main(): i32 {
         return 255; 
     }
     
-    let fieldAccess = point.x + Point.Point2d.getY(&point) + Point.Point3d.getZ(&point); 
-    sumOfSums = sumOfSums - fieldAccess;
+    let fieldAccess = point.x + Point.Point2d.getY(&point) + Point.Point3d.getZ(&point); // expect  1 + 10 + 100 = 111 
+    sumOfSums = sumOfSums - fieldAccess; // expect 1122 - 111 = 1011
     
     return sumOfSums;
 }

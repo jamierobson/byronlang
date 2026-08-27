@@ -16,8 +16,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             moduleBuilder.Module, 
             Symbol.From(function.Signature.Name), 
-            function.Signature.Name, 
-            [], 
             out var resolved);
 
         // Assert
@@ -39,37 +37,12 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             moduleBuilder.Module, 
             Symbol.From([..type.Symbol.Segments, function.Signature.Name]),
-            function.Signature.Name, 
-            [],
             out var resolved);
 
         // Assert
         Assert.True(canResolve);
         Assert.Equal([..type.Symbol.Segments, function.Signature.Name], resolved!.Symbol.Segments);
     }
-
-    // [Fact]
-    // public void Resolve_ResolvesStaticAssociatedFunctionWithSegments()
-    // {
-    //     // Arrange
-    //     var moduleBuilder = new ModuleTestFixtureBuilder();
-    //     var type = moduleBuilder.WithNominalType("type");
-    //     var block = moduleBuilder.WithImplementBlock(type);
-    //     var function = moduleBuilder.WithFunction("myFunction", block);
-    //     var lookup = new SymbolResolutionTestFixtureBuilder(moduleBuilder.Module).Build();
-    //
-    //     // Act
-    //     var canResolve = lookup.TryGetFunction(
-    //         moduleBuilder.Module, 
-    //         [], 
-    //         function.Signature.Name, 
-    //         type.Symbol.Segments,
-    //         out var resolved);
-    //
-    //     // Assert
-    //     Assert.True(canResolve);
-    //     Assert.Equal([..type.Symbol.Segments, function.Signature.Name], resolved!.Symbol.Segments);
-    // }
 
     [Fact]
     public void Resolve_ResolvesLocalFreeFunctionThroughAlias()
@@ -85,8 +58,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             moduleBuilder.Module, 
             Symbol.From(["Alias", function.Signature.Name]), 
-            function.Signature.Name, 
-            [],
             out var resolved);
 
         // Assert
@@ -109,8 +80,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             moduleBuilder.Module, 
             Symbol.From(["AliasedType",  function.Signature.Name]), 
-            function.Signature.Name, 
-            [],
             out var resolved);
 
         // Assert
@@ -134,8 +103,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             moduleBuilder.Module, 
             Symbol.From(["OuterAlias", function.Signature.Name]), 
-            function.Signature.Name, 
-            [],
             out var resolved);
 
         // Assert
@@ -162,8 +129,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             root.Module,
             Symbol.From(["My", "ModuleA", "Dupe", "My", "ModuleB", "MyTrait", function.Signature.Name]),
-            function.Signature.Name,
-            [],
             out var resolved
         );
 
@@ -194,8 +159,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             root.Module,
             Symbol.From(["DupeA", "My", "ModuleB", "MyTrait", function.Signature.Name]),
-            function.Signature.Name,
-            [],
             out var resolved
         );
 
@@ -226,8 +189,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             root.Module,
             Symbol.From(["My", "ModuleA", "Dupe", "AliasedTrait", function.Signature.Name]),
-            function.Signature.Name,
-            [],
             out var resolved
         );
 
@@ -259,8 +220,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             root.Module,
             Symbol.From(["DupeA", "AliasedTrait", function.Signature.Name]),
-            function.Signature.Name,
-            [],
             out var resolved
         );
 
@@ -290,8 +249,6 @@ public class FunctionSymbolResolutionTests
         var canResolve = lookup.TryGetFunction(
             root.Module,
             Symbol.From(["Module_B", "Dupe", "Module_B", "MyTrait", function.Signature.Name]),
-            function.Signature.Name,
-            [],
             out var resolved
         );
 

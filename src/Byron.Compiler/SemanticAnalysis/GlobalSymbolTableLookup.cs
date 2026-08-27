@@ -11,16 +11,14 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     {
         return typeNode is PrimitiveTypeNode p
             ? symbols.Primitives.ContainsKey(p.Symbol.ToString())
-            : TryResolveCanonicalType(module, typeNode, module.Symbol.Segments, out _);
+            : TryResolveCanonicalType(module, typeNode, out _);
     }
     
     public bool TryResolveCanonicalType(
         ModuleDeclarationNode activeModule,
         TypeNode inputType,
-        string[] discardCurrentScopeSegments,
         [NotNullWhen(true)] out TypeNode? resolvedType)
     {
-        _ = discardCurrentScopeSegments; // Ignored and will be removed
         var leafName = inputType.Symbol.MemberName;
         if (inputType.Symbol.Segments.Length <= 1 && symbols.Primitives.ContainsKey(leafName))
         {
@@ -31,7 +29,6 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         var success = TryResolveSymbol(
             activeModule,
             inputType.Symbol, 
-            // currentScopeSegments, 
             symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
             symbols.NominalTypes.Symbols,
             out var resolvedNominal);
@@ -55,14 +52,11 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     public bool TryGetStruct(
         ModuleDeclarationNode activeModule,
         string name,
-        string[] discardSymbolSegments,
         [NotNullWhen(true)] out StructDeclarationNode? declaration)
     {
-        _ = discardSymbolSegments;
         var success = TryResolveSymbol(
             activeModule,
             Symbol.From(name), 
-            // symbolSegments, 
             symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
             symbols.Structs,
             out var resolved);
@@ -74,14 +68,11 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     public bool TryGetTrait(
         ModuleDeclarationNode activeModule,
         Symbol symbol, 
-        string[] currentScopeSegments,
         [NotNullWhen(true)] out TraitDeclarationNode? resolvedTrait)
     {
-        _ = currentScopeSegments; // Ignored and will be removed
         var success = TryResolveSymbol(
             activeModule,
             symbol, 
-            // currentScopeSegments, 
             symbols.Traits.CandidateSymbolsForMemberNamedElement,
             symbols.Traits.Symbols,
             out var resolved);
@@ -93,22 +84,11 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     public bool TryGetFunction(
         ModuleDeclarationNode activeModule,
         Symbol symbol,
-        // string[] namespaceSegments,
-        string discardFunctionNAme,
-        string[] discardCurrentScopeSegments,
         [NotNullWhen(true)] out FunctionDeclarationNode? function)
     {
-        // Ignored deliberately
-        // _ = functionName;
-        _ = discardCurrentScopeSegments;
-
-        var functionName = symbol.MemberName;
-        var path = symbol.Path;
-
         if (TryResolveSymbol(
                 activeModule,
                 symbol,
-                // currentScopeSegments, 
                 symbols.Functions.CandidateSymbolsForMemberNamedElement,
                 symbols.Functions.Symbols,
                 out function))
@@ -116,10 +96,120 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
             return true;
         }
 
+        if (TryResolveTraitFunction(
+                activeModule,
+                symbol,
+                out function))
+        {
+            return true;
+        }
+
         return false;
     }
-    
-    
+
+    private bool TryResolveTraitFunction(
+        ModuleDeclarationNode module,
+        Symbol rawSymbol,
+        [NotNullWhen(true)] out FunctionDeclarationNode? function
+    )
+    {
+        if (!symbols.Functions.CandidateSymbolsForMemberNamedElement.TryGetValue(rawSymbol.MemberName, out var functionCandidates))
+        {
+            function = null;
+            return false;
+        }
+
+        if (rawSymbol.Segments.Length < 3)
+        {
+            // The trait-function symbol is Type.Trait.fn.
+            // The shortest possible trait alias is AliasedType.AliasedTrait.function
+            function = null;
+            return false;
+        }
+        
+        var candidateTraitName = rawSymbol.Path[^1];
+        var foundTrait = symbols.Traits.CandidateSymbolsForMemberNamedElement.TryGetValue(candidateTraitName, out var traitCandidates);
+        if (!foundTrait)
+        {
+            var candidateAliasTraitSymbol = Symbol.From(candidateTraitName);
+
+            if (symbols.ModuleAliases.TryGetValue(module.Symbol, out var aliases))
+            {
+                var unaliasedSymbol = ReplaceAliases(candidateAliasTraitSymbol, aliases);
+                foundTrait = unaliasedSymbol != candidateAliasTraitSymbol &&
+                             symbols.Traits.CandidateSymbolsForMemberNamedElement.TryGetValue(unaliasedSymbol.MemberName, out traitCandidates);
+            }
+        }
+
+        if (!foundTrait || traitCandidates is null)
+        {
+            function = null;
+            return false;
+        }
+        
+        foreach (var functionCandidateSymbol in functionCandidates)
+        {
+            foreach (var traitCandidateSymbol in traitCandidates)
+            {
+                // The trait-function symbol is Type.Trait.fn.
+                // This can only be a valid trait function symbol if there is 
+                // the trait, the function name, and at least one symbol available to resolve a (possibly aliased) type
+                if (traitCandidateSymbol.Segments.Length > functionCandidateSymbol.Segments.Length - 2)
+                {
+                    continue;
+                }
+
+                if (!TryGetTypeCandidateSymbol(module, functionCandidateSymbol, traitCandidateSymbol, out var typeCandidate))
+                {
+                    continue;
+                }
+
+                // if (!TraitSymbolIsInScope())
+                // {
+                //     continue;
+                // }
+
+                if (!TryResolveCanonicalType(module, typeCandidate, out var canonicalType))
+                {
+                    continue;
+                }
+
+                // if (!TypeSymbolIsInScope(module, canonicalType))
+                // {
+                //     continue;
+                // }
+
+                if (symbols.Functions.TryGet(functionCandidateSymbol, out function))
+                {
+                    return true;
+                }
+            }
+        }
+        
+        function = null;
+        return false;
+    }
+
+    private bool TryGetTypeCandidateSymbol(ModuleDeclarationNode module, Symbol functionCandidateSymbol,
+        Symbol traitCandidateSymbol, [NotNullWhen(true)] out TypeNode? candidateTypeNode)
+    {
+        var functionTypePath = functionCandidateSymbol.Path;
+        
+        // The function candidate symbol is already validated longer than the trait candidate symbol
+        for (var i = traitCandidateSymbol.Segments.Length; i > 0; i--)
+        {
+            if (traitCandidateSymbol.Segments[^i] != functionTypePath[^i])
+            {
+                candidateTypeNode = null;
+                return false;
+            }
+        }
+
+        var candidateTypeSymbol = Symbol.From(functionTypePath[0..^traitCandidateSymbol.Segments.Length]);
+        candidateTypeNode = new LookupTypeNode(candidateTypeSymbol); //todo: This is of course just to get compilation oing
+        return true;
+    }
+
     private bool TryResolveSymbol<T>(
         ModuleDeclarationNode module,
         Symbol rawSymbol,
@@ -173,14 +263,6 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
                     return true;
                 }
             }
-            
-            
-            // var moduleQualifiedCandidate = GlobalSymbolTable.CreateCanonicalSymbolSegments(module.Symbol.Segments, candidateSymbol.Segments);
-            // candidateSymbol = Symbol.From(moduleQualifiedCandidate);
-            // if (candidates.Contains(candidateSymbol) && symbolTable.TryGetValue(candidateSymbol, out result))
-            // {
-            //     return true;
-            // }
         }
 
         return false;

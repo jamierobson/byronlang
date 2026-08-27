@@ -25,6 +25,8 @@ public class NominalTypeNode : TypeNode
     }
 }
 
+public class LookupTypeNode(Symbol symbol) : TypeNode(symbol, SourceSpan.Empty);
+
 public class SelfTypeNode(TypeNode scopedType, SourceSpan span) : TypeNode(scopedType.Symbol, span)
 {
     public TypeNode ScopedType { get; init; } = scopedType;

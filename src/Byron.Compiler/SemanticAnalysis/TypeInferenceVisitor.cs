@@ -23,8 +23,7 @@ public class TypeInferenceVisitor(
 
     private TypeNode CanonizedOrProvidedValue(TypeNode type, FunctionDeclarationContext context)
     {
-        if (globalSymbolTableLookup.TryResolveCanonicalType(context.Module, type,
-                context.ImplementBlock?.Symbol.Segments ?? context.Module.Symbol.Segments, out var lookup))
+        if (globalSymbolTableLookup.TryResolveCanonicalType(context.Module, type, out var lookup))
         {
             return lookup;
         }
@@ -58,8 +57,10 @@ public class TypeInferenceVisitor(
                     var expectedParameterType = declarationContext.ImplementBlock.TypeNode;
                     var actualParameterType = parameter.Type;
 
-                    if (!globalSymbolTableLookup.TryResolveCanonicalType(declarationContext.Module, actualParameterType,
-                            declarationContext.ImplementBlock.Symbol.Segments, out var canonicalType))
+                    if (!globalSymbolTableLookup.TryResolveCanonicalType(
+                            declarationContext.Module, 
+                            actualParameterType, 
+                            out var canonicalType))
                     {
                         diagnostics.UndeclaredType(actualParameterType);
                     }
@@ -304,7 +305,9 @@ public class TypeInferenceVisitor(
         var structType = typeMap.GetType(initialization);
         initialization.NominalType = (NominalTypeNode)structType;
 
-        if (!globalSymbolTableLookup.TryResolveCanonicalType(module, initialization.NominalType, module.Symbol.Segments,
+        if (!globalSymbolTableLookup.TryResolveCanonicalType(
+                module, 
+                initialization.NominalType,
                 out var typeCanonicalName))
         {
             diagnostics.UndeclaredType(initialization.NominalType);
@@ -436,7 +439,9 @@ public class TypeInferenceVisitor(
         PathAccessExpressionNode pathAccess)
     {
         var candidateType = new NominalTypeNode(pathAccess.Path, pathAccess.Span);
-        if (globalSymbolTableLookup.TryResolveCanonicalType(module, candidateType, module.Symbol.Segments,
+        if (globalSymbolTableLookup.TryResolveCanonicalType(
+                module, 
+                candidateType,
                 out var resolvedType))
         {
             typeMap.SetType(pathAccess, resolvedType);
@@ -465,13 +470,9 @@ public class TypeInferenceVisitor(
 
         if (callExpression.Callee is VariableExpressionNode variableExpression)
         {
-            // todo: Work out what this lookup should _actually_ be
             if (globalSymbolTableLookup.TryGetFunction(
                     module, 
                     Symbol.From(variableExpression.Name),
-                    // [], 
-                    variableExpression.Name, 
-                    module.Symbol.Segments, 
                     out var resolvedFunction))
             {
                 functionName = resolvedFunction.Symbol.MemberName;
@@ -493,9 +494,6 @@ public class TypeInferenceVisitor(
                 if (globalSymbolTableLookup.TryGetFunction(
                         module,
                         Symbol.From([..pathAccessExpression.Path, memberAccess.MemberName]),
-                        // [],
-                        memberAccess.MemberName,
-                        pathAccessExpression.Path,
                         out var associatedFreeFunction))
                 {
                     var associatedFunctionInvokation =
@@ -507,7 +505,9 @@ public class TypeInferenceVisitor(
             }
             else if (memberAccess.Target is VariableExpressionNode targetVariableExpression)
             {
-                if (globalSymbolTableLookup.TryGetStruct(module, targetVariableExpression.Name, module.Symbol.Segments,
+                if (globalSymbolTableLookup.TryGetStruct(
+                        module
+                        , targetVariableExpression.Name,
                         out var structDeclaration))
                 {
                     namespaceSegments = structDeclaration.Symbol.Segments;
@@ -516,9 +516,6 @@ public class TypeInferenceVisitor(
                     if (globalSymbolTableLookup.TryGetFunction(
                             module,
                             Symbol.From([..namespaceSegments, memberAccess.MemberName]),
-                            // namespaceSegments,
-                            memberAccess.MemberName,
-                            module.Symbol.Segments,
                             out var staticFunction))
                     {
                         var staticFunctionInvocation =
@@ -535,9 +532,6 @@ public class TypeInferenceVisitor(
                     if (!globalSymbolTableLookup.TryGetFunction(
                             module,
                             Symbol.From([..namespaceSegments, memberAccess.MemberName]),
-                            // namespaceSegments, 
-                            memberAccess.MemberName,
-                            module.Symbol.Segments, 
                             out var declaration))
                     {
                         diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
@@ -565,9 +559,6 @@ public class TypeInferenceVisitor(
                     if (!globalSymbolTableLookup.TryGetFunction(
                             module,
                             Symbol.From([..namespaceSegments, memberAccess.MemberName]),
-                            // namespaceSegments, 
-                            memberAccess.MemberName,
-                            module.Symbol.Segments, 
                             out var declaration))
                     {
                         diagnostics.UndeclaredFunction(memberAccess.MemberName, callExpression.Callee.Span);
@@ -595,9 +586,6 @@ public class TypeInferenceVisitor(
         if (!globalSymbolTableLookup.TryGetFunction(
                 module,
                 Symbol.From([..namespaceSegments, functionName]),
-                // namespaceSegments, 
-                functionName, 
-                module.Symbol.Segments,
                 out var function))
         {
             diagnostics.UndeclaredFunction(functionName, callExpression.Callee.Span);
@@ -641,7 +629,9 @@ public class TypeInferenceVisitor(
                 var targetType = self.Type;
 
                 // if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
-                if (!globalSymbolTableLookup.TryResolveCanonicalType(module, self.Type, function.Symbol.Path,
+                if (!globalSymbolTableLookup.TryResolveCanonicalType(
+                        module, 
+                        self.Type,
                         out var resolvedSelfType))
                 {
                     diagnostics.UndeclaredType(self.Type, "self type argument");

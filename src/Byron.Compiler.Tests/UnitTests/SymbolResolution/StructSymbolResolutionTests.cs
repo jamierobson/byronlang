@@ -18,7 +18,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
         // Act
-        var canResolveType = lookup.TryResolveCanonicalType(module, type, [], out var resolvedType);
+        var canResolveType = lookup.TryResolveCanonicalType(module, type, out var resolvedType);
         var canResolveStruct = lookup.TryGetStruct(type, out var resolvedStruct);
         
         // Assert
@@ -40,7 +40,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
         // Act
-        var canResolveType = lookup.TryResolveCanonicalType(module, TypeNode(alias.Name), [], out var resolvedType);
+        var canResolveType = lookup.TryResolveCanonicalType(module, TypeNode(alias.Name), out var resolvedType);
         var canResolveStruct = lookup.TryGetStruct(resolvedType!, out var resolvedStruct);
         
         // Assert
@@ -62,7 +62,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
         // Act
-        var canResolveType = lookup.TryResolveCanonicalType(module, TypeNode([alias.Name, "c"]), [], out var resolvedType);
+        var canResolveType = lookup.TryResolveCanonicalType(module, TypeNode([alias.Name, "c"]), out var resolvedType);
         var canResolveStruct = lookup.TryGetStruct(resolvedType!, out var resolvedStruct);
         
         // Assert
@@ -83,7 +83,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(moduleBuilder.Module).Build();
         
         // Act
-        var canResolveType = lookup.TryResolveCanonicalType(subModule.Module, TypeNode(["child", "c"]), [], out var resolvedType);
+        var canResolveType = lookup.TryResolveCanonicalType(subModule.Module, TypeNode(["child", "c"]), out var resolvedType);
         var canResolveStruct = lookup.TryGetStruct(resolvedType!, out var resolvedStruct);
         
         // Assert
@@ -104,7 +104,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
         // Act
-        var resolved = lookup.TryResolveCanonicalType(module, first, [], out var resolvedType);
+        var resolved = lookup.TryResolveCanonicalType(module, first, out var resolvedType);
         
         // Assert
         Assert.True(resolved);
@@ -124,7 +124,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(module).Build();
         
         // Act
-        var resolved = lookup.TryResolveCanonicalType(module, TypeNode(alias.Name), [], out var resolvedType);
+        var resolved = lookup.TryResolveCanonicalType(module, TypeNode(alias.Name), out var resolvedType);
         
         // Assert
         Assert.True(resolved);
@@ -146,7 +146,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
         // Act
-        var resolved = lookup.TryResolveCanonicalType(moduleA.Module, typeInModuleB, moduleA.Module.Symbol.Segments, out var resolvedType);
+        var resolved = lookup.TryResolveCanonicalType(moduleA.Module, typeInModuleB, out var resolvedType);
         
         // Assert
         Assert.True(resolved);
@@ -167,7 +167,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
         // Act
-        var resolved = lookup.TryResolveCanonicalType(moduleA.Module, typeInModuleB, moduleA.Module.Symbol.Segments, out var resolvedType);
+        var resolved = lookup.TryResolveCanonicalType(moduleA.Module, typeInModuleB, out var resolvedType);
         
         // Assert
         Assert.True(resolved);
@@ -185,7 +185,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
         // Act
-        var resolved = lookup.TryResolveCanonicalType(module.Module, new NominalTypeNode("c", SourceSpan.Empty), module.Module.Symbol.Segments,  out var resolvedType);
+        var resolved = lookup.TryResolveCanonicalType(module.Module, new NominalTypeNode("c", SourceSpan.Empty), out var resolvedType);
         
         // Assert
         Assert.True(resolved);
@@ -207,8 +207,7 @@ public class StructSymbolResolutionTests
         var lookup = new SymbolResolutionTestFixtureBuilder(fileModule.Module).Build();
         
         // Act
-        // var traitTypeNode = new TraitTypeNode("c", SourceSpan.Empty);
-        var canResolveType = lookup.TryResolveCanonicalType(moduleB.Module, typeInModuleA, moduleA.Module.Symbol.Segments, out var resolvedType);
+        var canResolveType = lookup.TryResolveCanonicalType(moduleB.Module, typeInModuleA, out var resolvedType);
         var canResolveStruct = lookup.TryGetStruct(typeInModuleA, out var resolvedTrait);
         
         // Assert

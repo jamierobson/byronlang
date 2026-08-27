@@ -107,7 +107,6 @@ public class GlobalSymbolTable
                     if (lookup.TryGetTrait(
                             module,
                             block.TraitNode.Symbol, 
-                            thisNamespaceSegments,
                             out var trait))
                     {
                         functionNamespace = [..typeSymbol, ..trait.Symbol.Segments];
