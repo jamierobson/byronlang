@@ -17,10 +17,10 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     public bool TryResolveCanonicalType(
         ModuleDeclarationNode activeModule,
         TypeNode inputType,
-        string[] currentScopeSegments,
+        string[] discardCurrentScopeSegments,
         [NotNullWhen(true)] out TypeNode? resolvedType)
     {
-        _ = currentScopeSegments; // Ignored and will be removed
+        _ = discardCurrentScopeSegments; // Ignored and will be removed
         var leafName = inputType.Symbol.MemberName;
         if (inputType.Symbol.Segments.Length <= 1 && symbols.Primitives.ContainsKey(leafName))
         {
@@ -55,10 +55,10 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
     public bool TryGetStruct(
         ModuleDeclarationNode activeModule,
         string name,
-        string[] symbolSegments,
+        string[] discardSymbolSegments,
         [NotNullWhen(true)] out StructDeclarationNode? declaration)
     {
-        _ = symbolSegments;
+        _ = discardSymbolSegments;
         var success = TryResolveSymbol(
             activeModule,
             Symbol.From(name), 
@@ -94,20 +94,29 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         ModuleDeclarationNode activeModule,
         Symbol symbol,
         // string[] namespaceSegments,
-        string functionName,
-        string[] currentScopeSegments,
+        string discardFunctionNAme,
+        string[] discardCurrentScopeSegments,
         [NotNullWhen(true)] out FunctionDeclarationNode? function)
     {
         // Ignored deliberately
-        _ = functionName;
-        _ = currentScopeSegments;
-        return TryResolveSymbol(
-            activeModule,
-            symbol, 
-            // currentScopeSegments, 
-            symbols.Functions.CandidateSymbolsForMemberNamedElement,
-            symbols.Functions.Symbols,
-            out function);
+        // _ = functionName;
+        _ = discardCurrentScopeSegments;
+
+        var functionName = symbol.MemberName;
+        var path = symbol.Path;
+
+        if (TryResolveSymbol(
+                activeModule,
+                symbol,
+                // currentScopeSegments, 
+                symbols.Functions.CandidateSymbolsForMemberNamedElement,
+                symbols.Functions.Symbols,
+                out function))
+        {
+            return true;
+        }
+
+        return false;
     }
     
     
@@ -150,7 +159,7 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
             return true;
         }
         
-        if (candidatesByMemberName.TryGetValue(candidateSymbol.Segments[^1], out var candidates))
+        if (candidatesByMemberName.TryGetValue(candidateSymbol.MemberName, out var candidates))
         {
             var scope = module.Symbol.Segments;
             for (var i = scope.Length; i >= 0; i--)

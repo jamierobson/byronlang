@@ -7,7 +7,8 @@ public record Symbol(string[] Segments)
         Segments = original.Segments;
     }
     
-    public string MemberName => Segments.Length == 0 ? string.Empty : Segments[^1]; //todo: We might not need or want this. string.Empty is a reductive case of the global module symbol.  
+    public string MemberName => Segments.Length == 0 ? string.Empty : Segments[^1]; //todo: We might not need or want this. string.Empty is a reductive case of the global module symbol.
+    public string[] Path => Segments.Length == 0 ? [] : Segments[..^1];
  
     private string? _toString;
     public override string ToString()

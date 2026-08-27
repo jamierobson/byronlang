@@ -161,7 +161,7 @@ public class FunctionSymbolResolutionTests
         // Act
         var canResolve = lookup.TryGetFunction(
             root.Module,
-            Symbol.From(["My", "ModuleA", "Dupe", "My", "ModuleB", "MyTrait"]),
+            Symbol.From(["My", "ModuleA", "Dupe", "My", "ModuleB", "MyTrait", function.Signature.Name]),
             function.Signature.Name,
             [],
             out var resolved
@@ -193,7 +193,7 @@ public class FunctionSymbolResolutionTests
         // Act
         var canResolve = lookup.TryGetFunction(
             root.Module,
-            Symbol.From(["DupeA", "My", "ModuleB", "MyTrait"]),
+            Symbol.From(["DupeA", "My", "ModuleB", "MyTrait", function.Signature.Name]),
             function.Signature.Name,
             [],
             out var resolved
@@ -225,7 +225,7 @@ public class FunctionSymbolResolutionTests
         // Act
         var canResolve = lookup.TryGetFunction(
             root.Module,
-            Symbol.From(["My", "ModuleA", "Dupe", "AliasedTrait"]),
+            Symbol.From(["My", "ModuleA", "Dupe", "AliasedTrait", function.Signature.Name]),
             function.Signature.Name,
             [],
             out var resolved
@@ -258,7 +258,7 @@ public class FunctionSymbolResolutionTests
         // Act
         var canResolve = lookup.TryGetFunction(
             root.Module,
-            Symbol.From(["DupeA", "AliasedTrait"]),
+            Symbol.From(["DupeA", "AliasedTrait", function.Signature.Name]),
             function.Signature.Name,
             [],
             out var resolved
@@ -289,7 +289,7 @@ public class FunctionSymbolResolutionTests
         // Act
         var canResolve = lookup.TryGetFunction(
             root.Module,
-            Symbol.From(["Module_B", "Dupe", "Module_B", "MyTrait"]),
+            Symbol.From(["Module_B", "Dupe", "Module_B", "MyTrait", function.Signature.Name]),
             function.Signature.Name,
             [],
             out var resolved

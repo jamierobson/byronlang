@@ -113,6 +113,12 @@ public class TraitDeclarationNode : TopLevelDeclarationNode
         RequiredFunctions = functions;
         Type = type;
     }
+
+    public void UpdateSymbol(Symbol canonicalSymbol)
+    {
+        Symbol = canonicalSymbol;
+        Type.Symbol = canonicalSymbol;
+    }
 }
 
 public class StructDeclarationNode : TopLevelDeclarationNode
@@ -122,6 +128,7 @@ public class StructDeclarationNode : TopLevelDeclarationNode
         Symbol = symbol;
         Type.Symbol = symbol;
     }
+    
     public NominalTypeNode Type { get; }
     public List<StructFieldNode> Fields { get; init; }
 

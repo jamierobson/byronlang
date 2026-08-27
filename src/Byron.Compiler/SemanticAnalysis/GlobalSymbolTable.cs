@@ -47,7 +47,7 @@ public class GlobalSymbolTable
     {        
         foreach (var fileModule in programRootModules)
         {
-            RegisterModules(fileModule, [], diagnostics);
+            RegisterModules(fileModule, diagnostics);
         }
         
         foreach (var fileModule in programRootModules)
@@ -155,15 +155,6 @@ public class GlobalSymbolTable
         var thisNamespaceSegments = CreateCanonicalSymbolSegments(parentNamespaceSegments, module.Symbol.Segments);
         var canonicalModuleSymbol = new Symbol(thisNamespaceSegments);
         module.Symbol = canonicalModuleSymbol;
-        
-        if (Modules.TryGet(canonicalModuleSymbol, out var otherModule))
-        {
-            diagnostics.Duplicate(module, otherModule.Span);
-        }
-        else
-        {
-            Modules.Add(canonicalModuleSymbol, module);
-        }
 
         foreach (var structDeclaration in module.Declarations.Structs)
         {
@@ -185,7 +176,7 @@ public class GlobalSymbolTable
         {
             var canonicalSymbolSegments = CreateCanonicalSymbolSegments(thisNamespaceSegments, traitDeclaration.Symbol.Segments);
             var canonicalSymbol = new Symbol(canonicalSymbolSegments);
-            traitDeclaration.Symbol = canonicalSymbol;
+            traitDeclaration.UpdateSymbol(canonicalSymbol);
             
             if (Traits.TryGet(canonicalSymbol, out var otherDeclaration))
             {
@@ -333,17 +324,20 @@ public class GlobalSymbolTable
         visitedAliases.Remove(alias.Name);
     }
     
-    public void RegisterModules(ModuleDeclarationNode module, Dictionary<Symbol, ModuleDeclarationNode> discoveredModules, Diagnostics diagnostics)
+    public void RegisterModules(ModuleDeclarationNode module, Diagnostics diagnostics)
     {
-        if (discoveredModules.TryGetValue(module.Symbol, out var registeredModule))
+        if (Modules.TryGet(module.Symbol, out var otherModule))
         {
-            diagnostics.Duplicate(module,  registeredModule.Span);
-            return;
+            diagnostics.Duplicate(module, otherModule.Span);
+        }
+        else
+        {
+            Modules.Add(module.Symbol, module);
         }
 
         foreach (var childModule in module.Declarations.ChildModules)
         {
-            RegisterModules(childModule, discoveredModules,  diagnostics);
+            RegisterModules(childModule,  diagnostics);
         }
     }
 }

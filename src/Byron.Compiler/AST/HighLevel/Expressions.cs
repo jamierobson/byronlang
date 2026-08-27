@@ -28,9 +28,8 @@ public record IdentifierSegment(string Name, SourceSpan Span);
 
 public class PathAccessExpressionNode(IdentifierSegment[] identifierSegments, SourceSpan span) : ExpressionNode(span)
 {
-    private string[]? _pathSegments;
     public readonly IdentifierSegment[] IdentifierSegments = identifierSegments;
-    public string[] Path => _pathSegments ??= IdentifierSegments.Select(s => s.Name).ToArray();
+    public string[] Path => field ??= IdentifierSegments.Select(s => s.Name).ToArray();
 }
 
 public class FunctionInvocationVariableExpressionNode(

@@ -475,7 +475,7 @@ public class TypeInferenceVisitor(
                     out var resolvedFunction))
             {
                 functionName = resolvedFunction.Symbol.MemberName;
-                namespaceSegments = resolvedFunction.Symbol.Segments[..^1];
+                namespaceSegments = resolvedFunction.Symbol.Path;
                 var functionInvocationNode =
                     new FunctionInvocationVariableExpressionNode(resolvedFunction, variableExpression.Span);
                 callExpression.Callee = functionInvocationNode;
@@ -641,7 +641,7 @@ public class TypeInferenceVisitor(
                 var targetType = self.Type;
 
                 // if (!globalSymbolTableLookup.TryResolveCanonicalType(self.Type, module.Symbol.Segments, module, out var resolvedSelfType))
-                if (!globalSymbolTableLookup.TryResolveCanonicalType(module, self.Type, function.Symbol.Segments[..^1],
+                if (!globalSymbolTableLookup.TryResolveCanonicalType(module, self.Type, function.Symbol.Path,
                         out var resolvedSelfType))
                 {
                     diagnostics.UndeclaredType(self.Type, "self type argument");
