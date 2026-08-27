@@ -199,17 +199,39 @@ public partial class LlvmIrGenerator
         _context.EmitLine($"    ret {returnType} {returnValue}");
     }
     
+    // private void GenerateVariableDeclarationStatement(VariableDeclarationNode node)
+    // {
+    //     var (variableValue, variableType) = GenerateExpression(node.Initializer);
+    //
+    //     var stackPointerName = $"{node.Name}.addr";
+    //     var stackPointerRegister = $"%{stackPointerName}";
+    //     
+    //     var symbolType = node.ExplicitType is not null ? LlvmType.From(node.ExplicitType) : variableType;
+    //     var address = new SymbolAddress(new Value.Register(stackPointerName), symbolType);
+    //     
+    //     _context.DeclareVariable(node.Name, address);
+    //     _context.EmitLine($"    {stackPointerRegister} = alloca {variableType}");
+    //     _context.EmitLine($"    store {variableType} {variableValue}, {variableType}* {stackPointerRegister}");
+    // }
+    
     private void GenerateVariableDeclarationStatement(VariableDeclarationNode node)
     {
-        var (variableValue, variableType) = GenerateExpression(node.Initializer);
-
         var stackPointerName = $"{node.Name}.addr";
         var stackPointerRegister = $"%{stackPointerName}";
         
+        if (node.Initializer is StructFieldInitializationExpressionNode structInit)
+        {
+            var structType = new LlvmType.Struct(structInit.Type.CanonicalName);
+            _context.EmitLine($"    {stackPointerRegister} = alloca {structType}");
+            _context.DeclareVariable(node.Name, new SymbolAddress(new Value.Register(stackPointerName), structType));
+
+            GenerateStructFieldInitializationIntoTargetRegister(structInit, stackPointerRegister);
+            return;
+        }
+
+        var (variableValue, variableType) = GenerateExpression(node.Initializer);
         var symbolType = node.ExplicitType is not null ? LlvmType.From(node.ExplicitType) : variableType;
-        var address = new SymbolAddress(new Value.Register(stackPointerName), symbolType);
-        
-        _context.DeclareVariable(node.Name, address);
+        _context.DeclareVariable(node.Name, new SymbolAddress(new Value.Register(stackPointerName), symbolType));
         _context.EmitLine($"    {stackPointerRegister} = alloca {variableType}");
         _context.EmitLine($"    store {variableType} {variableValue}, {variableType}* {stackPointerRegister}");
     }

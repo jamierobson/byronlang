@@ -43,11 +43,11 @@ define i32 @main() {
     %point.addr = alloca %Point1d
     store %Point1d %1, %Point1d* %point.addr
     %2 = alloca %Point1d
-    %3 = getelementptr %Point1d, %Point1d* %point.addr, i32 0, i32 0
-    %4 = load i32, i32* %3
-    %5 = add i32 %4, 9
-    %6 = getelementptr %Point1d, %Point1d* %2, i32 0, i32 0
-    store i32 %5, i32* %6
+    %3 = getelementptr %Point1d, %Point1d* %2, i32 0, i32 0
+    %4 = getelementptr %Point1d, %Point1d* %point.addr, i32 0, i32 0
+    %5 = load i32, i32* %4
+    %6 = add i32 %5, 9
+    store i32 %6, i32* %3
     %7 = load %Point1d, %Point1d* %2
     store %Point1d %7, %Point1d* %point.addr
     %myReference.addr = alloca %Point1d*

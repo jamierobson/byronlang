@@ -150,24 +150,35 @@ public partial class LlvmIrGenerator
 
         return (resultRegister, targetLlvmType);
     }
-
-    private (string ReturnValue, LlvmType ReturnType) GenerateStructFieldInitializationExpression(StructFieldInitializationExpressionNode node)
+    
+    private void GenerateStructFieldInitializationIntoTargetRegister(StructFieldInitializationExpressionNode node, string targetPointerRegister)
     {
         var layout = _context.GetStructLayout(node.Type.CanonicalName);
         var structType = new LlvmType.Struct(node.Type.CanonicalName);
 
-        var structPointerRegister = _context.AllocateRegister();
-        _context.EmitLine($"    {structPointerRegister} = alloca {structType}");
-
         foreach (var fieldInitializer in node.FieldInitializers)
         {
-            var (fieldValue, fieldType) = GenerateExpression(fieldInitializer.Value);
             var fieldIndex = layout.GetFieldIndex(fieldInitializer.FieldName);
             var fieldPointerRegister = _context.AllocateRegister();
-            _context.EmitLine($"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {structPointerRegister}, i32 0, i32 {fieldIndex}");
-            _context.EmitLine($"    store {fieldType} {fieldValue}, {fieldType}* {fieldPointerRegister}");
+            _context.EmitLine($"    {fieldPointerRegister} = getelementptr {structType}, {structType}* {targetPointerRegister}, i32 0, i32 {fieldIndex}");
+            if (fieldInitializer.Value is StructFieldInitializationExpressionNode nestedInit)
+            {
+                GenerateStructFieldInitializationIntoTargetRegister(nestedInit, fieldPointerRegister);
+            }
+            else
+            {
+                var (fieldValue, fieldType) = GenerateExpression(fieldInitializer.Value);
+                _context.EmitLine($"    store {fieldType} {fieldValue}, {fieldType}* {fieldPointerRegister}");
+            }
         }
-        
+    }
+
+    private (string ReturnValue, LlvmType ReturnType) GenerateStructFieldInitializationExpression(StructFieldInitializationExpressionNode node)
+    {
+        var structType = new LlvmType.Struct(node.Type.CanonicalName);
+        var structPointerRegister = _context.AllocateRegister();
+        _context.EmitLine($"    {structPointerRegister} = alloca {structType}");
+        GenerateStructFieldInitializationIntoTargetRegister(node, structPointerRegister);
         var valueRegister = _context.AllocateRegister();
         _context.EmitLine($"    {valueRegister} = load {structType}, {structType}* {structPointerRegister}");
         return (valueRegister, structType);

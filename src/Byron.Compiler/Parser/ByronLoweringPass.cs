@@ -1,3 +1,4 @@
+using System.Text;
 using Byron.Compiler.AST;
 using Byron.Compiler.CodeGen;
 using Byron.Compiler.Exceptions;
@@ -18,7 +19,13 @@ public class ByronLoweringPass
     {
         if (!semanticAnalysisResult.Success)
         {
-            throw new ByronLowLevelParserException("Unable to lower an invalid AST");
+            var outputBuilder = new StringBuilder("Unable to lower an invalid AST");
+            outputBuilder.AppendLine();
+            foreach (var diagnostic in semanticAnalysisResult.Diagnostics.DiagnosticMessages)
+            {
+                outputBuilder.AppendLine(diagnostic);
+            }
+            throw new ByronLowLevelParserException(outputBuilder.ToString());
         }
         
         (_ast, _globalSymbolTable, _highLevelExpressionTypeMap) = semanticAnalysisResult;
@@ -33,15 +40,17 @@ public class ByronLoweringPass
         return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
     }
 
-    private List<Low.TopLevelDeclarationNode> Module(High.FileModuleNode fileModule)
+    private List<Low.TopLevelDeclarationNode> Module(High.ModuleDeclarationNode module)
     {
-        var structs = fileModule.Declarations.Structs.Select(StructDeclaration).ToList();
-        var functions = fileModule
+        var structs = module.Declarations.Structs.Select(StructDeclaration).ToList();
+        var functions = module
             .Declarations.ImplementBlocks.SelectMany(x => x.FunctionDeclarations)
-            .Union(fileModule.Declarations.Functions)
+            .Union(module.Declarations.Functions)
             .Select(FunctionDeclaration).ToList();
         
-        return [..structs, ..functions];
+        var childModuleDeclarations = module.Declarations.ChildModules.SelectMany(Module).ToList();
+        
+        return [..structs, ..functions, ..childModuleDeclarations];
     }
 
     private Low.StructDeclarationNode StructDeclaration(High.StructDeclarationNode @struct)
