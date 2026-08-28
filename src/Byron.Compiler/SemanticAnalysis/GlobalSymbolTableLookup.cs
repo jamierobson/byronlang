@@ -106,90 +106,72 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
 
         return false;
     }
-
+    
     private bool TryResolveTraitFunction(
         ModuleDeclarationNode module,
         Symbol rawSymbol,
-        [NotNullWhen(true)] out FunctionDeclarationNode? function
-    )
+        [NotNullWhen(true)] out FunctionDeclarationNode? function)
     {
-        if (!symbols.Functions.CandidateSymbolsForMemberNamedElement.TryGetValue(rawSymbol.MemberName, out var functionCandidates))
+
+        if (!symbols.Functions.CandidateSymbolsForMemberNamedElement.TryGetValue(rawSymbol.MemberName,
+                out var functionCandidates))
         {
             function = null;
             return false;
         }
+
+        function = null;
 
         if (rawSymbol.Segments.Length < 3)
         {
-            // The trait-function symbol is Type.Trait.fn.
-            // The shortest possible trait alias is AliasedType.AliasedTrait.function
+             // The trait-function symbol is Type.Trait.fn.
+             // The shortest possible trait alias is AliasedType.AliasedTrait.function
             function = null;
             return false;
         }
-        
-        var candidateTraitName = rawSymbol.Path[^1];
-        var foundTrait = symbols.Traits.CandidateSymbolsForMemberNamedElement.TryGetValue(candidateTraitName, out var traitCandidates);
-        if (!foundTrait)
-        {
-            var candidateAliasTraitSymbol = Symbol.From(candidateTraitName);
 
-            if (symbols.ModuleAliases.TryGetValue(module.Symbol, out var aliases))
+        var functionName = rawSymbol.MemberName;
+        var path = rawSymbol.Path;
+
+        for (var split = path.Length - 1; split >= 1; split--)
+        {
+            var typeSegments = path[..split];
+            var traitSegments = path[split..];
+
+            if (!TryResolveSymbol(
+                    module, Symbol.From(traitSegments),
+                    symbols.Traits.CandidateSymbolsForMemberNamedElement,
+                    symbols.Traits.Symbols,
+                    out var traitNode))
             {
-                var unaliasedSymbol = ReplaceAliases(candidateAliasTraitSymbol, aliases);
-                foundTrait = unaliasedSymbol != candidateAliasTraitSymbol &&
-                             symbols.Traits.CandidateSymbolsForMemberNamedElement.TryGetValue(unaliasedSymbol.MemberName, out traitCandidates);
+                continue;
+            }
+
+            if (!TryResolveSymbol(
+                    module, Symbol.From(typeSegments),
+                    symbols.NominalTypes.CandidateSymbolsForMemberNamedElement,
+                    symbols.NominalTypes.Symbols,
+                    out var typeNode))
+            {
+                continue;
+            }
+
+            var candidateFunctionSymbol = Symbol.From([
+                ..typeNode!.Symbol.Segments,
+                ..traitNode!.Symbol.Segments,
+                functionName
+            ]);
+
+            if (symbols.Functions.TryGet(candidateFunctionSymbol, out function))
+            {
+                return true;
             }
         }
 
-        if (!foundTrait || traitCandidates is null)
-        {
-            function = null;
-            return false;
-        }
-        
-        foreach (var functionCandidateSymbol in functionCandidates)
-        {
-            foreach (var traitCandidateSymbol in traitCandidates)
-            {
-                // The trait-function symbol is Type.Trait.fn.
-                // This can only be a valid trait function symbol if there is 
-                // the trait, the function name, and at least one symbol available to resolve a (possibly aliased) type
-                if (traitCandidateSymbol.Segments.Length > functionCandidateSymbol.Segments.Length - 2)
-                {
-                    continue;
-                }
-
-                if (!TryGetTypeCandidateSymbol(module, functionCandidateSymbol, traitCandidateSymbol, out var typeCandidate))
-                {
-                    continue;
-                }
-
-                // if (!TraitSymbolIsInScope())
-                // {
-                //     continue;
-                // }
-
-                if (!TryResolveCanonicalType(module, typeCandidate, out var canonicalType))
-                {
-                    continue;
-                }
-
-                // if (!TypeSymbolIsInScope(module, canonicalType))
-                // {
-                //     continue;
-                // }
-
-                if (symbols.Functions.TryGet(functionCandidateSymbol, out function))
-                {
-                    return true;
-                }
-            }
-        }
-        
         function = null;
         return false;
     }
-
+    
     private bool TryGetTypeCandidateSymbol(ModuleDeclarationNode module, Symbol functionCandidateSymbol,
         Symbol traitCandidateSymbol, [NotNullWhen(true)] out TypeNode? candidateTypeNode)
     {

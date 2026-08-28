@@ -27,13 +27,6 @@ public class TypeCoercion(GlobalSymbolTableLookup globalSymbolTableLookup, Canon
             typeMap.SetType(module, result, targetType);
             return true;
         }
-
-        if (sourceType is ReferenceTypeNode sourceRef && sourceRef.Target.Symbol == targetType.Symbol)
-        {
-            result = new DereferenceExpressionNode(expression, expression.Span);
-            typeMap.SetType(module, result, targetType);
-            return true;
-        }
         
         if (globalSymbolTableLookup.TryResolveCanonicalType(module, targetType, out var canonicalType))
         {
