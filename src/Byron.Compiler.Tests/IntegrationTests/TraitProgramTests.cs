@@ -46,10 +46,25 @@ public class SimpleTraitProgramTests : ProgramSnapshotTestBase
 
 public class TraitImplementationsWithSameTypesButDifferentLiteralSymbols : ProgramSnapshotTestBase
 {
-    protected override string Program()
-    {
-        throw new NotImplementedException();
-    }
+    protected override string Program() =>
+        """
+        fn main(): i32 {
+            return 0;
+        }
+        
+        implement A.MyTrait for A.MyType {
+            fn get(): A.MyType {
+                return A.MyType {a: 3};
+            }
+        }
+        
+        module A {
+            struct MyType {a: i32}
+            trait MyTrait {
+                fn get(): MyType,
+            }
+        }
+        """;
 }
 
 public class ComplexTraitProgramTests : ProgramSnapshotTestBase

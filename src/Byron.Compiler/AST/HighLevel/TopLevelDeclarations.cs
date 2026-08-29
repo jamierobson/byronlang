@@ -75,9 +75,6 @@ public class FunctionSignatureNode : AstNode
         Parameters = parameters;
         ReturnType = returnType;
     }
-
-    public string SignatureString() =>
-        $"{Name}({string.Join(',', Parameters.Select(p => p.SignatureString()))}): {ReturnType.Symbol}";
 }
 
 public class ParameterNode : AstNode
@@ -93,23 +90,6 @@ public class ParameterNode : AstNode
         Name = name;
         Type = type;
     }
-
-    private string SelfSignatureString()
-    {
-        return Ownership switch
-        {
-            ReceiverBindingOwnership.Owned => "Owned<Self>",
-            ReceiverBindingOwnership.ImmutableBorrow => "&Self",
-            ReceiverBindingOwnership.MutableBorrow => "&var Self",
-            _ => "Self"
-        };
-    }
-    
-    public string SignatureString() => Type is SelfTypeNode
-        ? SelfSignatureString()
-        : Type.Symbol.ToString();
-
-
 }
 
 public class AliasDeclarationNode(string name, Symbol symbol, SourceSpan span) : TopLevelDeclarationNode(symbol, span)

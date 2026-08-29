@@ -1,3 +1,4 @@
+using ReceiverBindingOwnership = Byron.Compiler.AST.ReceiverBindingOwnership;
 using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
@@ -42,13 +43,17 @@ public class TraitImplementationValidator(GlobalSymbolTableLookup globalSymbolTa
             {             
                 if (implementingDeclaration.Signature.Parameters.Count != requiredFunction.Parameters.Count)
                 {
-                    diagnostics.InvalidTraitImplementationFunctionSignature(block, requiredFunction, implementingDeclaration.Signature);
+                    var requiredFunctionSignature = SignatureString(requiredFunction);
+                    var declaredFunctionSignature = SignatureString(implementingDeclaration.Signature);
+                    diagnostics.InvalidTraitImplementationFunctionSignature(block, implementingDeclaration.Signature.Name, requiredFunctionSignature, declaredFunctionSignature);
                     break;
                 }
 
                 if (implementingDeclaration.Signature.ReturnType.Symbol != requiredFunction.ReturnType.Symbol)
                 {
-                    diagnostics.InvalidTraitImplementationFunctionSignature(block, requiredFunction, implementingDeclaration.Signature);
+                    var requiredFunctionSignature = SignatureString(requiredFunction);
+                    var declaredFunctionSignature = SignatureString(implementingDeclaration.Signature);
+                    diagnostics.InvalidTraitImplementationFunctionSignature(block, implementingDeclaration.Signature.Name, requiredFunctionSignature, declaredFunctionSignature);
                     continue;
                 }
 
@@ -61,11 +66,31 @@ public class TraitImplementationValidator(GlobalSymbolTableLookup globalSymbolTa
                     
                     if (implementingDeclaration.Signature.Parameters[i].Type.Symbol != requiredFunction.Parameters[i].Type.Symbol)
                     {
-                        diagnostics.InvalidTraitImplementationFunctionSignature(block, requiredFunction, implementingDeclaration.Signature);
+                        var requiredFunctionSignature = SignatureString(requiredFunction);
+                        var declaredFunctionSignature = SignatureString(implementingDeclaration.Signature);
+                        diagnostics.InvalidTraitImplementationFunctionSignature(block, implementingDeclaration.Signature.Name, requiredFunctionSignature, declaredFunctionSignature);
                         break;
                     }
                 }
             }
         }
+    } 
+
+    private string SelfSignatureString(ReceiverBindingOwnership ownership)
+    {
+        return ownership switch
+        {
+            ReceiverBindingOwnership.Owned => "Owned<Self>",
+            ReceiverBindingOwnership.ImmutableBorrow => "&Self",
+            ReceiverBindingOwnership.MutableBorrow => "&var Self",
+            _ => "Self"
+        };
     }
+    
+    public string SignatureString(ParameterNode parameter) => parameter.Type is SelfTypeNode
+        ? SelfSignatureString(parameter.Ownership)
+        : parameter.Type.Symbol.ToString();
+    
+    public string SignatureString(FunctionSignatureNode functionSignature) =>
+        $"{functionSignature.Name}({string.Join(',', functionSignature.Parameters.Select(SignatureString))}): {functionSignature.ReturnType.Symbol}";
 }

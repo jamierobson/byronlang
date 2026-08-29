@@ -31,9 +31,9 @@ public class Diagnostics
     public void TypeMismatch(TypeNode leftType, string rightType) => Add($"Cannot convert {leftType.Symbol} to type {rightType} at {leftType.Span}");
     public void OutOfRange(IntegerLiteralNode literal, TypeNode type) => Add($"{literal.Value} is out of range for type {type.Symbol} at {literal.Span}");
     public void MissingMember(string canonicalName, MemberAccessExpressionNode expression) => Add($"{canonicalName} does not contain field {expression.MemberName} at {expression.Span}");
-    public void MissingMember(AST.Symbol symbol, MemberAccessExpressionNode expression) => Add($"{symbol} does not contain field {expression.MemberName} at {expression.Span}");
+    public void MissingMember(Symbol symbol, MemberAccessExpressionNode expression) => Add($"{symbol} does not contain field {expression.MemberName} at {expression.Span}");
     public void MissingMember(string canonicalName, StructFieldInitializerNode initializer) => Add($"{canonicalName} does not contain field {initializer.FieldName} at {initializer.Span}");
-    public void MissingMember(AST.Symbol symbol, StructFieldInitializerNode initializer) => Add($"{symbol} does not contain field {initializer.FieldName} at {initializer.Span}");
+    public void MissingMember(Symbol symbol, StructFieldInitializerNode initializer) => Add($"{symbol} does not contain field {initializer.FieldName} at {initializer.Span}");
     public void InvalidStructName(StructDeclarationNode structDeclaration, string canonicalName) => Add($"Invalid struct name {structDeclaration.Symbol} at {structDeclaration.Span}");
     // public void CircularReference(Symbol symbol, SourceSpan sourceSpan) => Add($"Circular reference in type {symbol} at {sourceSpan}");
     // public void CircularReference(AliasDeclarationNode alias) => Add($"Circular reference in type {alias.Name} at {alias.Span}");
@@ -41,7 +41,7 @@ public class Diagnostics
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
     public void UndeclaredTrait(TraitTypeNode type) => Add($"The trait {type.Symbol} could not be found at {type.Span}. Are you missing an import or alias?");
     public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
-    public void InvalidArgument(AST.Symbol argumentType, AST.Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");
+    public void InvalidArgument(Symbol argumentType, Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
     public void InvalidUnaryOperation(UnaryExpressionNode unary, TypeNode operandType) => Add($"Cannot apply {unary.Operator.ToLexeme()} operator to type {operandType.Symbol} at {unary.Span}");
     public void InvalidDereference(DereferenceExpressionNode dereference, TypeNode targetType) => Add($"Cannot dereference a non-reference type {targetType.Symbol} at {dereference.Span}");
@@ -56,8 +56,11 @@ public class Diagnostics
     public void MissingTraitImplementationField(ImplementBlockDeclarationNode block, string requiredFieldName) => Add($"{block.TypeNode.Symbol} does not implement field {requiredFieldName} required by trait {block.TraitNode!.Symbol}. The implementation is declared at {block.Span}");
     public void MissingTraitImplementationFunction(ImplementBlockDeclarationNode block, string requiredFieldName) => Add($"{block.TypeNode.Symbol} does not implement function {requiredFieldName} required by trait {block.TraitNode!.Symbol}. The implementation is declared at {block.Span}");
 
-    public void InvalidTraitImplementationFunctionSignature(ImplementBlockDeclarationNode block,
-        FunctionSignatureNode requiredFunction, FunctionSignatureNode declaredFunction) => Add(
-        $"{block.TypeNode.Symbol} does not implement function {declaredFunction.Name} exactly as required for implementation of trait {block.TraitNode
-            .Symbol}. Expected {requiredFunction.SignatureString()}, but found {declaredFunction.SignatureString()}. The implementation is declared at {block.Span}");
+    public void InvalidTraitImplementationFunctionSignature(
+        ImplementBlockDeclarationNode block,
+        string functionName,
+        string requiredSignatureString,
+        string declaredSignatureString) => Add(
+        $"{block.TypeNode.Symbol} does not implement function {functionName} exactly as required for implementation of trait {block.TraitNode!
+            .Symbol}. Expected {requiredSignatureString}, but found {declaredSignatureString}. The implementation is declared at {block.Span}");
 }
