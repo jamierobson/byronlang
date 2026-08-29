@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using Byron.Compiler.AST.HighLevel;
 
 namespace Byron.Compiler.SemanticAnalysis;
@@ -29,10 +30,13 @@ public class SemanticAnalysisDriver(ProgramNode program)
         
         var canonicalResolvingTypeMap = new CanonicalResolvingTypeMap(typeMap, globalSymbolTableLookup, _diagnostics);
         var typeCoercion = new TypeCoercion(globalSymbolTableLookup, canonicalResolvingTypeMap, _diagnostics);
-        var visitor = new TypeInferenceVisitor(globalSymbolTableLookup, canonicalResolvingTypeMap, typeCoercion, scopedSymbolTable, _diagnostics);
+        var typeChecker = new TypeCheckingVisitor(globalSymbolTableLookup, canonicalResolvingTypeMap, typeCoercion, scopedSymbolTable, _diagnostics);
+        var traitImplementationValidator = new TraitImplementationValidator(globalSymbolTableLookup, _diagnostics);
+        
         foreach (var module in program.RootModules)
         {
-            VisitFunctions(module, visitor);
+            ValidateTraitImplementations(module, traitImplementationValidator);
+            VisitFunctions(module, typeChecker);
         }
 
         if (_diagnostics.HasErrors)
@@ -43,7 +47,20 @@ public class SemanticAnalysisDriver(ProgramNode program)
         return SemanticAnalysisResult.Ok(program, globalSymbolTable, typeMap);
     }
 
-    private void VisitFunctions(ModuleDeclarationNode module, TypeInferenceVisitor visitor)
+    private void ValidateTraitImplementations(ModuleDeclarationNode module, TraitImplementationValidator validator)
+    {
+        foreach (var block in module.Declarations.ImplementBlocks)
+        {
+            validator.Validate(module, block);
+        }
+
+        foreach (var childModule in module.Declarations.ChildModules)
+        {
+            ValidateTraitImplementations(childModule, validator);
+        }
+    }
+
+    private void VisitFunctions(ModuleDeclarationNode module, TypeCheckingVisitor visitor)
     {
         var moduleScopedFreeFunctionContext = new FunctionDeclarationContext(module, null);
         foreach (var function in module.Declarations.Functions)

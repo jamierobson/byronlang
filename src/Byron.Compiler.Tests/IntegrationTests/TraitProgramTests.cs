@@ -44,6 +44,14 @@ public class SimpleTraitProgramTests : ProgramSnapshotTestBase
         """;
 }
 
+public class TraitImplementationsWithSameTypesButDifferentLiteralSymbols : ProgramSnapshotTestBase
+{
+    protected override string Program()
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public class ComplexTraitProgramTests : ProgramSnapshotTestBase
 {
     protected override string Program() =>

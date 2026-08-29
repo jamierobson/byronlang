@@ -4,7 +4,7 @@ using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.SemanticAnalysis;
 
-public class TypeInferenceVisitor(
+public class TypeCheckingVisitor(
     GlobalSymbolTableLookup globalSymbolTableLookup,
     CanonicalResolvingTypeMap typeMap,
     TypeCoercion typeCoercion,

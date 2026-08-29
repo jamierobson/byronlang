@@ -13,9 +13,10 @@ public class Diagnostics
     
     public void UndeclaredType(TypeNode type, string? usage = null) => 
         Add(string.IsNullOrWhiteSpace(usage)
-            ? $"The type {type.Symbol} could not be found at {type.Span}. Are you missing an import?"
-            : $"The {usage} type {type.Symbol} could not be found at {type.Span}. Are you missing an import?");
+            ? $"The type {type.Symbol} could not be found at {type.Span}. Are you missing an import or alias?"
+            : $"The {usage} type {type.Symbol} could not be found at {type.Span}. Are you missing an import or alias?");
     
+            
     
     private void Add(string message) => _diagnosticMessages.Add(message);
 
@@ -38,6 +39,7 @@ public class Diagnostics
     // public void CircularReference(AliasDeclarationNode alias) => Add($"Circular reference in type {alias.Name} at {alias.Span}");
     public void CircularReference(AliasDeclarationNode alias, HashSet<string> cycle) => Add($"Circular reference in type {alias.Name} at {alias.Span}. The cycle contains the aliases {string.Join(',', cycle)}");
     public void UndeclaredVariable(VariableExpressionNode variableExpression) => Add($"Cannot resolve symbol {variableExpression.Name} at {variableExpression.Span}");
+    public void UndeclaredTrait(TraitTypeNode type) => Add($"The trait {type.Symbol} could not be found at {type.Span}. Are you missing an import or alias?");
     public void UndeclaredFunction(string functionName, SourceSpan sourceSpan) => Add($"Cannot resolve function {functionName} at {sourceSpan}");
     public void InvalidArgument(AST.Symbol argumentType, AST.Symbol parameterType, Symbol function, SourceSpan span) => Add($"Argument type {argumentType} is not assignable to parameter type {parameterType} in function {function}at {span}");
     public void InvalidMutation(VariableExpressionNode variable, SourceSpan typeSpan) => Add($"Variable {variable.Name} is is mutated at {variable.Span} but declared immutable at {typeSpan}");
@@ -51,5 +53,11 @@ public class Diagnostics
     public void InvalidCast(LookupSymbol lookupSymbol, TypeNode targetType, SourceSpan span) => Add($"Cannot coerce variable {lookupSymbol.Name} from {lookupSymbol.Type} to {targetType.Symbol} at {span}");
     public void AmbiguousEntryPoint(FunctionDeclarationNode function, SourceSpan functionSpan) => Add($"Ambiguous application entry point: duplicate definition of {FunctionSignatureNode.EntryFunctionName} at  {function.Span}.");
     public void InvalidStructInitializationType(NominalTypeNode initializationNominalType, SourceSpan initializationSpan) => Add($"Invalid struct initialization: {initializationNominalType} is not a valid struct type at {initializationSpan}");
+    public void MissingTraitImplementationField(ImplementBlockDeclarationNode block, string requiredFieldName) => Add($"{block.TypeNode.Symbol} does not implement field {requiredFieldName} required by trait {block.TraitNode!.Symbol}. The implementation is declared at {block.Span}");
+    public void MissingTraitImplementationFunction(ImplementBlockDeclarationNode block, string requiredFieldName) => Add($"{block.TypeNode.Symbol} does not implement function {requiredFieldName} required by trait {block.TraitNode!.Symbol}. The implementation is declared at {block.Span}");
 
+    public void InvalidTraitImplementationFunctionSignature(ImplementBlockDeclarationNode block,
+        FunctionSignatureNode requiredFunction, FunctionSignatureNode declaredFunction) => Add(
+        $"{block.TypeNode.Symbol} does not implement function {declaredFunction.Name} exactly as required for implementation of trait {block.TraitNode
+            .Symbol}. Expected {requiredFunction.SignatureString()}, but found {declaredFunction.SignatureString()}. The implementation is declared at {block.Span}");
 }
