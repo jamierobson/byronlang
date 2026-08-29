@@ -1,0 +1,56 @@
+module Generics {
+    trait MyTrait {
+        x: i32,
+        fn getX(self: &Self): i32,
+    }
+
+    struct MyImplementation {
+        x: i32
+    }
+    
+    implement MyTrait for MyImplementation {
+        fn getX(self: &Self): i32 {
+            return self.*.x;
+        }
+    }
+    
+    struct TwoValues {
+        a: u16,
+        b: u8,
+    }
+    
+    struct Wrapped<T, V: MyTrait> {
+       myT: T,
+       myTraitImpl: V
+    }
+}
+
+module SecondModule {
+    struct ThreeValues {
+        a: i32,
+        b: i64,
+        c: u8
+    }
+}
+
+alias MyImplementation = Generics.MyImplementation;
+alias Wrapped = Generics.Wrapped;
+alias TwoValues = Generics.TwoValues;
+alias ThreeValues = SecondModule.ThreeValues;
+
+fn main(): i32 {
+    var myTwoValueWrapped = Wrapped<TwoValues, MyImplementation> {
+        myT: TwoValues {a: -25, b: 15 },
+        myTraitImpl: MyImplementation {x: 12}
+    };
+    
+    var myThreeValueWrapped = Wrapped<ThreeValues, MyImplementation> {
+        myT: ThreeValues {a: -16, b: -33, c:6 },
+        myTraitImpl: MyImplementation {x: 46}
+    };
+        
+    let twoValueSum =  myTwoValueWrapped.myT.a + myTwoValueWrapped.myT.b + myTwoValueWrapped.myTraitImpl.x; //15 -25 + 12 = 2
+    let threeValueSum = myThreeValueWrapped.myT.a + myThreeValueWrapped.myT.b + myThreeValueWrapped.myT.c + myThreeValueWrapped.myTraitImpl.x; // -16 -33 + 6 + 46 = 3
+    
+    return twoValueSum + threeValueSum; 
+}

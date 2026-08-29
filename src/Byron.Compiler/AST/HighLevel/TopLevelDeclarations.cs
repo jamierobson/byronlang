@@ -30,6 +30,40 @@ public abstract class TopLevelDeclarationNode : AstNode
     }
 }
 
+public class GenericTypeParameter(string name, List<TraitBound> bounds, SourceSpan span)
+{
+    public string Name { get; init; } = name;
+    public List<TraitBound> Bounds { get; init; } = bounds ?? [];
+    public SourceSpan SourceSpan { get; init; } = span;
+}
+
+public class TraitBound(string traitName, SourceSpan span)
+{
+    public string TraitName { get; init; } = traitName;
+    public TraitTypeNode? ResolvedTrait { get; set; } = null;
+    public SourceSpan SourceSpan { get; init; } = span;
+}
+
+public abstract class GenericTopLevelDeclarationNode : TopLevelDeclarationNode
+{
+    public IReadOnlyList<GenericTypeParameter> GenericTypeParameters { get; init; }
+    public bool IsGeneric => GenericTypeParameters.Count > 0;
+    protected GenericTopLevelDeclarationNode(string name, List<GenericTypeParameter> genericTypeParameters, SourceSpan span) : base(name, span)
+    {
+        GenericTypeParameters = genericTypeParameters ?? [];
+    }
+
+    protected GenericTopLevelDeclarationNode(string[] symbolSegments, List<GenericTypeParameter> genericTypeParameters, SourceSpan span) : base(symbolSegments, span)
+    {
+        GenericTypeParameters = genericTypeParameters ?? [];
+    }
+
+    protected GenericTopLevelDeclarationNode(Symbol symbol, List<GenericTypeParameter> genericTypeParameters, SourceSpan span) : base(symbol, span)
+    {
+        GenericTypeParameters = genericTypeParameters ?? [];
+    }
+}
+
 public class ImplementBlockDeclarationNode : TopLevelDeclarationNode
 {
     public void UpdateType(NominalTypeNode typeNode)
