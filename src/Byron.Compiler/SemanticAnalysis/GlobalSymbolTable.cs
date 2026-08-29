@@ -85,12 +85,12 @@ public class GlobalSymbolTable
                 else
                 {
                     _entryFunctionEncountered = true;
-                    RegisterFunction(function, [], diagnostics);                    
+                    RegisterFunction(module, function, [], diagnostics);                    
                 }
             }
             else
             {
-                RegisterFunction(function, thisNamespaceSegments, diagnostics);
+                RegisterFunction(module, function, thisNamespaceSegments, diagnostics);
             }
         }
 
@@ -123,7 +123,7 @@ public class GlobalSymbolTable
                     functionNamespace = typeSymbol;
                 }
                 
-                RegisterFunction(function, functionNamespace, diagnostics);
+                RegisterFunction(module, function, functionNamespace, diagnostics);
             }
         }
 
@@ -133,7 +133,7 @@ public class GlobalSymbolTable
         }
     }
 
-    private void RegisterFunction(FunctionDeclarationNode function, string[] functionNamespace, Diagnostics diagnostics)
+    private void RegisterFunction(ModuleDeclarationNode module, FunctionDeclarationNode function, string[] functionNamespace, Diagnostics diagnostics)
     { 
         string[] canonicalSymbolSegments = [..functionNamespace, function.Signature.Name];
         var canonicalSymbol = new Symbol(canonicalSymbolSegments);
@@ -145,7 +145,7 @@ public class GlobalSymbolTable
         }
         else
         {
-            Functions.Add(canonicalSymbol, function);
+            Functions.Add(module, canonicalSymbol, function);
         }
     }
     
@@ -166,7 +166,7 @@ public class GlobalSymbolTable
             }
             else
             {
-                NominalTypes.Add(canonicalSymbol, structDeclaration.Type);
+                NominalTypes.Add(module, canonicalSymbol, structDeclaration.Type);
                 _structs.Add(canonicalSymbol, structDeclaration);
             }
         }
@@ -183,7 +183,7 @@ public class GlobalSymbolTable
             }
             else
             {
-                Traits.Add(canonicalSymbol, traitDeclaration);
+                Traits.Add(module, canonicalSymbol, traitDeclaration);
             }
         }
         
@@ -331,7 +331,7 @@ public class GlobalSymbolTable
         }
         else
         {
-            Modules.Add(module.Symbol, module);
+            Modules.Add(module, module.Symbol, module);
         }
 
         foreach (var childModule in module.Declarations.ChildModules)
@@ -346,13 +346,16 @@ public class SymbolList<T> where T : class
     private readonly Dictionary<string, HashSet<Symbol>> _candidateSymbolsForMemberNamedElement = new();
     private readonly Dictionary<Symbol, T> _symbols = new();
     private readonly Dictionary<T, Symbol> _canonicalNames = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<Symbol, ModuleDeclarationNode> _encapsulatingModules = new(ReferenceEqualityComparer.Instance);
     
     public IReadOnlyDictionary<Symbol, T> Symbols => _symbols;
+    public IReadOnlyDictionary<Symbol, ModuleDeclarationNode> EncapsulatingModules => _encapsulatingModules;
     public IReadOnlyDictionary<T, Symbol> CanonicalNames => _canonicalNames;
     public IReadOnlyDictionary<string, HashSet<Symbol>> CandidateSymbolsForMemberNamedElement => _candidateSymbolsForMemberNamedElement;
     
-    public void Add(Symbol canonicalName, T node)
+    public void Add(ModuleDeclarationNode module, Symbol canonicalName, T node)
     {
+        _encapsulatingModules.Add(canonicalName, module);
         _symbols.Add(canonicalName, node);
         _canonicalNames.Add(node, canonicalName);
 

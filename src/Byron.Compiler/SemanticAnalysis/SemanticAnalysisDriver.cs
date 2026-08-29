@@ -83,6 +83,46 @@ public class SemanticAnalysisDriver(ProgramNode program)
         }
     }
 
+    // private void CanonizeFunctionTypes(
+    //     GlobalSymbolTableLookup globalSymbolTableLookup,
+    //     ModuleDeclarationNode module,
+    //     FunctionSignatureNode function,
+    //     Diagnostics diagnostics)
+    // {
+    //     if (globalSymbolTableLookup.TryResolveCanonicalType(module, function.ReturnType, out var resolvedReturnType))
+    //     {
+    //         function.ReturnType = resolvedReturnType;
+    //     }
+    //     foreach (var functionParameter in function.Parameters)
+    //     {
+    //         if (globalSymbolTableLookup.TryResolveCanonicalType(module, function.ReturnType, out var resolveParameterType))
+    //         {
+    //             functionParameter.Type = resolveParameterType;
+    //         }
+    //     }
+    // }
+    //
+    // private void CanonizeAllFunctionTypes(
+    //     GlobalSymbolTableLookup globalSymbolTableLookup, 
+    //     ModuleDeclarationNode module, 
+    //     Diagnostics diagnostics)
+    // {
+    //     foreach (var function in module.Declarations.Functions)
+    //     {
+    //         CanonizeFunctionTypes(globalSymbolTableLookup, module, function.Signature, diagnostics);
+    //     }
+    //
+    //     foreach (var function in module.Declarations.ImplementBlocks.SelectMany(m => m.FunctionDeclarations))
+    //     {
+    //         CanonizeFunctionTypes(globalSymbolTableLookup, module, function.Signature, diagnostics);
+    //     }
+    //
+    //     foreach (var childModule in module.Declarations.ChildModules)
+    //     {
+    //         CanonizeAllFunctionTypes(globalSymbolTableLookup, childModule, diagnostics);
+    //     }
+    // }
+
     private void CanonizeImplementBlockTypes(
         GlobalSymbolTableLookup globalSymbolTableLookup,
         ModuleDeclarationNode module, 
@@ -101,7 +141,22 @@ public class SemanticAnalysisDriver(ProgramNode program)
             {
                 diagnostics.UndeclaredType(block.TypeNode, "struct field");
             }
-            // todo: Trait node
+
+            if (block.TraitNode is not null)
+            {
+                if (globalSymbolTableLookup.TryGetTrait(
+                        module,
+                        block.TraitNode.Symbol,
+                        out var trait))
+                {
+                    block.TraitNode = trait.Type;
+                }
+                else
+                {
+                    diagnostics.UndeclaredTrait(block.TraitNode);                    
+                }
+            }
+            
         }
 
         foreach (var childModule in module.Declarations.ChildModules)

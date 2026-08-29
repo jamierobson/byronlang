@@ -268,4 +268,6 @@ public class GlobalSymbolTableLookup(GlobalSymbolTable symbols)
         
         return candidateSymbol;
     }
+
+    public ModuleDeclarationNode GetEncapsulatingModule(TraitDeclarationNode resolvedTrait) => symbols.Traits.EncapsulatingModules[resolvedTrait.Symbol];
 }

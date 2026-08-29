@@ -1,6 +1,6 @@
 namespace Byron.Compiler.Tests.IntegrationTests;
 
-public class ModuleProgramWithReferenceToUnderyingType : ProgramSnapshotTestBase
+public class ModuleProgramWithReferenceToUnderlyingType : ProgramSnapshotTestBase
 {
     protected override string Program() =>
         """

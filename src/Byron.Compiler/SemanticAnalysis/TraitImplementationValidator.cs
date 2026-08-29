@@ -12,6 +12,12 @@ public class TraitImplementationValidator(GlobalSymbolTableLookup globalSymbolTa
             return;
         }
 
+        if (!globalSymbolTableLookup.TryGetTrait(module, block.TraitNode.Symbol, out var resolvedTrait))
+        {
+            diagnostics.UndeclaredTrait(block.TraitNode);
+            return;
+        }
+
         if (!globalSymbolTableLookup.TryGetTrait(module, block.TraitNode.Symbol, out var trait))
         {
             diagnostics.UndeclaredTrait(block.TraitNode);
@@ -49,7 +55,12 @@ public class TraitImplementationValidator(GlobalSymbolTableLookup globalSymbolTa
                     break;
                 }
 
-                if (implementingDeclaration.Signature.ReturnType.Symbol != requiredFunction.ReturnType.Symbol)
+
+                var traitModule = globalSymbolTableLookup.GetEncapsulatingModule(resolvedTrait);
+                var canResolveImplementingReturnType = globalSymbolTableLookup.TryResolveCanonicalType(module, implementingDeclaration.Signature.ReturnType, out var implementingReturnType);
+                var canResolveRequiredReturnType = globalSymbolTableLookup.TryResolveCanonicalType(traitModule, requiredFunction.ReturnType, out var requiredReturnType);
+
+                if (!(canResolveImplementingReturnType && canResolveRequiredReturnType && implementingReturnType!.Symbol == requiredReturnType!.Symbol))
                 {
                     var requiredFunctionSignature = SignatureString(requiredFunction);
                     var declaredFunctionSignature = SignatureString(implementingDeclaration.Signature);
@@ -59,12 +70,15 @@ public class TraitImplementationValidator(GlobalSymbolTableLookup globalSymbolTa
 
                 for (var i = 0; i < requiredFunction.Parameters.Count; i++)
                 {
-                    if (i == 0 && implementingDeclaration.Signature.Parameters[i].Type is SelfTypeNode)
+                    if (i == 0 && requiredFunction.Parameters[i].Type is SelfTypeNode)
                     {
                         continue;
                     }
                     
-                    if (implementingDeclaration.Signature.Parameters[i].Type.Symbol != requiredFunction.Parameters[i].Type.Symbol)
+                    var canResolveImplementingParameterType = globalSymbolTableLookup.TryResolveCanonicalType(module, implementingDeclaration.Signature.Parameters[i].Type, out var implementingParameterType);
+                    var canResolveRequiredParameterType = globalSymbolTableLookup.TryResolveCanonicalType(traitModule, requiredFunction.Parameters[i].Type, out var requiredParameterType);
+                    
+                    if (!(canResolveImplementingParameterType && canResolveRequiredParameterType && implementingParameterType!.Symbol == requiredParameterType!.Symbol))
                     {
                         var requiredFunctionSignature = SignatureString(requiredFunction);
                         var declaredFunctionSignature = SignatureString(implementingDeclaration.Signature);
