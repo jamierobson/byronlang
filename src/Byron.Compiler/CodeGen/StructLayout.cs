@@ -1,4 +1,5 @@
 using Byron.Compiler.AST.LowLevel;
+using Byron.Compiler.Exceptions;
 
 namespace Byron.Compiler.CodeGen;
 
@@ -49,7 +50,7 @@ public class SymbolEnvironment(SymbolEnvironment? parentScope = null)
             return parentScope.GetVariable(name);
         }
 
-        throw new InvalidOperationException($"Lowering error: Undefined variable '{name}'.");
+        throw new ByronCodeGenerationException($"Lowering error: Undefined variable '{name}'.");
     }
     
     public void RegisterStructLayout(StructLayout layout)
@@ -69,6 +70,6 @@ public class SymbolEnvironment(SymbolEnvironment? parentScope = null)
             return parentScope.GetStructLayout(structName);
         }
 
-        throw new InvalidOperationException($"Lowering error: Unknown struct type '{structName}'.");
+        throw new ByronCodeGenerationException($"Lowering error: Unknown struct type '{structName}'.");
     }
 }

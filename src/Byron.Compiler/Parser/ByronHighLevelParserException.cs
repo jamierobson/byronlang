@@ -1,6 +1,7 @@
+using Byron.Compiler.Exceptions;
 using Byron.Compiler.Lexer;
 
-namespace Byron.Compiler.Exceptions;
+namespace Byron.Compiler.Parser;
 
 public class ByronHighLevelParserException(string message, SourceSpan span) : ByronException(message)
 {

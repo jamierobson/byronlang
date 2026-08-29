@@ -2,10 +2,49 @@ using Byron.Compiler.Lexer;
 
 namespace Byron.Compiler.AST.HighLevel;
 
-public class ProgramNode(List<TopLevelDeclarationNode> declarations)
+public class ProgramNode(List<FileModuleNode> modules)
 {
-    public readonly IReadOnlyList<TopLevelDeclarationNode> Declarations = declarations;
+    public readonly IReadOnlyList<FileModuleNode> RootModules = modules;
 };
+
+public abstract class ModuleDeclarationNode : TopLevelDeclarationNode
+{
+    protected ModuleDeclarationNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    protected ModuleDeclarationNode(string[] symbolSegments, SourceSpan span) : base(symbolSegments, span)
+    {
+    }
+    protected ModuleDeclarationNode(Symbol symbol, SourceSpan span) : base(symbol, span)
+    {
+    }
+    public ModuleDeclarationCollection Declarations { get; } = new();
+}
+
+public class FileModuleNode(Symbol symbol, SourceSpan span) : ModuleDeclarationNode(symbol, span)
+{
+}
+
+public class BlockModuleNode : ModuleDeclarationNode
+{
+    public BlockModuleNode(string name, SourceSpan span) : base(name, span)
+    {
+    }
+    
+    public BlockModuleNode(string[] symbolSegments, SourceSpan span) : base(symbolSegments, span)
+    {
+    }
+}
+
+public class ModuleDeclarationCollection
+{
+    public List<FunctionDeclarationNode> Functions { get; } = new();
+    public List<StructDeclarationNode> Structs { get; } = new();
+    public List<TraitDeclarationNode> Traits { get; } = new();
+    public List<BlockModuleNode> ChildModules { get; } = new();
+    public List<ImplementBlockDeclarationNode> ImplementBlocks { get; } = new();
+    public List<AliasDeclarationNode> Aliases { get; } = new();
+}
 
 public readonly record struct NodeId(int Value) : IComparable<NodeId>
 {
@@ -13,14 +52,9 @@ public readonly record struct NodeId(int Value) : IComparable<NodeId>
     public int CompareTo(NodeId other) => Value.CompareTo(other.Value);
 }
 
-public abstract class AstNode
+public abstract class AstNode(SourceSpan span)
 {
     private static int _nextId;
     public NodeId Id { get; } = new(Interlocked.Increment(ref _nextId));
-    public SourceSpan Span { get; init; }
-
-    protected AstNode(SourceSpan span)
-    {
-        Span = span;
-    }
+    public SourceSpan Span { get; init; } = span;
 }

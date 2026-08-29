@@ -1,11 +1,9 @@
-using Byron.Compiler.AST.HighLevel;
-using Xunit;
 using Byron.Compiler.AST;
-using Byron.Compiler.Exceptions;
+using Byron.Compiler.AST.HighLevel;
 using Byron.Compiler.Lexer;
 using Byron.Compiler.Parser;
 
-namespace Byron.Compiler.Tests;
+namespace Byron.Compiler.Tests.UnitTests;
 
 public class FunctionDeclarationParserTests
 {
@@ -47,14 +45,16 @@ public class FunctionDeclarationParserTests
             returnTypeLexeme: "void",
             bodyTokens: []
         ); // fn foo(): void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null);
 
         // Assert
-        Assert.Equal("foo", result.Name);
-        Assert.Empty(result.Parameters);
-        Assert.Equal(typeof(VoidTypeNode), result.ReturnType.GetType());
+        Assert.Equal("foo", result.Signature.Name);
+        Assert.Empty(result.Signature.Parameters);
+        Assert.Equal(typeof(VoidTypeNode), result.Signature.ReturnType.GetType());
         Assert.Empty(result.Body.Statements);
     }
 
@@ -75,20 +75,22 @@ public class FunctionDeclarationParserTests
         };
 
         var tokenStream = CreateFunctionTokenStream("calculate", parameters, "i32", body);
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act
-        var result = new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global);
+        var result = new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null);
 
         // Assert
-        Assert.Equal("calculate", result.Name);
-        Assert.Equal(typeof(Int32TypeNode), result.ReturnType.GetType());
+        Assert.Equal("calculate", result.Signature.Name);
+        Assert.Equal(typeof(Int32TypeNode), result.Signature.ReturnType.GetType());
 
-        Assert.Equal(2, result.Parameters.Count);
-        Assert.Equal("value", result.Parameters[0].Name);
-        Assert.Equal(ReceiverBindingOwnership.Owned, result.Parameters[0].Ownership);
+        Assert.Equal(2, result.Signature.Parameters.Count);
+        Assert.Equal("value", result.Signature.Parameters[0].Name);
+        Assert.Equal(ReceiverBindingOwnership.Owned, result.Signature.Parameters[0].Ownership);
         
-        Assert.Equal("scale", result.Parameters[1].Name);
-        Assert.Equal(ReceiverBindingOwnership.ImmutableBorrow, result.Parameters[1].Ownership);
+        Assert.Equal("scale", result.Signature.Parameters[1].Name);
+        Assert.Equal(ReceiverBindingOwnership.ImmutableBorrow, result.Signature.Parameters[1].Ownership);
 
         Assert.Single(result.Body.Statements);
         var returnStmt = Assert.IsType<ReturnStatementNode>(result.Body.Statements.Single());
@@ -112,9 +114,11 @@ public class FunctionDeclarationParserTests
         }
         .Select(x => ToToken(x.kind, x.lexeme))
         .ToList(); // fn badFunc() void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global));
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null));
     }
 
     [Fact]
@@ -132,8 +136,10 @@ public class FunctionDeclarationParserTests
         }
         .Select(x => ToToken(x.kind, x.lexeme))
         .ToList(); // badFunc(): void {}
+        
+        var file = new TokenizedFile("test", tokenStream);
 
         // Act + Assert
-        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(tokenStream).ParseFunctionDeclaration(ScopeContext.Global) );
+        Assert.Throws<ByronHighLevelParserException>(() => new ByronHighLevelAstParser(file).ParseFunctionDeclaration(null));
     }
 }

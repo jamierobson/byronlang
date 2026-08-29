@@ -1,6 +1,6 @@
 %Point1d = type { i32 }
 
-define i32 @getValue(%Point1d* %arg_0) {
+define i32 @Point1d$$getValue(%Point1d* %arg_0) {
     %self.addr = alloca %Point1d*
     store %Point1d* %arg_0, %Point1d** %self.addr
     %1 = load %Point1d*, %Point1d** %self.addr

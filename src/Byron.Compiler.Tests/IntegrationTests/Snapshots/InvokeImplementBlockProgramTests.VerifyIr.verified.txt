@@ -1,6 +1,6 @@
 ﻿%Point1d = type { i32 }
 
-define i32 @getValue(%Point1d* %arg_0) {
+define i32 @Point1d$$getValue(%Point1d* %arg_0) {
     %self.addr = alloca %Point1d*
     store %Point1d* %arg_0, %Point1d** %self.addr
     %1 = load %Point1d*, %Point1d** %self.addr
@@ -10,19 +10,16 @@ define i32 @getValue(%Point1d* %arg_0) {
 }
 
 define i32 @main() {
-    %1 = alloca %Point1d
-    %2 = getelementptr %Point1d, %Point1d* %1, i32 0, i32 0
-    store i32 5, i32* %2
-    %3 = load %Point1d, %Point1d* %1
     %point.addr = alloca %Point1d
-    store %Point1d %3, %Point1d* %point.addr
-    %4 = call i32 @getValue(%Point1d* %point.addr)
+    %1 = getelementptr %Point1d, %Point1d* %point.addr, i32 0, i32 0
+    store i32 5, i32* %1
+    %2 = call i32 @Point1d$$getValue(%Point1d* %point.addr)
     %a.addr = alloca i32
-    store i32 %4, i32* %a.addr
-    %5 = call i32 @getValue(%Point1d* %point.addr)
+    store i32 %2, i32* %a.addr
+    %3 = call i32 @Point1d$$getValue(%Point1d* %point.addr)
     %b.addr = alloca i32
-    store i32 %5, i32* %b.addr
-    %6 = load i32, i32* %a.addr
-    ret i32 %6
+    store i32 %3, i32* %b.addr
+    %4 = load i32, i32* %a.addr
+    ret i32 %4
 }
 

@@ -1,0 +1,31 @@
+﻿%My$$ModuleA$$Dupe = type { i32 }
+
+define i32 @main() {
+    %a.addr = alloca %My$$ModuleA$$Dupe
+    %1 = getelementptr %My$$ModuleA$$Dupe, %My$$ModuleA$$Dupe* %a.addr, i32 0, i32 0
+    store i32 5, i32* %1
+    %2 = call i32 @My$$ModuleA$$Dupe$$My$$ModuleB$$MyTrait$$get(%My$$ModuleA$$Dupe* %a.addr)
+    %result.addr = alloca i32
+    store i32 %2, i32* %result.addr
+    %3 = load i32, i32* %result.addr
+    ret i32 %3
+}
+
+define i32 @My$$ModuleA$$Dupe$$get(%My$$ModuleA$$Dupe* %arg_0) {
+    %self.addr = alloca %My$$ModuleA$$Dupe*
+    store %My$$ModuleA$$Dupe* %arg_0, %My$$ModuleA$$Dupe** %self.addr
+    %1 = load %My$$ModuleA$$Dupe*, %My$$ModuleA$$Dupe** %self.addr
+    %2 = getelementptr %My$$ModuleA$$Dupe, %My$$ModuleA$$Dupe* %1, i32 0, i32 0
+    %3 = load i32, i32* %2
+    %4 = mul i32 2, %3
+    ret i32 %4
+}
+
+define i32 @My$$ModuleA$$Dupe$$My$$ModuleB$$MyTrait$$get(%My$$ModuleA$$Dupe* %arg_0) {
+    %self.addr = alloca %My$$ModuleA$$Dupe*
+    store %My$$ModuleA$$Dupe* %arg_0, %My$$ModuleA$$Dupe** %self.addr
+    %1 = load %My$$ModuleA$$Dupe*, %My$$ModuleA$$Dupe** %self.addr
+    %2 = call i32 @My$$ModuleA$$Dupe$$get(%My$$ModuleA$$Dupe* %1)
+    ret i32 %2
+}
+

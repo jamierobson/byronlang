@@ -1,0 +1,27 @@
+struct Point { value: i32, notThis: i32, }
+
+fn main(): i32 {
+    var x: u32 = 0;
+    let x = 0 - 1;
+    let y = 0;
+    y = -2;
+    x = Point { value: 42, notThis: 52 };
+    x = !false; 
+    return 0;
+}
+
+implement MyMod.HasValue for Point {
+    fn typeMismatch(): i64 { return 0; }
+    fn ok(a: i32): i32 { return a; }
+    fn parameterMismatch(a: i32, a: i64): i64 { return a; }
+}
+
+module MyMod {
+    trait HasValue {
+        value: i32,
+        fn ok(a: i32): i32,
+        fn typeMismatch(): i32,
+        fn parameterMismatch(a: i32, b: i32): i32,
+        fn missingSymbol(): i32,
+    }
+}

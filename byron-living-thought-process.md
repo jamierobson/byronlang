@@ -1,10 +1,77 @@
 # Living notes to keep track of the decisions being made
 
-# Dereferencing
+# Interfaces or Traits
+Long story short, I think we're closer to traits than interfaces. There we go. We have traits, not interfaces.
 
-To start with, I'm considering `Owned<T>` to be a safe fat pointer that you have to dereference in order to get the value, e.g. `myOwned.*.myProperty`. It carries the managed heap allocation (pointer / data), the metadata, and, at compile time, linear obligation flags are attached to this. I need to consider auto forwarding eventually, lowering `myOwned.myProperty` to `myOwned.*.myProperty`
+We can consider traits or interfaces, and I'd like to do the simplest I can for now. Since we already use `implement Foo` blocks to attach functions to types, we may want to lean in to using the `implement Bar for Foo` to attach interfaces / traits. 
 
-`Unsafe` then functions as a raw pointer. This also needs dereferencing with `myUnsafe.*.myProperty`. I don't think we will auto forward here. Linear obligation flags are carried on the unsafe ownership handle.
+Some questions needing answers:
+- Let's also add `alias` statements, since we're here, will also help when importing A as B later. 
+- What's the namespace of the functions implemented in a block? First thought is `module.type.implementedinterface`. 
+- We don't allow overloading. 
+  - What to do when `FooTrait` and `BarTrait` both want an implementation of a function, and on top of that, what if it's _already_ implemented on the type? 
+  - Remembering that `myValue.Baz()` lowers to `MyValueType.Baz(&myValue)`, we _could_ simply disallow method syntax when there's a symbol colission. That way we would never be uncertain as to version we are calling. We could then implement some kind of casting syntax `(myValue as ImplementedTrait).myFunc()` for example. 
+  - We could also say that there's no method syntax on interface implementations without using some kind of casting syntax. That means that adding new functions to interfaces that collide with somethign in the implement block for the struct won't suddenly break. Also it won't be confusing when you read myThing.A(), myThing.B() that A came from the `implement MyType` and B came from `implement MyTrait for MyType`. I almost prefer this. Would be simpler to start with, and can expand to the above point if we want to. 
+- ~~As an aside, do we actually feel maybe ok with overloading since we don't have inheritence. Will that be a disaster if we implement dynamic dispatch and have an overload for `implement MyTrait for MyType` and `fn foo(x: MyType)` and `fn foo(dynamic x: MyTrait)`~~ No that's going to be an absolute nightmare in the example where there's an overload for a function that accepts the type and the trait. I guess the dynamic keyword does some lifting but still...
+- I've come to learn about the orphan rule - you can attach a trait you own to any type, you can attach any trait to a type you own, but you cannot attach any trait you don't own to a type you don't own. 
+- The more I think about this, I seem to be landing on traits:
+    - Attached through implement blocks
+    - Can fairly trivially attach what we don't own to a type we do
+    - Can fairly trivially attach a trait we own to a type we don't.
+- The canonical name of a function in an implementation for a trait is then:
+ModuleContainingStruct.SubModule......StructName.ModuleContainingTrait.SubModule.....TraitName.functionName. By bringing, say StructName into scope and TraitName into scope uniquely, then we can use these as shorthand to invoke the function precisely and without too much pain. 
+
+Example thoughts
+```
+
+struct MyType {
+    x: i32,
+}
+implement MyType {
+    fn getNumber(self: &self): i32 {
+        return self.*.x;
+    }
+}
+
+trait Foo {
+    x: i32,
+    fn getNumber(self: &self): i32,
+}
+
+trait Bar {
+    fn getNumber(): i64,
+}
+
+implement Foo for MyType {
+    fn getNumber(self: &self): i32 {
+        return 1 + MyType.getNumber(self);
+    }
+}
+
+implement Bar for MyType {
+    fn getNumber(self: &self): i64 {
+        return 9_223_372_036_854_775_807 - self.*.x;
+    }
+}
+
+fn main():i32 {
+    let value = MyType {x: 20};
+    let methodSyntax = value.getNumber(); // returns 20, and desugars to the functionInvocation below, never to any trait implementation, even if the function name is unique on the type after all implement blocks are considered. 
+    let functionInvocation = MyType.getNumber(&value); // returns 20
+    let fooInvocation = MyType.Foo.getNumber(&value); //returns 21
+    let barInvocation = MyType.Bar.getNumber(&value); //returns 9_223_372_036_854_775_787
+
+    
+
+    // Eventually could consider casting syntax. One example could be
+    (value as MyType).getNumber(); // Casting as MyType is superfluous.
+    (value as Foo).getNumber();
+    (value as Bar).getNumber();
+
+    return 0;
+}
+```
+
 
 # The basic memory cycle
 
@@ -217,7 +284,7 @@ Later, we _could_ look at `Owned<T, dynamic TransferringAllocator>` that opted i
 - Assignment is always a statement, never an expression
 - Allow "closing" mutabilty by `var thing = ...;` and then later `let immutable = take thing`; immutable is now forever immutable. This would allow you to partially construct, and then lock in the final value when the value is set as needed
 - `_` as discard, does not represent a bound value. All values must be bound or discarded. Discarded values cannot satisfy obligations.
-
+- Unit test pipeline steps when they get relatively stable, otherwise use Verify to snapshot test the IR output, to monitor for regressions.
 
 
 
