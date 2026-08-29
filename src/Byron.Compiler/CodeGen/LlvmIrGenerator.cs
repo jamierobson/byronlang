@@ -1,25 +1,24 @@
 using Byron.Compiler.AST.LowLevel;
-using Byron.Compiler.Parser;
 
 namespace Byron.Compiler.CodeGen;
 
-public partial class LlvmIrGenerator(LoweredProgram program)
+public partial class LlvmIrGenerator(ProgramNode program)
 {
     private readonly GeneratorContext _context = new();
 
     public string Generate()
     {
-        foreach (var structDeclaration in program.Program.Declarations.OfType<StructDeclarationNode>())
+        foreach (var structDeclaration in program.Declarations.OfType<StructDeclarationNode>())
         {
             RegisterStructLayout(structDeclaration);
         }
 
-        foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
+        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
         {
             _context.RegisterFunction(functionDeclaration.Signature.CanonicalName, LlvmType.From(functionDeclaration.Signature.ReturnType));
         }
         
-        foreach (var functionDeclaration in program.Program.Declarations.OfType<FunctionDeclarationNode>())
+        foreach (var functionDeclaration in program.Declarations.OfType<FunctionDeclarationNode>())
         {
             GenerateFunctionDeclaration(functionDeclaration);
         }

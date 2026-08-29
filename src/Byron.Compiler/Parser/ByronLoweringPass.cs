@@ -13,7 +13,6 @@ public class ByronLoweringPass
     private readonly GlobalSymbolTable _globalSymbolTable;
     private readonly High.ProgramNode _ast;
     private readonly TypeMap _highLevelExpressionTypeMap;
-    private readonly Dictionary<High.TypeNode, Low.TypeNode> _highToLowLevelTypeMap = new();
     
     public ByronLoweringPass(SemanticAnalysisResult semanticAnalysisResult)
     {
@@ -31,13 +30,13 @@ public class ByronLoweringPass
         (_ast, _globalSymbolTable, _highLevelExpressionTypeMap) = semanticAnalysisResult;
     }
     
-    public LoweredProgram Lower()
+    public Low.ProgramNode Lower()
     {
         var declarations = _ast.RootModules
         .SelectMany(Module)
         .ToList();
 
-        return new LoweredProgram(new Low.ProgramNode(declarations), _highToLowLevelTypeMap, _highLevelExpressionTypeMap);
+        return new Low.ProgramNode(declarations);
     }
 
     private List<Low.TopLevelDeclarationNode> Module(High.ModuleDeclarationNode module)
@@ -108,8 +107,6 @@ public class ByronLoweringPass
             _ => throw new ByronNotImplementedException(type.GetType(), this, type.Span)
         };
 
-        _highToLowLevelTypeMap[type] = loweredType;
-
         return loweredType;
     }
 
@@ -151,7 +148,7 @@ public class ByronLoweringPass
             High.BinaryExpressionNode binary => CoercedBinaryExpression(binary), 
             High.StructFieldInitializationExpressionNode structFieldInitialization => StructFieldInitializationExpression(structFieldInitialization),
             High.MemberAccessExpressionNode memberAccess => new Low.MemberAccessExpressionNode(memberAccess, Expression(memberAccess.Target), memberAccess.MemberName),
-            High.DereferenceExpressionNode dereference => new Low.DereferenceExpressionNode(dereference, Expression(dereference.Target)),
+            High.DereferenceExpressionNode dereference => DereferenceExpression(dereference),
             High.AddressOfExpressionNode address => new Low.AddressOfExpressionNode(address, Expression(address.Target)),
             
             // These default values should never be hit. However, the high cast expressions only work with TargetType as a TypeNode. If that ever happens, we will cry. 
@@ -164,7 +161,15 @@ public class ByronLoweringPass
             _ => throw new ByronNotImplementedException(expression.GetType(), this, expression.Span)
         };
     }
-    
+
+    private Low.ExpressionNode DereferenceExpression(High.DereferenceExpressionNode dereference)
+    {
+        var highExpressionType = _highLevelExpressionTypeMap.GetType(dereference.Target);
+        var targetNodeType = Type(highExpressionType);
+        
+        return new Low.DereferenceExpressionNode(dereference, Expression(dereference.Target), targetNodeType);
+    }
+
     private Low.VariableExpressionNode VariableExpression(High.VariableExpressionNode variable)
     {
         if (variable is High.FunctionInvocationVariableExpressionNode invocation)

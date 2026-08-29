@@ -100,7 +100,7 @@ public record MemberAccessExpressionNode(
     ExpressionNode Target,
     string MemberName) : ExpressionNode(SourceNode);
 
-public record DereferenceExpressionNode(High.AstNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode);
+public record DereferenceExpressionNode(High.AstNode SourceNode, ExpressionNode Target, TypeNode ExpressionType) : ExpressionNode(SourceNode);
 public record AddressOfExpressionNode(High.AstNode SourceNode, ExpressionNode Target) : ExpressionNode(SourceNode);
 public record ExtendIntegerNode(High.AstNode SourceNode, ExpressionNode Operand, IntegerTypeNode TargetType)
     : ExpressionNode(SourceNode);

@@ -87,8 +87,7 @@ public partial class LlvmIrGenerator
     private (string ReturnValue, LlvmType ReturnType) GenerateDereference(DereferenceExpressionNode dereference)
     {
         var (targetPointerValue, targetPointerType) = GenerateExpression(dereference.Target);
-        var valueTypeSymbol = program.GetType(dereference);
-        var llvmValueType = LlvmType.From(valueTypeSymbol);
+        var llvmValueType = LlvmType.From(dereference.ExpressionType);
         
         var resultRegister = _context.AllocateRegister();
         _context.EmitLine($"    {resultRegister} = load {llvmValueType}, {targetPointerType} {targetPointerValue}");
